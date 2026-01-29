@@ -538,7 +538,11 @@ import {
   Layout,
   Monitor,
   Smartphone,
-  Tablet
+  Tablet,
+  Droplets,
+  Sparkles,
+  Contrast,
+  Paintbrush
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -553,11 +557,11 @@ const Settings = () => {
   // Load theme from localStorage or use default
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('user-theme') || 'dark-tech';
+      return localStorage.getItem('user-theme') || 'default';
     }
-    return 'dark-tech';
+    return 'default';
   });
-  
+
   // Load layout preferences
   const [layout, setLayout] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -611,7 +615,7 @@ const Settings = () => {
     // Remove all theme classes
     document.documentElement.className = document.documentElement.className
       .replace(/theme-\S+/g, '')
-      .replace(/dark-tech|glassmorphic|light-mode|midnight/g, '');
+      .replace(/default|dark-tech|glassmorphic|light-mode|midnight|cyberpunk/g, '');
     
     // Add new theme class
     document.documentElement.classList.add(`theme-${themeName}`);
@@ -619,42 +623,63 @@ const Settings = () => {
     // Save to localStorage
     localStorage.setItem('user-theme', themeName);
     
-    // Set CSS variables based on theme
+    // Only set CSS variables for custom themes
     const root = document.documentElement;
-    switch(themeName) {
-      case 'dark-tech':
-        root.style.setProperty('--primary-color', 'rgb(59 130 246)'); // blue-500
-        root.style.setProperty('--secondary-color', 'rgb(139 92 246)'); // purple-500
-        root.style.setProperty('--background-color', 'rgb(10 10 10)');
-        root.style.setProperty('--surface-color', 'rgba(30, 30, 30, 0.7)');
-        root.style.setProperty('--text-color', 'rgb(229 231 235)');
-        root.style.setProperty('--border-color', 'rgba(59, 130, 246, 0.2)');
-        break;
-      case 'glassmorphic':
-        root.style.setProperty('--primary-color', 'rgb(168 85 247)'); // purple-500
-        root.style.setProperty('--secondary-color', 'rgb(236 72 153)'); // pink-500
-        root.style.setProperty('--background-color', 'rgb(15 23 42)'); // slate-900
-        root.style.setProperty('--surface-color', 'rgba(30, 41, 59, 0.7)');
-        root.style.setProperty('--text-color', 'rgb(226 232 240)');
-        root.style.setProperty('--border-color', 'rgba(255, 255, 255, 0.1)');
-        root.style.setProperty('--backdrop-blur', '10px');
-        break;
-      case 'light-mode':
-        root.style.setProperty('--primary-color', 'rgb(37 99 235)'); // blue-600
-        root.style.setProperty('--secondary-color', 'rgb(239 68 68)'); // red-500
-        root.style.setProperty('--background-color', 'rgb(249 250 251)'); // gray-50
-        root.style.setProperty('--surface-color', 'rgba(255, 255, 255, 0.9)');
-        root.style.setProperty('--text-color', 'rgb(31 41 55)'); // gray-800
-        root.style.setProperty('--border-color', 'rgba(209, 213, 219, 0.5)'); // gray-300
-        break;
-      case 'midnight':
-        root.style.setProperty('--primary-color', 'rgb(14 165 233)'); // sky-500
-        root.style.setProperty('--secondary-color', 'rgb(34 211 238)'); // cyan-400
-        root.style.setProperty('--background-color', 'rgb(3 7 18)'); // gray-950
-        root.style.setProperty('--surface-color', 'rgba(17, 24, 39, 0.8)');
-        root.style.setProperty('--text-color', 'rgb(209 213 219)'); // gray-300
-        root.style.setProperty('--border-color', 'rgba(14, 165, 233, 0.3)');
-        break;
+    
+    // Clear all CSS variables first
+    root.style.removeProperty('--primary-color');
+    root.style.removeProperty('--secondary-color');
+    root.style.removeProperty('--background-color');
+    root.style.removeProperty('--surface-color');
+    root.style.removeProperty('--text-color');
+    root.style.removeProperty('--border-color');
+    root.style.removeProperty('--backdrop-blur');
+    
+    // Set CSS variables only for non-default themes
+    if (themeName !== 'default') {
+      switch(themeName) {
+        case 'dark-tech':
+          root.style.setProperty('--primary-color', 'rgb(59 130 246)'); // blue-500
+          root.style.setProperty('--secondary-color', 'rgb(139 92 246)'); // purple-500
+          root.style.setProperty('--background-color', 'rgb(10 10 10)');
+          root.style.setProperty('--surface-color', 'rgba(30, 30, 30, 0.7)');
+          root.style.setProperty('--text-color', 'rgb(229 231 235)');
+          root.style.setProperty('--border-color', 'rgba(59, 130, 246, 0.2)');
+          break;
+        case 'glassmorphic':
+          root.style.setProperty('--primary-color', 'rgb(168 85 247)'); // purple-500
+          root.style.setProperty('--secondary-color', 'rgb(236 72 153)'); // pink-500
+          root.style.setProperty('--background-color', 'rgb(15 23 42)'); // slate-900
+          root.style.setProperty('--surface-color', 'rgba(255, 255, 255, 0.08)'); // Very transparent
+          root.style.setProperty('--text-color', 'rgb(226 232 240)');
+          root.style.setProperty('--border-color', 'rgba(255, 255, 255, 0.12)'); // Light border
+          root.style.setProperty('--backdrop-blur', '20px'); // Strong blur
+          break;
+        case 'light-mode':
+          root.style.setProperty('--primary-color', 'rgb(37 99 235)'); // blue-600
+          root.style.setProperty('--secondary-color', 'rgb(239 68 68)'); // red-500
+          root.style.setProperty('--background-color', 'rgb(249 250 251)'); // gray-50
+          root.style.setProperty('--surface-color', 'rgba(255, 255, 255, 0.9)');
+          root.style.setProperty('--text-color', 'rgb(31 41 55)'); // gray-800
+          root.style.setProperty('--border-color', 'rgba(209, 213, 219, 0.5)'); // gray-300
+          break;
+        case 'midnight':
+          root.style.setProperty('--primary-color', 'rgb(14 165 233)'); // sky-500
+          root.style.setProperty('--secondary-color', 'rgb(34 211 238)'); // cyan-400
+          root.style.setProperty('--background-color', 'rgb(3 7 18)'); // gray-950
+          root.style.setProperty('--surface-color', 'rgba(17, 24, 39, 0.8)');
+          root.style.setProperty('--text-color', 'rgb(209 213 219)'); // gray-300
+          root.style.setProperty('--border-color', 'rgba(14, 165, 233, 0.3)');
+          break;
+        case 'cyberpunk':
+          root.style.setProperty('--primary-color', 'rgb(16 185 129)'); // emerald-500
+          root.style.setProperty('--secondary-color', 'rgb(245 158 11)'); // amber-500
+          root.style.setProperty('--background-color', 'rgb(15 23 42)'); // slate-900
+          root.style.setProperty('--surface-color', 'rgba(30, 41, 59, 0.7)');
+          root.style.setProperty('--text-color', 'rgb(226 232 240)');
+          root.style.setProperty('--border-color', 'rgba(16, 185, 129, 0.3)');
+          break;
+      }
     }
   };
 
@@ -665,7 +690,9 @@ const Settings = () => {
       .replace(/default|compact|spacious|sidebar-left|sidebar-right/g, '');
     
     // Add new layout class
-    document.documentElement.classList.add(`layout-${layoutName}`);
+    if (layoutName !== 'default') {
+      document.documentElement.classList.add(`layout-${layoutName}`);
+    }
     
     // Save to localStorage
     localStorage.setItem('user-layout', layoutName);
@@ -677,28 +704,13 @@ const Settings = () => {
       .replace(/font-\S+/g, '')
       .replace(/small|medium|large|x-large/g, '');
     
-    // Add new font size class
-    document.documentElement.classList.add(`font-${size}`);
+    // Add new font size class only if not medium
+    if (size !== 'medium') {
+      document.documentElement.classList.add(`font-${size}`);
+    }
     
     // Save to localStorage
     localStorage.setItem('user-font-size', size);
-    
-    // Set CSS variable
-    const root = document.documentElement;
-    switch(size) {
-      case 'small':
-        root.style.setProperty('--font-size-scale', '0.875');
-        break;
-      case 'medium':
-        root.style.setProperty('--font-size-scale', '1');
-        break;
-      case 'large':
-        root.style.setProperty('--font-size-scale', '1.125');
-        break;
-      case 'x-large':
-        root.style.setProperty('--font-size-scale', '1.25');
-        break;
-    }
   };
 
   const applyAnimations = (enabled) => {
@@ -711,7 +723,7 @@ const Settings = () => {
   };
 
   const resetToDefaults = () => {
-    setTheme('dark-tech');
+    setTheme('default');
     setLayout('default');
     setFontSize('medium');
     setAnimations(true);
@@ -778,6 +790,13 @@ const Settings = () => {
 
   const themes = [
     { 
+      id: 'default', 
+      name: 'Default', 
+      description: 'Original website theme (Tailwind dark)',
+      icon: Paintbrush,
+      colors: ['#3B82F6', '#8B5CF6', '#0A0A0A']
+    },
+    { 
       id: 'dark-tech', 
       name: 'Dark Tech', 
       description: 'Cyberpunk dark theme with blue accents',
@@ -787,8 +806,8 @@ const Settings = () => {
     { 
       id: 'glassmorphic', 
       name: 'Glassmorphic', 
-      description: 'Frosted glass effect with blur',
-      icon: Layout,
+      description: 'Glass-like transparent effect with blur',
+      icon: Droplets,
       colors: ['#A855F7', '#EC4899', '#0F172A']
     },
     { 
@@ -804,6 +823,13 @@ const Settings = () => {
       description: 'Deep blue dark theme',
       icon: Moon,
       colors: ['#0EA5E9', '#22D3EE', '#030712']
+    },
+    { 
+      id: 'cyberpunk', 
+      name: 'Cyberpunk', 
+      description: 'Neon green and orange theme',
+      icon: Sparkles,
+      colors: ['#10B981', '#F59E0B', '#0F172A']
     },
   ];
 
@@ -831,7 +857,7 @@ const Settings = () => {
     switch(activeTab) {
       case 'account':
         return (
-          <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+          <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <User className="w-5 h-5 mr-2 text-primary" /> Account Information
             </h2>
@@ -874,7 +900,7 @@ const Settings = () => {
       case 'security':
         return (
           <div className="space-y-6">
-            <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+            <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
               <h2 className="text-xl font-bold mb-6 flex items-center">
                 <Lock className="w-5 h-5 mr-2 text-primary" /> Change Password
               </h2>
@@ -932,7 +958,7 @@ const Settings = () => {
                 </motion.button>
               </form>
             </div>
-            <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+            <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
@@ -967,7 +993,7 @@ const Settings = () => {
 
       case 'api':
         return (
-          <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+          <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold flex items-center">
                 <Key className="w-5 h-5 mr-2 text-primary" /> API Keys
@@ -1025,11 +1051,11 @@ const Settings = () => {
         return (
           <div className="space-y-6">
             {/* Theme Selection */}
-            <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+            <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
               <h2 className="text-xl font-bold mb-6 flex items-center">
                 <Palette className="w-5 h-5 mr-2 text-primary" /> Theme Selection
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {themes.map((themeItem) => {
                   const Icon = themeItem.icon;
                   return (
@@ -1089,7 +1115,7 @@ const Settings = () => {
             </div>
 
             {/* Layout Preferences */}
-            <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+            <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
               <h2 className="text-xl font-bold mb-6 flex items-center">
                 <Layout className="w-5 h-5 mr-2 text-primary" /> Layout Preferences
               </h2>
@@ -1128,7 +1154,7 @@ const Settings = () => {
             </div>
 
             {/* Font Size */}
-            <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+            <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
               <h2 className="text-xl font-bold mb-6">Font Size</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 {fontSizes.map((sizeItem) => (
@@ -1157,7 +1183,7 @@ const Settings = () => {
             </div>
 
             {/* Animations */}
-            <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm">
+            <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold mb-1">Animations</h3>
@@ -1234,7 +1260,7 @@ const Settings = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar Tabs */}
-        <div className="p-6 rounded-xl border border-primary/20 bg-surface/30 backdrop-blur-sm lg:col-span-1 h-fit">
+        <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm lg:col-span-1 h-fit">
           <nav className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;

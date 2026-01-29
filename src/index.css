@@ -272,3 +272,137 @@
     animation: pulse-glow 2s ease-in-out infinite;
   }
 }
+
+
+
+
+
+
+
+
+/* Theme classes - only apply CSS for non-default themes */
+.theme-default {
+  /* No CSS variables - uses Tailwind's built-in dark theme */
+}
+
+/* Custom themes use CSS variables */
+.theme-dark-tech,
+.theme-glassmorphic,
+.theme-light-mode,
+.theme-midnight,
+.theme-cyberpunk {
+  /* Apply CSS variables for these themes */
+}
+
+.theme-dark-tech {
+  color-scheme: dark;
+  --primary-color: rgb(59 130 246);
+  --secondary-color: rgb(139 92 246);
+  --background-color: rgb(10 10 10);
+  --surface-color: rgba(30, 30, 30, 0.7);
+  --text-color: rgb(229 231 235);
+  --border-color: rgba(59, 130, 246, 0.2);
+}
+
+.theme-glassmorphic {
+  color-scheme: dark;
+  --primary-color: rgb(168 85 247);
+  --secondary-color: rgb(236 72 153);
+  --background-color: rgb(15 23 42);
+  --surface-color: rgba(255, 255, 255, 0.08);
+  --text-color: rgb(226 232 240);
+  --border-color: rgba(255, 255, 255, 0.12);
+  --backdrop-blur: 20px;
+}
+
+/* Enhanced glass effect only for glassmorphic theme */
+.theme-glassmorphic .bg-black\/30 {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.theme-glassmorphic .bg-black\/40 {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.theme-glassmorphic .bg-black\/20 {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Other themes */
+.theme-light-mode {
+  color-scheme: light;
+  --primary-color: rgb(37 99 235);
+  --secondary-color: rgb(239 68 68);
+  --background-color: rgb(249 250 251);
+  --surface-color: rgba(255, 255, 255, 0.9);
+  --text-color: rgb(31 41 55);
+  --border-color: rgba(209, 213, 219, 0.5);
+}
+
+.theme-midnight {
+  color-scheme: dark;
+  --primary-color: rgb(14 165 233);
+  --secondary-color: rgb(34 211 238);
+  --background-color: rgb(3 7 18);
+  --surface-color: rgba(17, 24, 39, 0.8);
+  --text-color: rgb(209 213 219);
+  --border-color: rgba(14, 165, 233, 0.3);
+}
+
+.theme-cyberpunk {
+  color-scheme: dark;
+  --primary-color: rgb(16 185 129);
+  --secondary-color: rgb(245 158 11);
+  --background-color: rgb(15 23 42);
+  --surface-color: rgba(30, 41, 59, 0.7);
+  --text-color: rgb(226 232 240);
+  --border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* Apply CSS variables only for custom themes */
+.theme-dark-tech body,
+.theme-glassmorphic body,
+.theme-light-mode body,
+.theme-midnight body,
+.theme-cyberpunk body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.theme-dark-tech .text-primary,
+.theme-glassmorphic .text-primary,
+.theme-light-mode .text-primary,
+.theme-midnight .text-primary,
+.theme-cyberpunk .text-primary {
+  color: var(--primary-color);
+}
+
+.theme-dark-tech .border-primary\/20,
+.theme-glassmorphic .border-primary\/20,
+.theme-light-mode .border-primary\/20,
+.theme-midnight .border-primary\/20,
+.theme-cyberpunk .border-primary\/20 {
+  border-color: var(--border-color);
+}
+
+/* Font size classes only apply when active */
+.font-small body {
+  font-size: 0.875rem;
+}
+
+.font-large body {
+  font-size: 1.125rem;
+}
+
+.font-x-large body {
+  font-size: 1.25rem;
+}
+
+/* Disable animations */
+.no-animations * {
+  transition: none !important;
+  animation: none !important;
+}

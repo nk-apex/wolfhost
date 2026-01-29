@@ -34,7 +34,7 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
     <header className="sticky top-0 z-50 h-16 border-b border-border/50 backdrop-blur-xl bg-background/80">
       <div className="h-full px-4 lg:px-6 flex items-center justify-between">
         {/* Left side - Logo & Menu Toggle */}
-        <div className="flex items-center gap-4">
+        {/* <div className="flex items-center gap-4">
           <button
             onClick={onMenuToggle}
             className="lg:hidden p-2 rounded-lg hover:bg-primary/10 transition-colors"
@@ -54,7 +54,29 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
               WolfHost
             </span>
           </Link>
-        </div>
+        </div> */}
+
+        <div className="flex items-center gap-4">
+  <button
+    onClick={onMenuToggle}
+    className="lg:hidden p-2 rounded-lg hover:bg-primary/10 transition-colors text-primary/80"
+  >
+    {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+  </button>
+  
+  <Link to="/overview" className="flex items-center gap-3">
+    <motion.div
+      className="w-10 h-10 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center"
+      whileHover={{ scale: 1.05 }}
+      transition={{ type: 'spring', stiffness: 400 }}
+    >
+      <span className="text-xl font-display font-bold text-primary/90">W</span>
+    </motion.div>
+    <span className="hidden sm:block text-xl font-display font-bold text-primary/90">
+      WolfHost
+    </span>
+  </Link>
+</div>
 
         {/* Right side - Actions */}
         <div className="flex items-center gap-2 sm:gap-4">
