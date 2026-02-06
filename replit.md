@@ -4,6 +4,13 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-06: Updated server deployment to use 3-tier pricing popup
+  - Limited (KES 50): 1 vCPU, 1GB RAM, 10GB storage, 10 slots, basic protection
+  - Unlimited (KES 100): 2 vCPU, 4GB RAM, 40GB storage, unlimited slots, advanced protection
+  - Admin (KES 200): 4 vCPU, 8GB RAM, 80GB storage, unlimited slots, admin panel, 24/7 support
+  - Two-step flow: select tier → enter server name → deploy
+  - Each tier has unique color coding (green/blue/purple) and feature list
+  - Balance check prevents selecting unaffordable tiers
 - 2026-02-06: Fixed Overview page to show real data
   - Wallet balance from Paystack API (/api/transactions/totals) in KES currency
   - Recent transactions from Paystack API (/api/transactions) with channel icons
@@ -17,10 +24,10 @@ WolfHost is a hosting panel frontend application with a neon green cyberpunk the
   - Card payments use Paystack hosted checkout (redirect to secure page)
   - Transaction display shows card icon and last 4 digits for card payments
 - 2026-02-06: Added wallet balance check to Servers page
-  - Server deployment requires minimum KES 50 balance (Basic plan)
-  - Plan prices in KES: Basic (50), Pro (150), Enterprise (500)
+  - Server deployment requires minimum KES 50 balance (Limited tier)
+  - Tier prices in KES: Limited (50), Unlimited (100), Admin (200)
   - Insufficient balance shows error toast and redirects to Wallet page
-  - Deploy modal shows live balance, plan affordability, and "Top Up Wallet" link
+  - Deploy modal shows live balance, tier affordability, and "Top Up Wallet" link
   - Balance loading state prevents false redirects before API responds
 - 2026-02-06: Fixed API URLs from localhost:3001 to relative /api/ paths (Vite proxy)
 - 2026-02-06: Implemented real M-Pesa payment integration via Paystack

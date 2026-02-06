@@ -16,16 +16,39 @@ import {
   RefreshCw,
   Terminal,
   Trash2,
-  Wallet
+  Wallet,
+  Shield,
+  Zap,
+  Crown,
+  Check
 } from 'lucide-react';
 import { serverAPI, walletAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-const PLAN_PRICES = {
-  Basic: 50,
-  Pro: 150,
-  Enterprise: 500,
+const SERVER_TIERS = {
+  Limited: {
+    price: 50,
+    color: 'primary',
+    specs: { cpu: '1 vCPU', ram: '1GB', storage: '10GB', slots: '10 Slots' },
+    features: ['Basic DDoS Protection', 'Shared Resources', 'Community Support'],
+  },
+  Unlimited: {
+    price: 100,
+    color: 'blue',
+    specs: { cpu: '2 vCPU', ram: '4GB', storage: '40GB', slots: 'Unlimited' },
+    features: ['Advanced DDoS Protection', 'Dedicated Resources', 'Priority Support'],
+  },
+  Admin: {
+    price: 200,
+    color: 'purple',
+    specs: { cpu: '4 vCPU', ram: '8GB', storage: '80GB', slots: 'Unlimited' },
+    features: ['Full DDoS Protection', 'Dedicated Resources', 'Admin Panel Access', '24/7 Support'],
+  },
 };
+
+const PLAN_PRICES = Object.fromEntries(
+  Object.entries(SERVER_TIERS).map(([k, v]) => [k, v.price])
+);
 
 const Servers = () => {
   const navigate = useNavigate();
@@ -42,7 +65,8 @@ const Servers = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [balanceLoaded, setBalanceLoaded] = useState(false);
 
-  const [newServer, setNewServer] = useState({ name: '', plan: 'Basic' });
+  const [newServer, setNewServer] = useState({ name: '', plan: 'Limited' });
+  const [selectedTier, setSelectedTier] = useState(null);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -86,12 +110,14 @@ const Servers = () => {
       showMessage('error', 'Loading wallet balance, please wait...');
       return;
     }
-    const minRequired = PLAN_PRICES['Basic'];
+    const minRequired = PLAN_PRICES['Limited'];
     if (walletBalance < minRequired) {
       showMessage('error', `Insufficient balance (KES ${walletBalance.toFixed(2)}). Minimum KES ${minRequired} required. Redirecting to wallet...`);
       setTimeout(() => navigate('/wallet'), 2000);
       return;
     }
+    setSelectedTier(null);
+    setNewServer({ name: '', plan: 'Limited' });
     setShowCreateModal(true);
   };
 
@@ -170,7 +196,8 @@ const Servers = () => {
       if (result.success) {
         setServers([...servers, result.server]);
         setShowCreateModal(false);
-        setNewServer({ name: '', plan: 'Basic' });
+        setNewServer({ name: '', plan: 'Limited' });
+        setSelectedTier(null);
         showMessage('success', 'Server created successfully');
         fetchBalance();
       }
@@ -289,7 +316,7 @@ const Servers = () => {
           {!searchQuery && (
             <>
               <p className="text-gray-600 mb-6 font-mono text-xs">
-                Minimum balance required: KES {PLAN_PRICES['Basic']}
+                Minimum balance required: KES {PLAN_PRICES['Limited']}
               </p>
               <button
                 className="px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all inline-flex items-center gap-2 font-mono text-sm"
@@ -326,7 +353,7 @@ const Servers = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className={`px-2 py-1 rounded text-xs font-mono ${server.plan === 'Enterprise' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : server.plan === 'Pro' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-primary/10 text-primary border border-primary/20'}`}>
+                    <span className={`px-2 py-1 rounded text-xs font-mono ${server.plan === 'Admin' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : server.plan === 'Unlimited' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-primary/10 text-primary border border-primary/20'}`}>
                       {server.plan}
                     </span>
                   </div>
@@ -400,26 +427,26 @@ const Servers = () => {
       )}
 
       <AnimatePresence>
-        {showCreateModal && (
+        {showCreateModal && !selectedTier && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
-              className="w-full max-w-md bg-black/90 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+              className="w-full max-w-3xl bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-2">
                   <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-primary" />
-                    Deploy New Server
+                    <Server className="w-5 h-5 text-primary" />
+                    Choose Server Tier
                   </h2>
                   <button
                     onClick={() => setShowCreateModal(false)}
@@ -429,16 +456,160 @@ const Servers = () => {
                     <X size={20} />
                   </button>
                 </div>
+                <p className="text-sm text-gray-500 font-mono mb-6">Select a plan that fits your needs</p>
 
-                <div className="flex items-center gap-2 mb-4 p-3 bg-black/40 border border-primary/10 rounded-lg">
+                <div className="flex items-center gap-2 mb-6 p-3 bg-black/40 border border-primary/10 rounded-lg">
                   <Wallet className="w-4 h-4 text-primary" />
                   <span className="text-sm font-mono text-gray-400">Your balance:</span>
-                  <span className={`text-sm font-mono font-bold ${!balanceLoaded ? 'text-gray-500' : walletBalance >= PLAN_PRICES[newServer.plan] ? 'text-primary' : 'text-red-400'}`}>
+                  <span className="text-sm font-mono font-bold text-primary">
                     {balanceLoaded ? `KES ${walletBalance.toFixed(2)}` : 'Loading...'}
                   </span>
-                  {balanceLoaded && walletBalance < PLAN_PRICES[newServer.plan] && (
-                    <span className="text-xs text-red-400 ml-auto font-mono">Insufficient</span>
+                  {balanceLoaded && walletBalance < PLAN_PRICES['Limited'] && (
+                    <button
+                      onClick={() => { setShowCreateModal(false); navigate('/wallet'); }}
+                      className="text-xs text-yellow-400 ml-auto font-mono underline hover:text-yellow-300 transition-colors"
+                      data-testid="link-topup-from-tiers"
+                    >
+                      Top Up Wallet
+                    </button>
                   )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {Object.entries(SERVER_TIERS).map(([tierName, tier]) => {
+                    const canAfford = balanceLoaded && walletBalance >= tier.price;
+                    const TierIcon = tierName === 'Limited' ? Shield : tierName === 'Unlimited' ? Zap : Crown;
+                    const borderColor = tierName === 'Limited' ? 'border-primary/30' : tierName === 'Unlimited' ? 'border-blue-500/30' : 'border-purple-500/30';
+                    const hoverBorder = tierName === 'Limited' ? 'hover:border-primary/60' : tierName === 'Unlimited' ? 'hover:border-blue-500/60' : 'hover:border-purple-500/60';
+                    const iconColor = tierName === 'Limited' ? 'text-primary' : tierName === 'Unlimited' ? 'text-blue-400' : 'text-purple-400';
+                    const bgGlow = tierName === 'Limited' ? 'bg-primary/5' : tierName === 'Unlimited' ? 'bg-blue-500/5' : 'bg-purple-500/5';
+                    const btnBg = tierName === 'Limited' ? 'bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary' : tierName === 'Unlimited' ? 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-400';
+
+                    return (
+                      <motion.div
+                        key={tierName}
+                        className={`relative flex flex-col p-5 rounded-xl border ${borderColor} ${hoverBorder} ${bgGlow} transition-all cursor-pointer ${!canAfford ? 'opacity-50' : ''}`}
+                        whileHover={canAfford ? { scale: 1.02, y: -4 } : {}}
+                        whileTap={canAfford ? { scale: 0.98 } : {}}
+                        onClick={() => {
+                          if (!canAfford) return;
+                          setSelectedTier(tierName);
+                          setNewServer({ name: '', plan: tierName });
+                        }}
+                        data-testid={`card-tier-${tierName.toLowerCase()}`}
+                      >
+                        {tierName === 'Unlimited' && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded-full text-[10px] font-mono text-blue-400 uppercase tracking-wider">
+                            Popular
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className={`p-2 rounded-lg ${bgGlow} border ${borderColor}`}>
+                            <TierIcon className={`w-5 h-5 ${iconColor}`} />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-sm">{tierName}</h3>
+                            <p className="text-xs text-gray-500 font-mono">Server</p>
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <span className={`text-2xl font-bold ${iconColor}`}>KES {tier.price}</span>
+                          <span className="text-xs text-gray-500 font-mono">/month</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                          {Object.entries(tier.specs).map(([key, val]) => (
+                            <div key={key} className="p-2 rounded-lg bg-black/30 border border-white/5">
+                              <p className="text-[10px] text-gray-600 uppercase font-mono">{key}</p>
+                              <p className="text-xs font-mono font-bold">{val}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="space-y-2 mb-5 flex-1">
+                          {tier.features.map((feature) => (
+                            <div key={feature} className="flex items-center gap-2">
+                              <Check className={`w-3 h-3 ${iconColor} shrink-0`} />
+                              <span className="text-xs text-gray-400 font-mono">{feature}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          className={`w-full px-4 py-2.5 rounded-lg border font-mono text-sm transition-all flex items-center justify-center gap-2 ${canAfford ? btnBg : 'bg-gray-800/50 border-gray-700 text-gray-600 cursor-not-allowed'}`}
+                          disabled={!canAfford}
+                          data-testid={`button-select-tier-${tierName.toLowerCase()}`}
+                        >
+                          {canAfford ? (
+                            <>
+                              Select {tierName}
+                              <ArrowUpRight className="w-3 h-3" />
+                            </>
+                          ) : (
+                            <>
+                              <Wallet className="w-3 h-3" />
+                              Insufficient Balance
+                            </>
+                          )}
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCreateModal && selectedTier && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowCreateModal(false)}
+          >
+            <motion.div
+              className="w-full max-w-md bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-primary" />
+                    Deploy {selectedTier} Server
+                  </h2>
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                    data-testid="button-close-name-modal"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className={`flex items-center gap-3 mb-4 p-3 rounded-lg border ${
+                  selectedTier === 'Limited' ? 'bg-primary/5 border-primary/20' : selectedTier === 'Unlimited' ? 'bg-blue-500/5 border-blue-500/20' : 'bg-purple-500/5 border-purple-500/20'
+                }`}>
+                  {selectedTier === 'Limited' ? <Shield className="w-4 h-4 text-primary" /> : selectedTier === 'Unlimited' ? <Zap className="w-4 h-4 text-blue-400" /> : <Crown className="w-4 h-4 text-purple-400" />}
+                  <div className="flex-1">
+                    <span className="text-sm font-mono font-bold">{selectedTier} Server</span>
+                    <span className="text-xs text-gray-500 font-mono ml-2">KES {PLAN_PRICES[selectedTier]}/mo</span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedTier(null)}
+                    className="text-xs text-gray-400 hover:text-white font-mono underline transition-colors"
+                    data-testid="button-change-tier"
+                  >
+                    Change
+                  </button>
                 </div>
 
                 <form onSubmit={handleCreateServer} className="space-y-4">
@@ -452,88 +623,31 @@ const Servers = () => {
                       onChange={(e) => setNewServer({ ...newServer, name: e.target.value })}
                       className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
                       placeholder="my-awesome-server"
+                      autoFocus
                       data-testid="input-server-name"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2 font-mono">
-                      Server Plan
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {Object.entries(PLAN_PRICES).map(([plan, price]) => {
-                        const canAfford = walletBalance >= price;
-                        return (
-                          <button
-                            key={plan}
-                            type="button"
-                            onClick={() => setNewServer({ ...newServer, plan })}
-                            className={`p-3 rounded-lg border text-sm font-mono transition-all ${
-                              newServer.plan === plan
-                                ? 'bg-primary/10 border-primary/30 text-primary'
-                                : canAfford
-                                  ? 'border-primary/10 hover:border-primary/20 text-gray-400 hover:text-gray-300'
-                                  : 'border-red-500/10 text-gray-600 opacity-60'
-                            }`}
-                            data-testid={`button-plan-${plan.toLowerCase()}`}
-                          >
-                            {plan}
-                            <div className={`text-xs mt-1 ${canAfford ? 'text-gray-500' : 'text-red-400/60'}`}>
-                              KES {price}/mo
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {balanceLoaded && walletBalance < PLAN_PRICES[newServer.plan] && (
-                    <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
-                      <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                      <p className="text-xs text-red-400 font-mono">
-                        You need KES {PLAN_PRICES[newServer.plan]} for the {newServer.plan} plan. 
-                        <button
-                          type="button"
-                          onClick={() => { setShowCreateModal(false); navigate('/wallet'); }}
-                          className="underline ml-1 hover:text-red-300 transition-colors"
-                          data-testid="link-go-to-wallet"
-                        >
-                          Top up your wallet
-                        </button>
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex gap-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => setShowCreateModal(false)}
+                      onClick={() => setSelectedTier(null)}
                       className="flex-1 px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-sm transition-all"
-                      data-testid="button-cancel-create"
+                      data-testid="button-back-to-tiers"
                     >
-                      Cancel
+                      Back
                     </button>
-                    {balanceLoaded && walletBalance < PLAN_PRICES[newServer.plan] ? (
-                      <button
-                        type="button"
-                        onClick={() => { setShowCreateModal(false); navigate('/wallet'); }}
-                        className="flex-1 px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all"
-                        data-testid="button-topup-wallet"
-                      >
-                        <Wallet size={16} />
-                        Top Up Wallet
-                      </button>
-                    ) : (
-                      <button
-                        type="submit"
-                        className="flex-1 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all"
-                        disabled={creating}
-                        data-testid="button-confirm-deploy"
-                      >
-                        {creating ? <LoadingSpinner size="sm" /> : <Plus size={16} />}
-                        {creating ? 'Deploying...' : `Deploy (KES ${PLAN_PRICES[newServer.plan]})`}
-                      </button>
-                    )}
+                    <button
+                      type="submit"
+                      className={`flex-1 px-4 py-2 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all border ${
+                        selectedTier === 'Limited' ? 'bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary' : selectedTier === 'Unlimited' ? 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-400'
+                      }`}
+                      disabled={creating}
+                      data-testid="button-confirm-deploy"
+                    >
+                      {creating ? <LoadingSpinner size="sm" /> : <Plus size={16} />}
+                      {creating ? 'Deploying...' : `Deploy (KES ${PLAN_PRICES[selectedTier]})`}
+                    </button>
                   </div>
                 </form>
               </div>
