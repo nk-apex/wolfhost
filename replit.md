@@ -4,6 +4,13 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-06: Added wallet balance check to Servers page
+  - Server deployment requires minimum KES 50 balance (Basic plan)
+  - Plan prices in KES: Basic (50), Pro (150), Enterprise (500)
+  - Insufficient balance shows error toast and redirects to Wallet page
+  - Deploy modal shows live balance, plan affordability, and "Top Up Wallet" link
+  - Balance loading state prevents false redirects before API responds
+- 2026-02-06: Fixed API URLs from localhost:3001 to relative /api/ paths (Vite proxy)
 - 2026-02-06: Implemented real M-Pesa payment integration via Paystack
   - Created Express backend (server/index.js) on port 3001 for secure Paystack API calls
   - Implemented M-Pesa STK push endpoints (/api/mpesa/charge, /api/mpesa/verify)
