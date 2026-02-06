@@ -16,6 +16,170 @@ import { walletAPI } from '../services/api';
 import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+const paymentMethods = [
+  { id: 'M-Pesa', name: 'M-Pesa', color: 'rgba(76, 175, 80, 0.2)' },
+  { id: 'Airtel Money', name: 'Airtel Money', color: 'rgba(229, 57, 53, 0.2)' },
+  { id: 'TigoPesa', name: 'TigoPesa', color: 'rgba(25, 118, 210, 0.2)' },
+];
+
+const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user }) => (
+  <motion.div
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    onClick={onClose}
+  >
+    <motion.div
+      className="w-full max-w-md bg-black/90 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.9, opacity: 0 }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            {type === 'deposit' ? <ArrowDownToLine className="w-5 h-5 text-primary" /> : <ArrowUpFromLine className="w-5 h-5 text-primary" />}
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+            disabled={processing}
+            data-testid="button-close-wallet-modal"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {stkStatus.show && (
+            <motion.div
+              className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
+                stkStatus.status === 'success' ? 'bg-primary/5 border border-primary/30 text-primary' :
+                stkStatus.status === 'error' ? 'bg-red-500/5 border border-red-500/30 text-red-400' :
+                'bg-gray-800/50 border border-gray-700/50 text-gray-400'
+              }`}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              {stkStatus.status === 'success' && <CheckCircle size={18} />}
+              {stkStatus.status === 'error' && <AlertCircle size={18} />}
+              {stkStatus.status === 'pending' && (
+                <motion.div
+                  className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                />
+              )}
+              <span className="text-sm font-mono">{stkStatus.message}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2 font-mono">
+              Amount (KES) - Min 50
+            </label>
+            <input
+              type="number"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
+              placeholder="Enter amount (min 50)"
+              min="50"
+              disabled={processing}
+              data-testid="input-wallet-amount"
+            />
+            {type === 'withdraw' && (
+              <p className="text-xs text-gray-500 font-mono mt-1">
+                Available: KES {(user?.wallet || 0).toFixed(2)}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2 font-mono">
+              Phone Number
+            </label>
+            <div className="relative">
+              <Smartphone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
+                placeholder="0712345678"
+                disabled={processing}
+                data-testid="input-wallet-phone"
+              />
+            </div>
+            <p className="text-xs text-gray-500 font-mono mt-1">
+              Safaricom number (e.g. 0712345678)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2 font-mono">
+              Payment Method
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {paymentMethods.map((method) => (
+                <button
+                  key={method.id}
+                  type="button"
+                  onClick={() => setForm({ ...form, method: method.id })}
+                  disabled={processing}
+                  data-testid={`button-method-${method.id}`}
+                  className={`
+                    p-3 rounded-lg border text-center text-sm font-mono transition-all
+                    ${form.method === method.id 
+                      ? 'border-primary bg-primary/10 text-primary' 
+                      : 'border-primary/20 hover:border-primary/40 text-gray-400 hover:text-gray-300'
+                    }
+                  `}
+                >
+                  {method.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-sm transition-all"
+              disabled={processing}
+              data-testid="button-wallet-cancel"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all"
+              disabled={processing}
+              data-testid="button-wallet-submit"
+            >
+              {processing ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <>
+                  {type === 'deposit' ? <ArrowDownToLine size={16} /> : <ArrowUpFromLine size={16} />}
+                  {type === 'deposit' ? 'Deposit' : 'Withdraw'}
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </motion.div>
+  </motion.div>
+);
+
 const Wallet = () => {
   const { user, updateUser } = useAuth();
   const [transactions, setTransactions] = useState([]);
@@ -25,7 +189,6 @@ const Wallet = () => {
   const [processing, setProcessing] = useState(false);
   const [stkStatus, setStkStatus] = useState({ show: false, status: '', message: '' });
 
-  // Form states
   const [depositForm, setDepositForm] = useState({ amount: '', phone: '', method: 'M-Pesa' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: 'M-Pesa' });
 
@@ -155,7 +318,7 @@ const Wallet = () => {
       const result = await walletAPI.withdraw(withdrawForm.amount, withdrawForm.method, withdrawForm.phone);
       
       if (result.success) {
-        setStkStatus({ show: true, status: 'success', message: `Successfully withdrew $${withdrawForm.amount}!` });
+        setStkStatus({ show: true, status: 'success', message: `Successfully withdrew KES ${withdrawForm.amount}!` });
         await updateUser({ wallet: result.newBalance });
         fetchTransactions();
         setTimeout(() => {
@@ -173,12 +336,6 @@ const Wallet = () => {
     }
   };
 
-  const paymentMethods = [
-    { id: 'M-Pesa', name: 'M-Pesa', color: 'rgba(76, 175, 80, 0.2)' },
-    { id: 'Airtel Money', name: 'Airtel Money', color: 'rgba(229, 57, 53, 0.2)' },
-    { id: 'TigoPesa', name: 'TigoPesa', color: 'rgba(25, 118, 210, 0.2)' },
-  ];
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -187,170 +344,15 @@ const Wallet = () => {
     );
   }
 
-  const ModalContent = ({ title, form, setForm, onSubmit, type }) => (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={() => type === 'deposit' ? setShowDepositModal(false) : setShowWithdrawModal(false)}
-    >
-      <motion.div
-        className="w-full max-w-md bg-black/90 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              {type === 'deposit' ? <ArrowDownToLine className="w-5 h-5 text-primary" /> : <ArrowUpFromLine className="w-5 h-5 text-primary" />}
-              {title}
-            </h2>
-            <button
-              onClick={() => type === 'deposit' ? setShowDepositModal(false) : setShowWithdrawModal(false)}
-              className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
-              disabled={processing}
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* STK Status */}
-          <AnimatePresence>
-            {stkStatus.show && (
-              <motion.div
-                className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
-                  stkStatus.status === 'success' ? 'bg-primary/5 border border-primary/30 text-primary' :
-                  stkStatus.status === 'error' ? 'bg-red-500/5 border border-red-500/30 text-red-400' :
-                  'bg-gray-800/50 border border-gray-700/50 text-gray-400'
-                }`}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-              >
-                {stkStatus.status === 'success' && <CheckCircle size={18} />}
-                {stkStatus.status === 'error' && <AlertCircle size={18} />}
-                {stkStatus.status === 'pending' && (
-                  <motion.div
-                    className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  />
-                )}
-                <span className="text-sm font-mono">{stkStatus.message}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            {/* Amount */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2 font-mono">
-                Amount (KES) - Min 50
-              </label>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-                placeholder="Enter amount (min 50)"
-                min="50"
-                disabled={processing}
-              />
-              {type === 'withdraw' && (
-                <p className="text-xs text-gray-500 font-mono mt-1">
-                  Available: ${(user?.wallet || 0).toFixed(2)}
-                </p>
-              )}
-            </div>
-
-            {/* Phone Number */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2 font-mono">
-                Phone Number
-              </label>
-              <div className="relative">
-                <Smartphone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-                  placeholder="+254 7XX XXX XXX"
-                  disabled={processing}
-                />
-              </div>
-            </div>
-
-            {/* Payment Method */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2 font-mono">
-                Payment Method
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {paymentMethods.map((method) => (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={() => setForm({ ...form, method: method.id })}
-                    disabled={processing}
-                    className={`
-                      p-3 rounded-lg border text-center text-sm font-mono transition-all
-                      ${form.method === method.id 
-                        ? 'border-primary bg-primary/10 text-primary' 
-                        : 'border-primary/20 hover:border-primary/40 text-gray-400 hover:text-gray-300'
-                      }
-                    `}
-                  >
-                    {method.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => type === 'deposit' ? setShowDepositModal(false) : setShowWithdrawModal(false)}
-                className="flex-1 px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-sm transition-all"
-                disabled={processing}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all"
-                disabled={processing}
-              >
-                {processing ? (
-                  <LoadingSpinner size="sm" />
-                ) : (
-                  <>
-                    {type === 'deposit' ? <ArrowDownToLine size={16} /> : <ArrowUpFromLine size={16} />}
-                    {type === 'deposit' ? 'Deposit' : 'Withdraw'}
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold mb-2">Wallet</h1>
           <p className="text-gray-400 font-mono">
             Manage your funds and transactions
             <span className="text-primary ml-4">
-              Balance: <span className="text-primary">${(user?.wallet || 0).toFixed(2)}</span>
+              Balance: <span className="text-primary">KES {(user?.wallet || 0).toFixed(2)}</span>
             </span>
           </p>
         </div>
@@ -360,13 +362,11 @@ const Wallet = () => {
         </div>
       </div>
 
-      {/* Balance Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center relative overflow-hidden"
       >
-        {/* Glow effect */}
         <div className="absolute inset-0 opacity-30"
           style={{
             background: 'radial-gradient(ellipse at center, rgba(0,255,0,0.1) 0%, transparent 70%)',
@@ -385,7 +385,7 @@ const Wallet = () => {
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 300 }}
         >
-          ${(user?.wallet || 0).toFixed(2)}
+          KES {(user?.wallet || 0).toFixed(2)}
         </motion.p>
 
         <div className="flex flex-col md:flex-row gap-3 justify-center relative z-10">
@@ -394,6 +394,7 @@ const Wallet = () => {
             onClick={() => setShowDepositModal(true)}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            data-testid="button-deposit"
           >
             <ArrowDownToLine size={18} />
             Deposit
@@ -403,6 +404,7 @@ const Wallet = () => {
             onClick={() => setShowWithdrawModal(true)}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            data-testid="button-withdraw"
           >
             <ArrowUpFromLine size={18} />
             Withdraw
@@ -410,7 +412,6 @@ const Wallet = () => {
         </div>
       </motion.div>
 
-      {/* Quick Deposit Amounts */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -431,14 +432,14 @@ const Wallet = () => {
               }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              data-testid={`button-quick-deposit-${amount}`}
             >
-              ${amount}
+              KES {amount}
             </motion.button>
           ))}
         </div>
       </motion.div>
 
-      {/* Transaction History */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -488,7 +489,7 @@ const Wallet = () => {
                   <p className={`font-mono text-lg ${
                     transaction.amount > 0 ? 'text-primary' : 'text-red-400'
                   }`}>
-                    {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
+                    {transaction.amount > 0 ? '+' : ''}KES {Math.abs(transaction.amount).toFixed(2)}
                   </p>
                   <p className="text-xs text-gray-500 font-mono">{transaction.date}</p>
                 </div>
@@ -498,7 +499,6 @@ const Wallet = () => {
         )}
       </motion.div>
 
-      {/* Deposit Modal */}
       <AnimatePresence>
         {showDepositModal && (
           <ModalContent
@@ -507,11 +507,14 @@ const Wallet = () => {
             setForm={setDepositForm}
             onSubmit={handleDeposit}
             type="deposit"
+            onClose={() => { setShowDepositModal(false); setStkStatus({ show: false, status: '', message: '' }); }}
+            processing={processing}
+            stkStatus={stkStatus}
+            user={user}
           />
         )}
       </AnimatePresence>
 
-      {/* Withdraw Modal */}
       <AnimatePresence>
         {showWithdrawModal && (
           <ModalContent
@@ -520,6 +523,10 @@ const Wallet = () => {
             setForm={setWithdrawForm}
             onSubmit={handleWithdraw}
             type="withdraw"
+            onClose={() => { setShowWithdrawModal(false); setStkStatus({ show: false, status: '', message: '' }); }}
+            processing={processing}
+            stkStatus={stkStatus}
+            user={user}
           />
         )}
       </AnimatePresence>
