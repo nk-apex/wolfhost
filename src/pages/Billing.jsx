@@ -603,7 +603,7 @@ const Billing = () => {
               </div>
             </div>
             <div className="mt-4 text-xs text-gray-500 font-mono">
-              Lifetime deposits via M-Pesa
+              Lifetime deposits via M-Pesa & Card
             </div>
           </div>
         </motion.div>
@@ -679,7 +679,7 @@ const Billing = () => {
           <div className="text-center py-12 text-gray-500">
             <Receipt className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p className="font-mono">No payment history yet</p>
-            <p className="text-sm mt-1">Make your first M-Pesa deposit to see transactions here</p>
+            <p className="text-sm mt-1">Make your first deposit to see transactions here</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

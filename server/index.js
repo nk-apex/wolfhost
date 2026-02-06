@@ -122,6 +122,89 @@ app.get('/api/mpesa/verify/:reference', async (req, res) => {
   }
 });
 
+app.post('/api/card/initialize', async (req, res) => {
+  try {
+    const { email, amount, metadata, callbackUrl } = req.body;
+
+    if (!email || !amount) {
+      return res.status(400).json({ success: false, message: 'Email and amount are required' });
+    }
+
+    if (amount < 50) {
+      return res.status(400).json({ success: false, message: 'Minimum deposit is 50 KSH' });
+    }
+
+    const amountInCents = Math.round(amount * 100);
+
+    console.log('Initializing card payment:', { email, amount: amountInCents, callbackUrl });
+
+    const response = await paystackFetch('/transaction/initialize', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        amount: amountInCents,
+        currency: 'KES',
+        callback_url: callbackUrl || undefined,
+        channels: ['card'],
+        metadata: {
+          ...metadata,
+          payment_type: 'card',
+          country: 'KE',
+        },
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Paystack card init response:', JSON.stringify(data));
+
+    if (!response.ok || !data.status) {
+      const errorMessage = data.message || 'Failed to initialize card payment';
+      return res.status(response.status || 400).json({ success: false, message: errorMessage });
+    }
+
+    return res.json({
+      success: true,
+      data: data.data,
+      message: 'Card payment initialized. Redirecting to checkout...',
+      authorizationUrl: data.data.authorization_url,
+      reference: data.data.reference,
+      accessCode: data.data.access_code,
+    });
+  } catch (error) {
+    console.error('Card initialize error:', error);
+    return res.status(500).json({ success: false, message: 'Server error initializing card payment' });
+  }
+});
+
+app.get('/api/card/verify/:reference', async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference is required' });
+    }
+
+    const response = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: data.message || 'Verification failed',
+      });
+    }
+
+    return res.json({
+      success: data.status === true && data.data?.status === 'success',
+      data: data.data,
+      message: data.message,
+    });
+  } catch (error) {
+    console.error('Card verification error:', error);
+    return res.status(500).json({ success: false, message: 'Server error verifying card payment' });
+  }
+});
+
 app.post('/api/mpesa/submit-otp', async (req, res) => {
   try {
     const { otp, reference } = req.body;
@@ -179,9 +262,13 @@ app.get('/api/transactions', async (req, res) => {
       phone: txn.metadata?.phone_number || txn.authorization?.mobile_money_number || '',
       type: txn.metadata?.type || 'wallet_topup',
       description: txn.channel === 'mobile_money'
-        ? `M-Pesa deposit`
+        ? 'M-Pesa deposit'
+        : txn.channel === 'card'
+        ? 'Card payment'
         : txn.channel || 'Payment',
-      method: txn.channel === 'mobile_money' ? 'M-Pesa' : txn.channel || 'Unknown',
+      method: txn.channel === 'mobile_money' ? 'M-Pesa' : txn.channel === 'card' ? 'Card' : txn.channel || 'Unknown',
+      cardType: txn.authorization?.card_type || '',
+      last4: txn.authorization?.last4 || '',
       email: txn.customer?.email || '',
     }));
 

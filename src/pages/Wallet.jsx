@@ -9,7 +9,9 @@ import {
   AlertCircle,
   Clock,
   X,
-  DollarSign
+  DollarSign,
+  CreditCard,
+  Mail
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { walletAPI } from '../services/api';
@@ -18,11 +20,10 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 const paymentMethods = [
   { id: 'M-Pesa', name: 'M-Pesa', color: 'rgba(76, 175, 80, 0.2)' },
-  { id: 'Airtel Money', name: 'Airtel Money', color: 'rgba(229, 57, 53, 0.2)' },
-  { id: 'TigoPesa', name: 'TigoPesa', color: 'rgba(25, 118, 210, 0.2)' },
+  { id: 'Card', name: 'Card', color: 'rgba(59, 130, 246, 0.2)' },
 ];
 
-const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user, walletBalance = 0 }) => (
+const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user, walletBalance = 0, cardWaiting = false, onVerifyCard }) => (
   <motion.div
     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
     initial={{ opacity: 0 }}
@@ -101,26 +102,51 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
             )}
           </div>
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-2 font-mono">
-              Phone Number
-            </label>
-            <div className="relative">
-              <Smartphone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-                placeholder="254712345678"
-                disabled={processing}
-                data-testid="input-wallet-phone"
-              />
+          {form.method === 'M-Pesa' && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2 font-mono">
+                Phone Number
+              </label>
+              <div className="relative">
+                <Smartphone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
+                  placeholder="254712345678"
+                  disabled={processing}
+                  data-testid="input-wallet-phone"
+                />
+              </div>
+              <p className="text-xs text-gray-500 font-mono mt-1">
+                Enter number in 254 format (e.g. 254712345678)
+              </p>
             </div>
-            <p className="text-xs text-gray-500 font-mono mt-1">
-              Enter number in 254 format (e.g. 254712345678)
-            </p>
-          </div>
+          )}
+
+          {form.method === 'Card' && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-2 font-mono">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  value={form.email || ''}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
+                  placeholder="you@email.com"
+                  disabled={processing}
+                  data-testid="input-wallet-email"
+                />
+              </div>
+              <p className="text-xs text-gray-500 font-mono mt-1">
+                You'll be redirected to secure checkout to enter card details
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm text-gray-400 mb-2 font-mono">
@@ -148,32 +174,61 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-sm transition-all"
-              disabled={processing}
-              data-testid="button-wallet-cancel"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all"
-              disabled={processing}
-              data-testid="button-wallet-submit"
-            >
-              {processing ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <>
-                  {type === 'deposit' ? <ArrowDownToLine size={16} /> : <ArrowUpFromLine size={16} />}
-                  {type === 'deposit' ? 'Deposit' : 'Withdraw'}
-                </>
-              )}
-            </button>
-          </div>
+          {cardWaiting ? (
+            <div className="space-y-3 pt-4">
+              <button
+                type="button"
+                onClick={onVerifyCard}
+                disabled={processing}
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                data-testid="button-verify-card"
+              >
+                {processing ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <>
+                    <CheckCircle size={16} />
+                    I've Completed Payment - Verify
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-sm transition-all"
+                data-testid="button-wallet-cancel"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-sm transition-all"
+                disabled={processing}
+                data-testid="button-wallet-cancel"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all"
+                disabled={processing}
+                data-testid="button-wallet-submit"
+              >
+                {processing ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <>
+                    {type === 'deposit' ? <ArrowDownToLine size={16} /> : <ArrowUpFromLine size={16} />}
+                    {type === 'deposit' ? 'Deposit' : 'Withdraw'}
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </motion.div>
@@ -190,8 +245,10 @@ const Wallet = () => {
   const [processing, setProcessing] = useState(false);
   const [stkStatus, setStkStatus] = useState({ show: false, status: '', message: '' });
 
-  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', method: 'M-Pesa' });
+  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: '', method: 'M-Pesa' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: 'M-Pesa' });
+  const [cardWaiting, setCardWaiting] = useState(false);
+  const [cardRef, setCardRef] = useState('');
 
   useEffect(() => {
     fetchTransactions();
@@ -226,8 +283,8 @@ const Wallet = () => {
     e.preventDefault();
     const amount = parseFloat(depositForm.amount);
 
-    if (!depositForm.amount || !depositForm.phone) {
-      setStkStatus({ show: true, status: 'error', message: 'Please fill all fields' });
+    if (!depositForm.amount) {
+      setStkStatus({ show: true, status: 'error', message: 'Please enter an amount' });
       return;
     }
 
@@ -236,11 +293,26 @@ const Wallet = () => {
       return;
     }
 
-    if (!validatePhoneNumber(depositForm.phone)) {
-      setStkStatus({ show: true, status: 'error', message: 'Invalid phone number. Use format: 254712345678' });
-      return;
+    if (depositForm.method === 'M-Pesa') {
+      if (!depositForm.phone) {
+        setStkStatus({ show: true, status: 'error', message: 'Please enter your phone number' });
+        return;
+      }
+      if (!validatePhoneNumber(depositForm.phone)) {
+        setStkStatus({ show: true, status: 'error', message: 'Invalid phone number. Use format: 254712345678' });
+        return;
+      }
+      await handleMpesaDeposit(amount);
+    } else if (depositForm.method === 'Card') {
+      if (!depositForm.email || !depositForm.email.includes('@')) {
+        setStkStatus({ show: true, status: 'error', message: 'Please enter a valid email address' });
+        return;
+      }
+      await handleCardDeposit(amount);
     }
+  };
 
+  const handleMpesaDeposit = async (amount) => {
     setProcessing(true);
     setStkStatus({ show: true, status: 'pending', message: 'Sending M-Pesa STK Push to your phone...' });
 
@@ -292,7 +364,7 @@ const Wallet = () => {
             setTimeout(() => {
               setShowDepositModal(false);
               setStkStatus({ show: false, status: '', message: '' });
-              setDepositForm({ amount: '', phone: '', method: 'M-Pesa' });
+              setDepositForm({ amount: '', phone: '', email: '', method: 'M-Pesa' });
             }, 2500);
           } else if (result.data?.status === 'failed') {
             setStkStatus({ show: true, status: 'error', message: 'Payment was declined or cancelled.' });
@@ -309,6 +381,77 @@ const Wallet = () => {
       setTimeout(poll, 3000);
     } catch (err) {
       setStkStatus({ show: true, status: 'error', message: err.message || 'Payment failed. Please try again.' });
+      setProcessing(false);
+    }
+  };
+
+  const handleCardDeposit = async (amount) => {
+    setProcessing(true);
+    setStkStatus({ show: true, status: 'pending', message: 'Initializing card payment...' });
+
+    try {
+      const callbackUrl = `${window.location.origin}/wallet?payment=card`;
+      const response = await paystackAPI.initializeCardPayment(depositForm.email, amount, callbackUrl, {
+        type: 'wallet_topup',
+      });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to initialize card payment');
+      }
+
+      setCardRef(response.reference);
+
+      if (response.authorizationUrl) {
+        setStkStatus({ show: true, status: 'pending', message: 'Checkout opened in new tab. Complete payment there, then click "Verify Payment" below.' });
+        window.open(response.authorizationUrl, '_blank');
+        setCardWaiting(true);
+        setProcessing(false);
+      }
+    } catch (err) {
+      setStkStatus({ show: true, status: 'error', message: err.message || 'Card payment failed. Please try again.' });
+      setProcessing(false);
+    }
+  };
+
+  const verifyCardDeposit = async () => {
+    if (!cardRef) return;
+
+    setProcessing(true);
+    setStkStatus({ show: true, status: 'pending', message: 'Verifying card payment...' });
+
+    try {
+      const result = await paystackAPI.verifyCardPayment(cardRef);
+
+      if (result.success) {
+        const paidAmount = result.data.amount / 100;
+        setStkStatus({ show: true, status: 'success', message: `Successfully deposited KES ${paidAmount.toLocaleString()} via card!` });
+
+        try {
+          await walletAPI.recordMpesaPayment(paidAmount, depositForm.email, cardRef, 'Card deposit via Paystack');
+          const balanceResult = await walletAPI.getBalance();
+          if (balanceResult.success) {
+            await updateUser({ wallet: balanceResult.balance });
+          }
+        } catch (walletErr) {
+          console.error('Wallet update error:', walletErr);
+        }
+
+        fetchTransactions();
+        fetchBalance();
+        setProcessing(false);
+        setCardWaiting(false);
+        setCardRef('');
+        setTimeout(() => {
+          setShowDepositModal(false);
+          setStkStatus({ show: false, status: '', message: '' });
+          setDepositForm({ amount: '', phone: '', email: '', method: 'M-Pesa' });
+        }, 2500);
+      } else {
+        setStkStatus({ show: true, status: 'error', message: 'Payment not completed yet. Complete payment in the checkout tab, then try verifying again.' });
+        setProcessing(false);
+      }
+    } catch (err) {
+      setStkStatus({ show: true, status: 'error', message: 'Could not verify payment. Please try again.' });
       setProcessing(false);
     }
   };
@@ -481,9 +624,15 @@ const Wallet = () => {
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    transaction.amount > 0 ? 'bg-primary/10 border border-primary/20' : 'bg-red-500/10 border border-red-500/20'
+                    transaction.method === 'Card'
+                      ? 'bg-blue-500/10 border border-blue-500/20'
+                      : transaction.amount > 0
+                        ? 'bg-primary/10 border border-primary/20'
+                        : 'bg-red-500/10 border border-red-500/20'
                   }`}>
-                    {transaction.amount > 0 ? (
+                    {transaction.method === 'Card' ? (
+                      <CreditCard size={24} className="text-blue-400" />
+                    ) : transaction.amount > 0 ? (
                       <ArrowDownToLine size={24} className="text-primary" />
                     ) : (
                       <ArrowUpFromLine size={24} className="text-red-400" />
@@ -494,7 +643,9 @@ const Wallet = () => {
                       {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
                     </p>
                     <p className="text-sm text-gray-500 font-mono">
-                      {transaction.method || transaction.description || 'Transaction'}
+                      {transaction.method === 'Card' && transaction.last4
+                        ? `Card ****${transaction.last4}`
+                        : transaction.method || transaction.description || 'Transaction'}
                     </p>
                   </div>
                 </div>
@@ -521,11 +672,13 @@ const Wallet = () => {
             setForm={setDepositForm}
             onSubmit={handleDeposit}
             type="deposit"
-            onClose={() => { setShowDepositModal(false); setStkStatus({ show: false, status: '', message: '' }); }}
+            onClose={() => { setShowDepositModal(false); setStkStatus({ show: false, status: '', message: '' }); setCardWaiting(false); setCardRef(''); }}
             processing={processing}
             stkStatus={stkStatus}
             user={user}
             walletBalance={walletBalance}
+            cardWaiting={cardWaiting}
+            onVerifyCard={verifyCardDeposit}
           />
         )}
       </AnimatePresence>

@@ -56,6 +56,63 @@ export const paystackAPI = {
     }
   },
 
+  initializeCardPayment: async (email, amount, callbackUrl, metadata = {}) => {
+    try {
+      console.log('Initiating Card Payment:', { email, amount });
+
+      const response = await fetch('/api/card/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, amount, callbackUrl, metadata }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to initialize card payment');
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+        authorizationUrl: data.authorizationUrl,
+        reference: data.reference,
+        accessCode: data.accessCode,
+      };
+    } catch (error) {
+      console.error('Card Payment Error:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to initialize card payment. Please try again.',
+        error: error.message,
+      };
+    }
+  },
+
+  verifyCardPayment: async (reference) => {
+    try {
+      const response = await fetch(`/api/card/verify/${encodeURIComponent(reference)}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed');
+      }
+
+      return {
+        success: data.success,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error('Card Verification Error:', error);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  },
+
   submitOtp: async (otp, reference) => {
     try {
       const response = await fetch('/api/mpesa/submit-otp', {
