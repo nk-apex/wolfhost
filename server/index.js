@@ -50,8 +50,9 @@ app.post('/api/mpesa/charge', async (req, res) => {
     }
 
     const amountInCents = Math.round(amount * 100);
+    const paystackPhone = '+' + formattedPhone;
 
-    console.log('Sending to Paystack:', { phone: formattedPhone, amount: amountInCents, email: `${formattedPhone}@mpesa.ke` });
+    console.log('Sending to Paystack:', { phone: paystackPhone, amount: amountInCents, email: `${formattedPhone}@mpesa.ke` });
 
     const response = await paystackFetch('/charge', {
       method: 'POST',
@@ -60,7 +61,7 @@ app.post('/api/mpesa/charge', async (req, res) => {
         amount: amountInCents,
         currency: 'KES',
         mobile_money: {
-          phone: formattedPhone,
+          phone: paystackPhone,
           provider: 'mpesa',
         },
         metadata: {
