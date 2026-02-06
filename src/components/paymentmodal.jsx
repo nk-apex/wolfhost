@@ -22,12 +22,12 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
     setError('');
 
     if (!phoneNumber || phoneNumber.trim().length < 10) {
-      setError('Please enter a valid Safaricom phone number (e.g., 0712345678)');
+      setError('Please enter a valid phone number (e.g., 254712345678)');
       return;
     }
 
     if (!validatePhoneNumber(phoneNumber)) {
-      setError('Invalid Safaricom number. Use format: 0712345678');
+      setError('Invalid phone number. Use format: 254712345678');
       return;
     }
 
@@ -219,7 +219,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                 </div>
 
                 <label className="block text-sm font-mono text-gray-400 mb-2">
-                  Safaricom Phone Number
+                  M-Pesa Phone Number
                 </label>
                 <div className="flex items-center gap-2">
                   <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/20">
@@ -230,12 +230,12 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     className="flex-1 p-3 bg-black/50 border border-gray-700 rounded-lg font-mono focus:border-green-500 focus:outline-none"
-                    placeholder="0712345678"
+                    placeholder="254712345678"
                     data-testid="input-phone"
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-2 font-mono">
-                  Enter your Safaricom number (format: 0712345678). You'll receive an STK push.
+                  Enter number in 254 format (e.g. 254712345678). You'll receive an STK push.
                 </p>
               </div>
 

@@ -112,13 +112,13 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-                placeholder="0712345678"
+                placeholder="254712345678"
                 disabled={processing}
                 data-testid="input-wallet-phone"
               />
             </div>
             <p className="text-xs text-gray-500 font-mono mt-1">
-              Safaricom number (e.g. 0712345678)
+              Enter number in 254 format (e.g. 254712345678)
             </p>
           </div>
 
@@ -224,7 +224,7 @@ const Wallet = () => {
     }
 
     if (!validatePhoneNumber(depositForm.phone)) {
-      setStkStatus({ show: true, status: 'error', message: 'Invalid Safaricom number. Use format: 0712345678' });
+      setStkStatus({ show: true, status: 'error', message: 'Invalid phone number. Use format: 254712345678' });
       return;
     }
 
