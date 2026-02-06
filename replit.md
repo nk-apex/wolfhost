@@ -4,6 +4,13 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-06: Fixed Overview page to show real data
+  - Wallet balance from Paystack API (/api/transactions/totals) in KES currency
+  - Recent transactions from Paystack API (/api/transactions) with channel icons
+  - Server count from localStorage (same source as Servers page)
+  - Total deposits count and amount from Paystack API
+  - Removed all hardcoded/mock stats (uptime, visitors, etc.)
+  - Added 10s timeout for API calls to prevent hanging
 - 2026-02-06: Added card payment support via Paystack alongside M-Pesa
   - Backend endpoints: /api/card/initialize, /api/card/verify/:reference
   - PaymentModal and Wallet page both support M-Pesa and Card payment methods
