@@ -148,6 +148,95 @@ app.post('/api/mpesa/submit-otp', async (req, res) => {
   }
 });
 
+app.get('/api/transactions', async (req, res) => {
+  try {
+    const { perPage = 50, page = 1, status } = req.query;
+
+    let path = `/transaction?perPage=${perPage}&page=${page}&currency=KES`;
+    if (status) {
+      path += `&status=${status}`;
+    }
+
+    const response = await paystackFetch(path);
+    const data = await response.json();
+
+    if (!response.ok || !data.status) {
+      return res.status(response.status || 400).json({
+        success: false,
+        message: data.message || 'Failed to fetch transactions',
+      });
+    }
+
+    const transactions = (data.data || []).map((txn) => ({
+      id: txn.id,
+      reference: txn.reference,
+      amount: txn.amount / 100,
+      currency: txn.currency,
+      status: txn.status,
+      channel: txn.channel,
+      paidAt: txn.paid_at || txn.transaction_date,
+      createdAt: txn.created_at,
+      phone: txn.metadata?.phone_number || txn.authorization?.mobile_money_number || '',
+      type: txn.metadata?.type || 'wallet_topup',
+      description: txn.channel === 'mobile_money'
+        ? `M-Pesa deposit`
+        : txn.channel || 'Payment',
+      method: txn.channel === 'mobile_money' ? 'M-Pesa' : txn.channel || 'Unknown',
+      email: txn.customer?.email || '',
+    }));
+
+    const meta = data.meta || {};
+
+    return res.json({
+      success: true,
+      transactions,
+      meta: {
+        total: meta.total || transactions.length,
+        page: meta.page || parseInt(page),
+        pageCount: meta.pageCount || 1,
+        perPage: meta.perPage || parseInt(perPage),
+      },
+    });
+  } catch (error) {
+    console.error('Transactions fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching transactions' });
+  }
+});
+
+app.get('/api/transactions/totals', async (req, res) => {
+  try {
+    const response = await paystackFetch('/transaction?perPage=100&currency=KES&status=success');
+    const data = await response.json();
+
+    if (!response.ok || !data.status) {
+      return res.json({
+        success: true,
+        totalDeposits: 0,
+        totalCount: 0,
+        balance: 0,
+      });
+    }
+
+    const transactions = data.data || [];
+    const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
+
+    return res.json({
+      success: true,
+      totalDeposits,
+      totalCount: transactions.length,
+      balance: totalDeposits,
+    });
+  } catch (error) {
+    console.error('Totals fetch error:', error);
+    return res.json({
+      success: true,
+      totalDeposits: 0,
+      totalCount: 0,
+      balance: 0,
+    });
+  }
+});
+
 const PORT = 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Paystack API server running on port ${PORT}`);

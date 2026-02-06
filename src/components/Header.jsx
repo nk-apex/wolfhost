@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -12,12 +12,26 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { walletAPI } from '../services/api';
 
 const Header = ({ onMenuToggle, isSidebarOpen }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [headerBalance, setHeaderBalance] = useState(0);
+
+  useEffect(() => {
+    const fetchBal = async () => {
+      try {
+        const result = await walletAPI.getBalance();
+        if (result.success) setHeaderBalance(result.balance);
+      } catch (e) { /* ignore */ }
+    };
+    fetchBal();
+    const interval = setInterval(fetchBal, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const notifications = [
     { id: 1, message: 'Server "Production" started successfully', time: '2 min ago' },
@@ -88,7 +102,7 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
             >
               <Wallet size={16} className="text-primary" />
               <span className="font-mono text-sm neon-text">
-                ${user?.wallet?.toFixed(2) || '0.00'}
+                KES {headerBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
               </span>
             </motion.div>
           </Link>

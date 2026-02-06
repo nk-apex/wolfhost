@@ -1030,19 +1030,7 @@
 // CONFIGURATION
 // ======================
 
-// Base URL for your backend API - Fixed for browser compatibility
-const API_BASE_URL = (() => {
-  // For Vite (browser)
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  // For Node.js (SSR or build time) - Only check if process exists
-  if (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
-  // Default fallback
-  return 'http://localhost:3001/api';
-})();
+const API_BASE_URL = '/api';
 
 // Simulate API delay
 const API_DELAY = 300;
@@ -1367,18 +1355,21 @@ export const authAPI = {
 // ======================
 
 export const statsAPI = {
-  // Required by Overview.jsx
   getOverviewStats: async () => {
     try {
-      await delay(API_DELAY);
-      
-      // Get wallet balance from localStorage
-      const balance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
-      const transactions = JSON.parse(localStorage.getItem('mpesa_transactions') || '[]');
-      const totalMpesaDeposits = transactions
-        .filter(txn => txn.type === 'mpesa_deposit' || txn.amount > 0)
-        .reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
-      
+      let balance = 0;
+      let totalMpesaDeposits = 0;
+      try {
+        const totalsRes = await fetch(`/api/transactions/totals`);
+        const totalsData = await totalsRes.json();
+        if (totalsData.success) {
+          balance = totalsData.balance;
+          totalMpesaDeposits = totalsData.totalDeposits;
+        }
+      } catch (e) {
+        console.error('Failed to fetch totals for stats:', e);
+      }
+
       return {
         success: true,
         stats: {
@@ -1395,16 +1386,12 @@ export const statsAPI = {
           currentBalance: balance,
           monthlyVisitors: 12450,
           conversionRate: 3.2,
-          averageResponseTime: 45 // ms
+          averageResponseTime: 45
         }
       };
     } catch (error) {
       console.error('Stats error:', error);
-      return { 
-        success: false, 
-        stats: {},
-        message: 'Failed to load dashboard stats' 
-      };
+      return { success: false, stats: {}, message: 'Failed to load dashboard stats' };
     }
   },
 
@@ -1437,46 +1424,41 @@ export const statsAPI = {
     }
   },
 
-  // Get revenue stats
   getRevenueStats: async () => {
     try {
-      await delay(API_DELAY);
-      
-      const transactions = JSON.parse(localStorage.getItem('mpesa_transactions') || '[]');
-      const depositsByMonth = {
-        'Jan': 5000,
-        'Feb': 7500,
-        'Mar': 12000,
-        'Apr': 0,
-        'May': 0,
-        'Jun': 0
-      };
-      
-      // Calculate from actual transactions
-      transactions.forEach(txn => {
-        if (txn.amount > 0) {
-          const date = new Date(txn.date);
-          const month = date.toLocaleString('en-US', { month: 'short' });
-          if (depositsByMonth[month] !== undefined) {
-            depositsByMonth[month] += txn.amount;
-          }
+      let totalDeposits = 0;
+      let txnCount = 0;
+      const depositsByMonth = {};
+
+      try {
+        const response = await fetch(`/api/transactions?perPage=100&status=success`);
+        const data = await response.json();
+        if (data.success && data.transactions) {
+          data.transactions.forEach(txn => {
+            if (txn.amount > 0) {
+              totalDeposits += txn.amount;
+              txnCount++;
+              const date = new Date(txn.paidAt || txn.createdAt);
+              const month = date.toLocaleString('en-US', { month: 'short' });
+              depositsByMonth[month] = (depositsByMonth[month] || 0) + txn.amount;
+            }
+          });
         }
-      });
-      
+      } catch (e) {
+        console.error('Failed to fetch revenue data:', e);
+      }
+
       return {
         success: true,
         revenue: {
           monthly: depositsByMonth,
-          total: Object.values(depositsByMonth).reduce((a, b) => a + b, 0),
-          growth: 25.4,
-          averageTransaction: 2500.00
+          total: totalDeposits,
+          growth: 0,
+          averageTransaction: txnCount > 0 ? totalDeposits / txnCount : 0
         }
       };
     } catch (error) {
-      return { 
-        success: false, 
-        revenue: {} 
-      };
+      return { success: false, revenue: {} };
     }
   }
 };
@@ -1486,80 +1468,32 @@ export const statsAPI = {
 // ======================
 
 export const activityAPI = {
-  // Required by Overview.jsx
   getRecentActivity: async (limit = 10) => {
     try {
-      await delay(API_DELAY);
-      
-      // Get MPESA transactions
-      const mpesaTransactions = JSON.parse(localStorage.getItem('mpesa_transactions') || '[]');
-      
-      // Convert MPESA transactions to activities
-      const mpesaActivities = mpesaTransactions.slice(-limit).map(txn => ({
-        id: txn.id,
-        type: txn.amount > 0 ? 'deposit' : 'withdrawal',
-        message: txn.amount > 0 
-          ? `MPESA deposit of KES ${Math.abs(txn.amount).toLocaleString()} from ${txn.phone}`
-          : `Withdrawal of KES ${Math.abs(txn.amount).toLocaleString()} to ${txn.phone}`,
-        timestamp: new Date(txn.date).toISOString(),
-        icon: txn.amount > 0 ? '💰' : '🏧',
-        color: txn.amount > 0 ? 'green' : 'blue',
-        amount: txn.amount,
-        status: txn.status || 'completed'
-      }));
-      
-      // Add other activities
-      const otherActivities = [
-        { 
-          id: 'server1', 
-          type: 'server_created', 
-          message: 'Created new production server', 
-          timestamp: '2024-03-10T14:30:00Z',
-          icon: '🚀',
-          color: 'blue',
-          amount: 0,
-          status: 'completed'
-        },
-        { 
-          id: 'referral1', 
-          type: 'referral_joined', 
-          message: 'New referral joined from social media', 
-          timestamp: '2024-03-08T16:45:00Z',
-          icon: '👥',
-          color: 'purple',
-          amount: 250.00,
-          status: 'completed'
-        },
-        { 
-          id: 'invoice1', 
-          type: 'invoice_paid', 
-          message: 'Invoice INV-001 paid successfully', 
-          timestamp: '2024-03-05T09:15:00Z',
-          icon: '💳',
-          color: 'green',
-          amount: -500.00,
-          status: 'completed'
-        },
-        { 
-          id: 'maintenance', 
-          type: 'maintenance', 
-          message: 'Scheduled maintenance completed', 
-          timestamp: '2024-03-01T03:00:00Z',
-          icon: '🔧',
-          color: 'orange',
-          amount: 0,
-          status: 'completed'
+      let mpesaActivities = [];
+      try {
+        const response = await fetch(`/api/transactions?perPage=${limit}`);
+        const data = await response.json();
+        if (data.success && data.transactions) {
+          mpesaActivities = data.transactions.map(txn => ({
+            id: txn.id || txn.reference,
+            type: 'deposit',
+            message: `M-Pesa deposit of KES ${txn.amount.toLocaleString()} ${txn.phone ? 'from ' + txn.phone : ''}`,
+            timestamp: txn.paidAt || txn.createdAt,
+            icon: 'wallet',
+            color: txn.status === 'success' ? 'green' : 'orange',
+            amount: txn.amount,
+            status: txn.status === 'success' ? 'completed' : txn.status
+          }));
         }
-      ];
-      
-      const allActivities = [...mpesaActivities, ...otherActivities]
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, limit);
-      
+      } catch (e) {
+        console.error('Failed to fetch activities from backend:', e);
+      }
+
       return {
         success: true,
-        activities: allActivities,
-        total: mpesaTransactions.length + otherActivities.length
+        activities: mpesaActivities.slice(0, limit),
+        total: mpesaActivities.length
       };
     } catch (error) {
       console.error('Activity error:', error);
@@ -2095,82 +2029,67 @@ export const walletAPI = {
     }
   },
 
-  // Get MPESA transactions
   getMpesaTransactions: async (filters = {}) => {
     try {
-      const transactions = JSON.parse(localStorage.getItem('mpesa_transactions') || '[]');
-      
-      let filtered = transactions;
-      
-      if (filters.type) {
-        filtered = filtered.filter(txn => txn.type === filters.type);
+      const response = await fetch(`/api/transactions?perPage=50&status=success`);
+      const data = await response.json();
+
+      if (!data.success) {
+        return { success: true, transactions: [], summary: { total: 0, deposits: 0, withdrawals: 0, count: 0, average: 0 } };
       }
-      
-      if (filters.startDate) {
-        filtered = filtered.filter(txn => new Date(txn.date) >= new Date(filters.startDate));
-      }
-      
-      if (filters.endDate) {
-        filtered = filtered.filter(txn => new Date(txn.date) <= new Date(filters.endDate));
-      }
-      
-      if (filters.phone) {
-        filtered = filtered.filter(txn => txn.phone === filters.phone);
-      }
-      
-      // Sort by date (newest first)
-      filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-      
-      const total = filtered.reduce((sum, txn) => sum + txn.amount, 0);
-      const deposits = filtered.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-      const withdrawals = Math.abs(filtered.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
-      
+
+      const transactions = (data.transactions || []).map(txn => ({
+        id: txn.id || txn.reference,
+        type: 'mpesa_deposit',
+        amount: txn.amount,
+        phone: txn.phone,
+        reference: txn.reference,
+        status: txn.status === 'success' ? 'completed' : txn.status,
+        date: txn.paidAt || txn.createdAt,
+        description: txn.description || 'M-Pesa deposit',
+        method: 'MPESA',
+        currency: txn.currency || 'KES'
+      }));
+
+      const deposits = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+
       return {
         success: true,
-        transactions: filtered,
+        transactions,
         summary: {
-          total: total,
-          deposits: deposits,
-          withdrawals: withdrawals,
-          count: filtered.length,
-          average: filtered.length > 0 ? total / filtered.length : 0
+          total: deposits,
+          deposits,
+          withdrawals: 0,
+          count: transactions.length,
+          average: transactions.length > 0 ? deposits / transactions.length : 0
         }
       };
     } catch (error) {
-      return {
-        success: false,
-        transactions: [],
-        summary: {}
-      };
+      console.error('Error fetching transactions from backend:', error);
+      return { success: false, transactions: [], summary: {} };
     }
   },
 
-  // Get wallet balance (KES)
   getBalance: async () => {
     try {
-      const balance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
-      
-      // Get user data for wallet sync
-      const userResponse = await authAPI.getUser();
-      const userBalance = userResponse.success ? userResponse.user.wallet : balance;
-      
-      // Sync if different
-      if (Math.abs(balance - userBalance) > 0.01) {
-        localStorage.setItem('wallet_balance', userBalance.toString());
-      }
-      
+      const response = await fetch(`/api/transactions/totals`);
+      const data = await response.json();
+
+      const balance = data.success ? data.balance : 0;
+
       return {
         success: true,
-        balance: parseFloat(localStorage.getItem('wallet_balance') || '1500.00'),
+        balance,
         currency: 'KES',
         formatted: `KES ${balance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       };
     } catch (error) {
+      console.error('Error fetching balance:', error);
       return {
         success: true,
-        balance: 1500.00,
+        balance: 0,
         currency: 'KES',
-        formatted: 'KES 1,500.00'
+        formatted: 'KES 0.00'
       };
     }
   },
@@ -2180,98 +2099,51 @@ export const walletAPI = {
     return walletAPI.recordMpesaPayment(amount, phone, reference);
   },
 
-  // Get all transactions (including MPESA)
   getTransactions: async (limit = 50) => {
     try {
-      await delay(API_DELAY);
-      
-      // Get MPESA transactions
-      const mpesaTransactions = JSON.parse(localStorage.getItem('mpesa_transactions') || '[]');
-      
-      // Convert to transaction format
-      const transactions = mpesaTransactions.map(txn => ({
-        id: txn.id,
+      const response = await fetch(`/api/transactions?perPage=${limit}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        return { success: true, transactions: [], summary: { totalDeposits: 0, totalWithdrawals: 0, currentBalance: 0, depositCount: 0, withdrawalCount: 0 } };
+      }
+
+      const transactions = (data.transactions || []).map(txn => ({
+        id: txn.id || txn.reference,
         type: txn.amount > 0 ? 'deposit' : 'withdrawal',
         amount: txn.amount,
-        method: 'MPESA',
-        date: new Date(txn.date).toISOString(),
-        status: 'completed',
+        method: txn.method || 'M-Pesa',
+        date: txn.paidAt || txn.createdAt,
+        status: txn.status === 'success' ? 'completed' : txn.status,
         reference: txn.reference,
-        description: txn.description,
+        description: txn.description || 'M-Pesa deposit',
         phone: txn.phone,
-        currency: 'KES'
+        currency: txn.currency || 'KES'
       }));
-      
-      // Add some mock transactions
-      const mockTransactions = [
-        {
-          id: 'invoice1',
-          type: 'payment',
-          amount: -500.00,
-          method: 'Auto-debit',
-          date: '2024-03-05T10:30:00Z',
-          status: 'completed',
-          reference: 'INV_001',
-          description: 'Basic Server - Development',
-          phone: null,
-          currency: 'KES'
-        },
-        {
-          id: 'referral1',
-          type: 'earning',
-          amount: 250.00,
-          method: 'Referral',
-          date: '2024-03-01T14:20:00Z',
-          status: 'completed',
-          reference: 'REF_001',
-          description: 'Referral commission',
-          phone: null,
-          currency: 'KES'
-        },
-        {
-          id: 'bonus1',
-          type: 'bonus',
-          amount: 100.00,
-          method: 'Bonus',
-          date: '2024-02-15T09:00:00Z',
-          status: 'completed',
-          reference: 'BONUS_001',
-          description: 'Welcome bonus',
-          phone: null,
-          currency: 'KES'
-        }
-      ];
-      
-      const allTransactions = [...transactions, ...mockTransactions]
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, limit);
-      
-      const balance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
-      
-      const deposits = allTransactions.filter(t => t.amount > 0);
-      const withdrawals = allTransactions.filter(t => t.amount < 0);
-      
+
+      const deposits = transactions.filter(t => t.amount > 0);
+      const totalDeposits = deposits.reduce((sum, t) => sum + t.amount, 0);
+
+      const balanceRes = await fetch(`/api/transactions/totals`);
+      const balanceData = await balanceRes.json();
+      const currentBalance = balanceData.success ? balanceData.balance : totalDeposits;
+
       return {
         success: true,
-        transactions: allTransactions,
+        transactions,
         summary: {
-          totalDeposits: deposits.reduce((sum, t) => sum + t.amount, 0),
-          totalWithdrawals: Math.abs(withdrawals.reduce((sum, t) => sum + t.amount, 0)),
-          currentBalance: balance,
+          totalDeposits,
+          totalWithdrawals: 0,
+          currentBalance,
           depositCount: deposits.length,
-          withdrawalCount: withdrawals.length,
-          averageDeposit: deposits.length > 0 ? deposits.reduce((sum, t) => sum + t.amount, 0) / deposits.length : 0,
-          averageWithdrawal: withdrawals.length > 0 ? Math.abs(withdrawals.reduce((sum, t) => sum + t.amount, 0)) / withdrawals.length : 0
+          withdrawalCount: 0,
+          averageDeposit: deposits.length > 0 ? totalDeposits / deposits.length : 0,
+          averageWithdrawal: 0
         }
       };
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      return { 
-        success: false, 
-        transactions: [],
-        summary: {},
-        message: 'Failed to fetch transactions' 
-      };
+      return { success: false, transactions: [], summary: {}, message: 'Failed to fetch transactions' };
     }
   },
 
@@ -2429,31 +2301,35 @@ export const walletAPI = {
     }
   },
 
-  // Get wallet summary
   getWalletSummary: async () => {
     try {
-      const balance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
-      const transactions = await walletAPI.getTransactions();
-      const withdrawals = await walletAPI.getWithdrawals();
-      
+      const [totalsRes, txnRes] = await Promise.all([
+        fetch(`/api/transactions/totals`),
+        fetch(`/api/transactions?perPage=50&status=success`)
+      ]);
+      const totalsData = await totalsRes.json();
+      const txnData = await txnRes.json();
+
+      const balance = totalsData.success ? totalsData.balance : 0;
+      const transactions = txnData.success ? txnData.transactions : [];
+      const lastDeposit = transactions.length > 0 ? (transactions[0].paidAt || transactions[0].createdAt) : null;
+
       return {
         success: true,
         summary: {
           currentBalance: balance,
-          availableBalance: balance - withdrawals.summary.pendingAmount,
-          totalDeposits: transactions.summary.totalDeposits,
-          totalWithdrawals: withdrawals.summary.totalWithdrawn,
-          pendingWithdrawals: withdrawals.summary.pendingAmount,
-          thisMonthDeposits: transactions.summary.totalDeposits * 0.3, // Mock
-          lastDepositDate: transactions.transactions.find(t => t.amount > 0)?.date || null,
+          availableBalance: balance,
+          totalDeposits: totalsData.success ? totalsData.totalDeposits : 0,
+          totalWithdrawals: 0,
+          pendingWithdrawals: 0,
+          thisMonthDeposits: 0,
+          lastDepositDate: lastDeposit,
           currency: 'KES'
         }
       };
     } catch (error) {
-      return { 
-        success: false, 
-        summary: {} 
-      };
+      console.error('Error fetching wallet summary:', error);
+      return { success: false, summary: {} };
     }
   }
 };

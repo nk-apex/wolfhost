@@ -22,7 +22,7 @@ const paymentMethods = [
   { id: 'TigoPesa', name: 'TigoPesa', color: 'rgba(25, 118, 210, 0.2)' },
 ];
 
-const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user }) => (
+const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user, walletBalance = 0 }) => (
   <motion.div
     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
     initial={{ opacity: 0 }}
@@ -96,7 +96,7 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
             />
             {type === 'withdraw' && (
               <p className="text-xs text-gray-500 font-mono mt-1">
-                Available: KES {(user?.wallet || 0).toFixed(2)}
+                Available: KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
               </p>
             )}
           </div>
@@ -183,6 +183,7 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
 const Wallet = () => {
   const { user, updateUser } = useAuth();
   const [transactions, setTransactions] = useState([]);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -194,7 +195,19 @@ const Wallet = () => {
 
   useEffect(() => {
     fetchTransactions();
+    fetchBalance();
   }, []);
+
+  const fetchBalance = async () => {
+    try {
+      const result = await walletAPI.getBalance();
+      if (result.success) {
+        setWalletBalance(result.balance);
+      }
+    } catch (err) {
+      console.error('Error fetching balance:', err);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {
@@ -274,6 +287,7 @@ const Wallet = () => {
             }
 
             fetchTransactions();
+            fetchBalance();
             setProcessing(false);
             setTimeout(() => {
               setShowDepositModal(false);
@@ -306,7 +320,7 @@ const Wallet = () => {
       return;
     }
 
-    if (parseFloat(withdrawForm.amount) > (user?.wallet || 0)) {
+    if (parseFloat(withdrawForm.amount) > walletBalance) {
       setStkStatus({ show: true, status: 'error', message: 'Insufficient balance' });
       return;
     }
@@ -352,7 +366,7 @@ const Wallet = () => {
           <p className="text-gray-400 font-mono">
             Manage your funds and transactions
             <span className="text-primary ml-4">
-              Balance: <span className="text-primary">KES {(user?.wallet || 0).toFixed(2)}</span>
+              Balance: <span className="text-primary">KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</span>
             </span>
           </p>
         </div>
@@ -380,12 +394,12 @@ const Wallet = () => {
         <p className="text-sm text-gray-400 mb-2 font-mono relative z-10">Available Balance</p>
         <motion.p 
           className="text-5xl font-display font-bold text-white mb-8 relative z-10"
-          key={user?.wallet}
+          key={walletBalance}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 300 }}
         >
-          KES {(user?.wallet || 0).toFixed(2)}
+          KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
         </motion.p>
 
         <div className="flex flex-col md:flex-row gap-3 justify-center relative z-10">
@@ -491,7 +505,7 @@ const Wallet = () => {
                   }`}>
                     {transaction.amount > 0 ? '+' : ''}KES {Math.abs(transaction.amount).toFixed(2)}
                   </p>
-                  <p className="text-xs text-gray-500 font-mono">{transaction.date}</p>
+                  <p className="text-xs text-gray-500 font-mono">{transaction.date ? new Date(transaction.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</p>
                 </div>
               </motion.div>
             ))}
@@ -511,6 +525,7 @@ const Wallet = () => {
             processing={processing}
             stkStatus={stkStatus}
             user={user}
+            walletBalance={walletBalance}
           />
         )}
       </AnimatePresence>
@@ -527,6 +542,7 @@ const Wallet = () => {
             processing={processing}
             stkStatus={stkStatus}
             user={user}
+            walletBalance={walletBalance}
           />
         )}
       </AnimatePresence>
