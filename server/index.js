@@ -1,0 +1,330 @@
+import express from 'express';
+import cors from 'cors';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const PAYSTACK_API_URL = 'https://api.paystack.co';
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+if (!PAYSTACK_SECRET_KEY) {
+  console.error('PAYSTACK_SECRET_KEY is not set');
+}
+
+async function paystackFetch(path, options = {}) {
+  const response = await fetch(`${PAYSTACK_API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+  return response;
+}
+
+app.post('/api/mpesa/charge', async (req, res) => {
+  try {
+    const { phone, amount, metadata } = req.body;
+
+    if (!phone || !amount) {
+      return res.status(400).json({ success: false, message: 'Phone and amount are required' });
+    }
+
+    if (amount < 50) {
+      return res.status(400).json({ success: false, message: 'Minimum deposit is 50 KSH' });
+    }
+
+    let formattedPhone = phone.toString().replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '254' + formattedPhone.substring(1);
+    } else if (formattedPhone.startsWith('+254')) {
+      formattedPhone = formattedPhone.substring(1);
+    } else if (!formattedPhone.startsWith('254')) {
+      formattedPhone = '254' + formattedPhone;
+    }
+
+    if (formattedPhone.length !== 12 || !formattedPhone.startsWith('254')) {
+      return res.status(400).json({ success: false, message: 'Invalid Kenyan phone number. Use format: 0713046497' });
+    }
+
+    const amountInCents = Math.round(amount * 100);
+    const paystackPhone = '+' + formattedPhone;
+
+    console.log('Sending to Paystack:', { phone: paystackPhone, amount: amountInCents, email: `${formattedPhone}@mpesa.ke` });
+
+    const response = await paystackFetch('/charge', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: `${formattedPhone}@mpesa.ke`,
+        amount: amountInCents,
+        currency: 'KES',
+        mobile_money: {
+          phone: paystackPhone,
+          provider: 'mpesa',
+        },
+        metadata: {
+          ...metadata,
+          payment_type: 'mpesa_stk',
+          phone_number: formattedPhone,
+          country: 'KE',
+        },
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Paystack response:', JSON.stringify(data));
+
+    if (!response.ok || !data.status) {
+      const errorMessage = data.message || 'Failed to initiate M-Pesa payment';
+      return res.status(response.status || 400).json({ success: false, message: errorMessage });
+    }
+
+    return res.json({
+      success: true,
+      data: data.data,
+      message: 'M-Pesa STK Push initiated. Check your phone to enter PIN.',
+      reference: data.data.reference,
+    });
+  } catch (error) {
+    console.error('M-Pesa charge error:', error);
+    return res.status(500).json({ success: false, message: 'Server error initiating payment' });
+  }
+});
+
+app.get('/api/mpesa/verify/:reference', async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference is required' });
+    }
+
+    const response = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: data.message || 'Verification failed',
+      });
+    }
+
+    return res.json({
+      success: data.status === true,
+      data: data.data,
+      message: data.message,
+    });
+  } catch (error) {
+    console.error('Verification error:', error);
+    return res.status(500).json({ success: false, message: 'Server error verifying payment' });
+  }
+});
+
+app.post('/api/card/initialize', async (req, res) => {
+  try {
+    const { email, amount, metadata, callbackUrl } = req.body;
+
+    if (!email || !amount) {
+      return res.status(400).json({ success: false, message: 'Email and amount are required' });
+    }
+
+    if (amount < 50) {
+      return res.status(400).json({ success: false, message: 'Minimum deposit is 50 KSH' });
+    }
+
+    const amountInCents = Math.round(amount * 100);
+
+    console.log('Initializing card payment:', { email, amount: amountInCents, callbackUrl });
+
+    const response = await paystackFetch('/transaction/initialize', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        amount: amountInCents,
+        currency: 'KES',
+        callback_url: callbackUrl || undefined,
+        channels: ['card'],
+        metadata: {
+          ...metadata,
+          payment_type: 'card',
+          country: 'KE',
+        },
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Paystack card init response:', JSON.stringify(data));
+
+    if (!response.ok || !data.status) {
+      const errorMessage = data.message || 'Failed to initialize card payment';
+      return res.status(response.status || 400).json({ success: false, message: errorMessage });
+    }
+
+    return res.json({
+      success: true,
+      data: data.data,
+      message: 'Card payment initialized. Redirecting to checkout...',
+      authorizationUrl: data.data.authorization_url,
+      reference: data.data.reference,
+      accessCode: data.data.access_code,
+    });
+  } catch (error) {
+    console.error('Card initialize error:', error);
+    return res.status(500).json({ success: false, message: 'Server error initializing card payment' });
+  }
+});
+
+app.get('/api/card/verify/:reference', async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference is required' });
+    }
+
+    const response = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: data.message || 'Verification failed',
+      });
+    }
+
+    return res.json({
+      success: data.status === true && data.data?.status === 'success',
+      data: data.data,
+      message: data.message,
+    });
+  } catch (error) {
+    console.error('Card verification error:', error);
+    return res.status(500).json({ success: false, message: 'Server error verifying card payment' });
+  }
+});
+
+app.post('/api/mpesa/submit-otp', async (req, res) => {
+  try {
+    const { otp, reference } = req.body;
+
+    if (!otp || !reference) {
+      return res.status(400).json({ success: false, message: 'OTP and reference are required' });
+    }
+
+    const response = await paystackFetch('/charge/submit_otp', {
+      method: 'POST',
+      body: JSON.stringify({ otp, reference }),
+    });
+
+    const data = await response.json();
+
+    return res.json({
+      success: data.status === true,
+      data: data.data,
+      message: data.message,
+    });
+  } catch (error) {
+    console.error('Submit OTP error:', error);
+    return res.status(500).json({ success: false, message: 'Server error submitting OTP' });
+  }
+});
+
+app.get('/api/transactions', async (req, res) => {
+  try {
+    const { perPage = 50, page = 1, status } = req.query;
+
+    let path = `/transaction?perPage=${perPage}&page=${page}&currency=KES`;
+    if (status) {
+      path += `&status=${status}`;
+    }
+
+    const response = await paystackFetch(path);
+    const data = await response.json();
+
+    if (!response.ok || !data.status) {
+      return res.status(response.status || 400).json({
+        success: false,
+        message: data.message || 'Failed to fetch transactions',
+      });
+    }
+
+    const transactions = (data.data || []).map((txn) => ({
+      id: txn.id,
+      reference: txn.reference,
+      amount: txn.amount / 100,
+      currency: txn.currency,
+      status: txn.status,
+      channel: txn.channel,
+      paidAt: txn.paid_at || txn.transaction_date,
+      createdAt: txn.created_at,
+      phone: txn.metadata?.phone_number || txn.authorization?.mobile_money_number || '',
+      type: txn.metadata?.type || 'wallet_topup',
+      description: txn.channel === 'mobile_money'
+        ? 'M-Pesa deposit'
+        : txn.channel === 'card'
+        ? 'Card payment'
+        : txn.channel || 'Payment',
+      method: txn.channel === 'mobile_money' ? 'M-Pesa' : txn.channel === 'card' ? 'Card' : txn.channel || 'Unknown',
+      cardType: txn.authorization?.card_type || '',
+      last4: txn.authorization?.last4 || '',
+      email: txn.customer?.email || '',
+    }));
+
+    const meta = data.meta || {};
+
+    return res.json({
+      success: true,
+      transactions,
+      meta: {
+        total: meta.total || transactions.length,
+        page: meta.page || parseInt(page),
+        pageCount: meta.pageCount || 1,
+        perPage: meta.perPage || parseInt(perPage),
+      },
+    });
+  } catch (error) {
+    console.error('Transactions fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching transactions' });
+  }
+});
+
+app.get('/api/transactions/totals', async (req, res) => {
+  try {
+    const response = await paystackFetch('/transaction?perPage=100&currency=KES&status=success');
+    const data = await response.json();
+
+    if (!response.ok || !data.status) {
+      return res.json({
+        success: true,
+        totalDeposits: 0,
+        totalCount: 0,
+        balance: 0,
+      });
+    }
+
+    const transactions = data.data || [];
+    const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
+
+    return res.json({
+      success: true,
+      totalDeposits,
+      totalCount: transactions.length,
+      balance: totalDeposits,
+    });
+  } catch (error) {
+    console.error('Totals fetch error:', error);
+    return res.json({
+      success: true,
+      totalDeposits: 0,
+      totalCount: 0,
+      balance: 0,
+    });
+  }
+});
+
+const PORT = 3001;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Paystack API server running on port ${PORT}`);
+});
