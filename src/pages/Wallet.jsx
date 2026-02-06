@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { walletAPI } from '../services/api';
+import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Wallet = () => {
@@ -47,34 +48,90 @@ const Wallet = () => {
 
   const handleDeposit = async (e) => {
     e.preventDefault();
+    const amount = parseFloat(depositForm.amount);
+
     if (!depositForm.amount || !depositForm.phone) {
       setStkStatus({ show: true, status: 'error', message: 'Please fill all fields' });
       return;
     }
 
+    if (amount < 50) {
+      setStkStatus({ show: true, status: 'error', message: 'Minimum deposit is KES 50' });
+      return;
+    }
+
+    if (!validatePhoneNumber(depositForm.phone)) {
+      setStkStatus({ show: true, status: 'error', message: 'Invalid Safaricom number. Use format: 0712345678' });
+      return;
+    }
+
     setProcessing(true);
-    setStkStatus({ show: true, status: 'pending', message: 'Sending STK Push to your phone...' });
+    setStkStatus({ show: true, status: 'pending', message: 'Sending M-Pesa STK Push to your phone...' });
 
     try {
-      // Simulate STK push
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setStkStatus({ show: true, status: 'pending', message: 'Waiting for payment confirmation...' });
+      const formattedPhone = formatPhoneNumber(depositForm.phone);
+      const response = await paystackAPI.initializeMpesaPayment(formattedPhone, amount, {
+        type: 'wallet_topup',
+        phone_number: formattedPhone,
+      });
 
-      const result = await walletAPI.deposit(depositForm.amount, depositForm.method, depositForm.phone);
-      
-      if (result.success) {
-        setStkStatus({ show: true, status: 'success', message: `Successfully deposited $${depositForm.amount}!` });
-        await updateUser({ wallet: result.newBalance });
-        fetchTransactions();
-        setTimeout(() => {
-          setShowDepositModal(false);
-          setStkStatus({ show: false, status: '', message: '' });
-          setDepositForm({ amount: '', phone: '', method: 'M-Pesa' });
-        }, 2000);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to initiate M-Pesa payment');
       }
+
+      setStkStatus({ show: true, status: 'pending', message: 'STK Push sent! Enter your M-Pesa PIN on your phone...' });
+
+      const reference = response.reference || response.data?.reference;
+      let attempts = 0;
+      const maxAttempts = 60;
+
+      const poll = async () => {
+        if (attempts >= maxAttempts) {
+          setStkStatus({ show: true, status: 'error', message: 'Payment timed out. Check your M-Pesa messages.' });
+          setProcessing(false);
+          return;
+        }
+        attempts++;
+
+        try {
+          const result = await paystackAPI.verifyPayment(reference);
+
+          if (result.success && result.data?.status === 'success') {
+            const paidAmount = result.data.amount / 100;
+            setStkStatus({ show: true, status: 'success', message: `Successfully deposited KES ${paidAmount.toLocaleString()}!` });
+
+            try {
+              await walletAPI.recordMpesaPayment(paidAmount, depositForm.phone, reference);
+              const balanceResult = await walletAPI.getBalance();
+              if (balanceResult.success) {
+                await updateUser({ wallet: balanceResult.balance });
+              }
+            } catch (walletErr) {
+              console.error('Wallet update error:', walletErr);
+            }
+
+            fetchTransactions();
+            setProcessing(false);
+            setTimeout(() => {
+              setShowDepositModal(false);
+              setStkStatus({ show: false, status: '', message: '' });
+              setDepositForm({ amount: '', phone: '', method: 'M-Pesa' });
+            }, 2500);
+          } else if (result.data?.status === 'failed') {
+            setStkStatus({ show: true, status: 'error', message: 'Payment was declined or cancelled.' });
+            setProcessing(false);
+          } else {
+            setStkStatus({ show: true, status: 'pending', message: `Waiting for M-Pesa confirmation... (${attempts}s)` });
+            setTimeout(poll, 1000);
+          }
+        } catch (err) {
+          setTimeout(poll, 2000);
+        }
+      };
+
+      setTimeout(poll, 3000);
     } catch (err) {
-      setStkStatus({ show: true, status: 'error', message: 'Payment failed. Please try again.' });
-    } finally {
+      setStkStatus({ show: true, status: 'error', message: err.message || 'Payment failed. Please try again.' });
       setProcessing(false);
     }
   };
@@ -191,15 +248,15 @@ const Wallet = () => {
             {/* Amount */}
             <div>
               <label className="block text-sm text-gray-400 mb-2 font-mono">
-                Amount (USD)
+                Amount (KES) - Min 50
               </label>
               <input
                 type="number"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-                placeholder="Enter amount"
-                min="1"
+                placeholder="Enter amount (min 50)"
+                min="50"
                 disabled={processing}
               />
               {type === 'withdraw' && (
@@ -364,7 +421,7 @@ const Wallet = () => {
           <DollarSign className="w-5 h-5 mr-2 text-primary" /> Quick Deposit
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[10, 25, 50, 100].map((amount) => (
+          {[50, 100, 500, 1000].map((amount) => (
             <motion.button
               key={amount}
               className="px-4 py-3 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg font-mono text-lg transition-all"

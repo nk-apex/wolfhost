@@ -4,31 +4,55 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-06: Implemented real M-Pesa payment integration via Paystack
+  - Created Express backend (server/index.js) on port 3001 for secure Paystack API calls
+  - Implemented M-Pesa STK push endpoints (/api/mpesa/charge, /api/mpesa/verify)
+  - Enforced 50 KSH minimum deposit in both frontend and backend
+  - Added Safaricom phone number validation (format: 0712345678 → 2547XXXXXXXX)
+  - Frontend polls backend for payment confirmation with 60-second timeout
+  - Updated PaymentModal and Wallet page with real M-Pesa flow
+  - Paystack secret key stored as PAYSTACK_SECRET_KEY env var (backend only)
 - 2026-02-06: Migrated from Lovable to Replit environment
   - Updated vite.config.ts to use port 5000 and allow all hosts
   - Removed lovable-tagger dependency from vite config
-  - Configured deployment as static site
 
 ## Project Architecture
-- **Frontend**: React 18 with Vite 5, TypeScript + JSX
+- **Frontend**: React 18 with Vite 5, TypeScript + JSX (port 5000)
+- **Backend**: Express.js API server (port 3001) for Paystack M-Pesa integration
 - **Styling**: Tailwind CSS with custom neon green theme, shadcn/ui components
 - **Routing**: react-router-dom v6
 - **State**: @tanstack/react-query, React Context (AuthContext)
 - **Fonts**: Orbitron (headings), JetBrains Mono (body)
+- **Payments**: Paystack M-Pesa STK Push (KES currency, min 50 KSH)
 
 ### Key Directories
 - `src/pages/` - Page components (Landing, Login, Register, Overview, Servers, Billing, Wallet, Referrals, Settings)
-- `src/components/` - Reusable components (Layout, Sidebar, Header, GlassCard, ServerCard, etc.)
+- `src/components/` - Reusable components (Layout, Sidebar, Header, GlassCard, ServerCard, PaymentModal, etc.)
 - `src/components/ui/` - shadcn/ui base components
 - `src/context/` - AuthContext for authentication state
-- `src/services/` - API and Paystack payment services
+- `src/services/` - API (api.js) and Paystack payment services (paystack.js)
+- `server/` - Express backend for secure Paystack API calls
 - `public/` - Static assets
 
+### Payment Flow
+1. User enters amount (min 50 KSH) and Safaricom phone number
+2. Frontend calls backend /api/mpesa/charge endpoint
+3. Backend initiates Paystack mobile_money charge with STK push
+4. User receives STK push on phone, enters M-Pesa PIN
+5. Frontend polls /api/mpesa/verify every 1-2 seconds (up to 60s)
+6. On success, wallet balance is updated automatically
+
+### Environment Variables
+- `PAYSTACK_SECRET_KEY` - Paystack secret key (backend only, never exposed to browser)
+
 ### Running
-- Dev: `npm run dev` (Vite dev server on port 5000)
+- Dev: `npm run dev` (runs both Vite on port 5000 and Express on port 3001 via concurrently)
 - Build: `npm run build` (outputs to `dist/`)
-- Deploy: Static deployment serving `dist/`
+- Deploy: Autoscale deployment with Express backend and Vite preview
 
 ## User Preferences
 - Neon green cyberpunk aesthetic
 - Multiple theme support (default, dark-tech, glassmorphic, light-mode, midnight, cyberpunk)
+- KES (Kenyan Shilling) as primary currency
+- M-Pesa as primary payment method
+- Minimum deposit: 50 KSH

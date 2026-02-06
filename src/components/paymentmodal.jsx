@@ -1,151 +1,134 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Smartphone, CreditCard, Wallet, Phone, AlertCircle, CheckCircle } from 'lucide-react';
-import { paystackAPI } from '../services/paystack';
+import { X, Smartphone, Wallet, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
+import { walletAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
 const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
-  const [paymentMethod, setPaymentMethod] = useState('mpesa'); // Default to MPESA
+  const { updateUser } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [customAmount, setCustomAmount] = useState(invoice?.amount || 100);
-  const [step, setStep] = useState('select');
+  const [step, setStep] = useState('form');
   const [error, setError] = useState('');
   const [mpesaStatus, setMpesaStatus] = useState('');
+  const [paymentRef, setPaymentRef] = useState('');
+
+  const MIN_AMOUNT = 50;
 
   const handleMpesaPayment = async () => {
-    // Validate Kenyan phone number
-    if (!phoneNumber || phoneNumber.length < 10) {
-      setError('Please enter a valid Kenyan phone number (e.g., 0712345678)');
-      return;
-    }
-
-    // Format phone number
-    let formattedPhone = phoneNumber.trim();
-    
-    // Remove spaces and dashes
-    formattedPhone = formattedPhone.replace(/\s+/g, '').replace(/-/g, '');
-    
-    // Add 254 prefix if needed
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '254' + formattedPhone.substring(1);
-    } else if (formattedPhone.startsWith('+254')) {
-      formattedPhone = formattedPhone.substring(1);
-    } else if (!formattedPhone.startsWith('254')) {
-      formattedPhone = '254' + formattedPhone;
-    }
-
-    if (formattedPhone.length !== 12) {
-      setError('Please enter a valid Kenyan phone number (10 digits)');
-      return;
-    }
-
-    if (customAmount < 100) {
-      setError('Minimum amount is KES 100');
-      return;
-    }
-
     setError('');
+
+    if (!phoneNumber || phoneNumber.trim().length < 10) {
+      setError('Please enter a valid Safaricom phone number (e.g., 0712345678)');
+      return;
+    }
+
+    if (!validatePhoneNumber(phoneNumber)) {
+      setError('Invalid Safaricom number. Use format: 0712345678');
+      return;
+    }
+
+    const amount = invoice ? invoice.amount : customAmount;
+
+    if (amount < MIN_AMOUNT) {
+      setError(`Minimum deposit is KES ${MIN_AMOUNT}`);
+      return;
+    }
+
     setLoading(true);
-    setMpesaStatus('Initiating MPESA STK Push...');
+    setMpesaStatus('Sending STK Push to your phone...');
+    setStep('pending');
 
     try {
-      const amount = invoice ? invoice.amount : customAmount;
-      
-      console.log('Initiating MPESA payment:', {
-        phone: formattedPhone,
-        amount: amount,
-        formattedPhone: formattedPhone
-      });
-
-      // For now, we'll use Paystack's mobile money
-      // In a real implementation, you'd use a dedicated MPESA API
+      const formattedPhone = formatPhoneNumber(phoneNumber);
       const metadata = {
         invoice_id: invoice?.id || 'wallet_topup',
         phone_number: formattedPhone,
-        payment_method: 'mpesa',
         type: invoice ? 'invoice_payment' : 'wallet_topup',
-        timestamp: new Date().toISOString(),
       };
 
-      const response = await paystackAPI.initializeMpesaPayment(
-        formattedPhone,
-        amount,
-        metadata
-      );
+      const response = await paystackAPI.initializeMpesaPayment(formattedPhone, amount, metadata);
 
-      if (response.success) {
-        setMpesaStatus('STK Push sent to your phone. Please enter your MPESA PIN to complete payment.');
-        setStep('mpesa_pending');
-        
-        // Start polling for payment confirmation
-        pollForPayment(response.data.reference);
-      } else {
-        throw new Error(response.message || 'Failed to initiate MPESA payment');
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to initiate M-Pesa payment');
       }
-    } catch (error) {
-      console.error('MPESA payment error:', error);
-      setError(error.message || 'Failed to initiate MPESA payment. Please try again.');
+
+      setPaymentRef(response.reference || response.data?.reference);
+      setMpesaStatus('STK Push sent! Enter your M-Pesa PIN on your phone.');
+      pollForPayment(response.reference || response.data?.reference, amount);
+    } catch (err) {
+      console.error('M-Pesa payment error:', err);
+      setError(err.message || 'Failed to initiate payment. Please try again.');
       setLoading(false);
+      setStep('form');
     }
   };
 
-  const pollForPayment = async (reference) => {
+  const pollForPayment = async (reference, amount) => {
     let attempts = 0;
-    const maxAttempts = 30; // Poll for 30 seconds
-    
+    const maxAttempts = 60;
+
     const poll = async () => {
       if (attempts >= maxAttempts) {
-        setError('Payment timeout. Please check your phone and try again.');
+        setError('Payment timed out. If you entered your PIN, the payment may still process. Check your M-Pesa messages.');
         setLoading(false);
-        setStep('select');
+        setStep('form');
         return;
       }
-      
+
       attempts++;
-      
+
       try {
         const result = await paystackAPI.verifyPayment(reference);
-        
-        if (result.success && result.data.status === 'success') {
-          // Payment successful
-          setMpesaStatus('✅ Payment confirmed!');
+
+        if (result.success && result.data?.status === 'success') {
           setStep('success');
-          onPaymentSuccess(result.data);
           setLoading(false);
-        } else if (result.data.status === 'pending') {
-          // Still pending, continue polling
-          setMpesaStatus('Waiting for payment confirmation... (' + attempts + '/30)');
-          setTimeout(poll, 1000);
+
+          const paidAmount = result.data.amount / 100;
+
+          try {
+            await walletAPI.recordMpesaPayment(paidAmount, phoneNumber, reference);
+          } catch (walletErr) {
+            console.error('Wallet update error:', walletErr);
+          }
+
+          if (onPaymentSuccess) {
+            onPaymentSuccess({ ...result.data, reference, amount: paidAmount });
+          }
+        } else if (result.data?.status === 'failed') {
+          setError('Payment was declined or cancelled. Please try again.');
+          setLoading(false);
+          setStep('form');
         } else {
-          // Payment failed
-          setError('Payment failed or was cancelled');
-          setLoading(false);
-          setStep('select');
+          setMpesaStatus(`Waiting for M-Pesa confirmation... (${attempts}s)`);
+          setTimeout(poll, 1000);
         }
-      } catch (error) {
-        console.error('Polling error:', error);
-        setTimeout(poll, 1000);
+      } catch (err) {
+        console.error('Polling error:', err);
+        setTimeout(poll, 2000);
       }
     };
-    
-    poll();
+
+    setTimeout(poll, 3000);
   };
 
-  const handleCardPayment = async () => {
-    // ... existing card payment logic ...
-  };
-
-  const handlePayment = () => {
-    if (paymentMethod === 'mpesa') {
-      handleMpesaPayment();
-    } else {
-      handleCardPayment();
+  const handleClose = () => {
+    if (!loading) {
+      setStep('form');
+      setError('');
+      setMpesaStatus('');
+      setPaymentRef('');
+      setPhoneNumber('');
+      setCustomAmount(invoice?.amount || 100);
+      onClose();
     }
   };
 
-  const quickAmounts = [100, 500, 1000, 2000, 5000, 10000];
+  const quickAmounts = [50, 100, 500, 1000, 2000, 5000];
 
   if (!isOpen) return null;
 
@@ -156,7 +139,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
@@ -168,29 +151,31 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <Wallet className="w-5 h-5 text-primary" />
-              {invoice ? `Pay Invoice ${invoice.id}` : 'Add Funds to Wallet'}
+              {invoice ? `Pay Invoice ${invoice.id}` : 'Deposit via M-Pesa'}
             </h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
               disabled={loading}
+              data-testid="button-close-modal"
             >
               <X size={20} />
             </button>
           </div>
 
-          {step === 'select' && (
+          {step === 'form' && (
             <>
               {!invoice && (
                 <div className="mb-6">
                   <label className="block text-sm font-mono text-gray-400 mb-3">
-                    Select Amount (KES)
+                    Amount (KES) - Minimum {MIN_AMOUNT}
                   </label>
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     {quickAmounts.map((amt) => (
                       <button
                         key={amt}
                         onClick={() => setCustomAmount(amt)}
+                        data-testid={`button-amount-${amt}`}
                         className={`p-3 rounded-lg border font-mono transition-all ${
                           customAmount === amt
                             ? 'border-primary bg-primary/10 text-primary'
@@ -205,90 +190,54 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                     <span className="absolute left-3 top-3 text-gray-500 font-mono">KES</span>
                     <input
                       type="number"
-                      min="100"
+                      min={MIN_AMOUNT}
                       step="1"
                       value={customAmount}
                       onChange={(e) => {
                         const value = parseFloat(e.target.value);
-                        if (!isNaN(value) && value >= 100) {
+                        if (!isNaN(value)) {
                           setCustomAmount(value);
                         }
                       }}
                       className="w-full pl-12 p-3 bg-black/50 border border-gray-700 rounded-lg font-mono focus:border-primary focus:outline-none"
                       placeholder="Enter amount"
+                      data-testid="input-amount"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Minimum amount: KES 100
-                  </p>
+                  {customAmount < MIN_AMOUNT && customAmount > 0 && (
+                    <p className="text-xs text-red-400 mt-2 font-mono">
+                      Minimum deposit is KES {MIN_AMOUNT}
+                    </p>
+                  )}
                 </div>
               )}
 
               <div className="mb-6">
-                <label className="block text-sm font-mono text-gray-400 mb-3">
-                  Payment Method
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setPaymentMethod('mpesa')}
-                    className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${
-                      paymentMethod === 'mpesa'
-                        ? 'border-green-500 bg-green-500/10 text-green-400'
-                        : 'border-gray-700 hover:border-green-500/50 hover:bg-green-500/5'
-                    }`}
-                  >
-                    <Smartphone size={24} />
-                    <span className="text-sm font-mono">MPESA</span>
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('card')}
-                    className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${
-                      paymentMethod === 'card'
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                        : 'border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/5'
-                    }`}
-                  >
-                    <CreditCard size={24} />
-                    <span className="text-sm font-mono">Card</span>
-                  </button>
+                <div className="flex items-center gap-2 mb-3 p-3 rounded-lg border border-green-500/30 bg-green-500/10">
+                  <Smartphone size={20} className="text-green-400" />
+                  <span className="text-sm font-mono text-green-400">M-Pesa STK Push Payment</span>
                 </div>
-              </div>
 
-              {paymentMethod === 'mpesa' ? (
-                <div className="mb-6">
-                  <label className="block text-sm font-mono text-gray-400 mb-2">
-                    MPESA Phone Number
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                      <Phone size={20} className="text-green-400" />
-                    </div>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="flex-1 p-3 bg-black/50 border border-gray-700 rounded-lg font-mono focus:border-green-500 focus:outline-none"
-                      placeholder="0712345678"
-                    />
+                <label className="block text-sm font-mono text-gray-400 mb-2">
+                  Safaricom Phone Number
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <Phone size={20} className="text-green-400" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Enter your Safaricom number. You'll receive an STK push to enter your PIN.
-                  </p>
-                </div>
-              ) : (
-                <div className="mb-6">
-                  <label className="block text-sm font-mono text-gray-400 mb-2">
-                    Email for receipt
-                  </label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full p-3 bg-black/50 border border-gray-700 rounded-lg font-mono focus:border-primary focus:outline-none"
-                    placeholder="your@email.com"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="flex-1 p-3 bg-black/50 border border-gray-700 rounded-lg font-mono focus:border-green-500 focus:outline-none"
+                    placeholder="0712345678"
+                    data-testid="input-phone"
                   />
                 </div>
-              )}
+                <p className="text-xs text-gray-500 mt-2 font-mono">
+                  Enter your Safaricom number (format: 0712345678). You'll receive an STK push.
+                </p>
+              </div>
 
               {error && (
                 <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -301,22 +250,18 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
 
               <div className="flex gap-3">
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   disabled={loading}
                   className="flex-1 p-3 border border-gray-700 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-testid="button-cancel"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handlePayment}
-                  disabled={loading || 
-                    (paymentMethod === 'mpesa' ? !phoneNumber : !email) || 
-                    customAmount < 100}
-                  className={`flex-1 p-3 rounded-lg transition-colors flex items-center justify-center gap-2 ${
-                    paymentMethod === 'mpesa' 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-primary hover:bg-primary/80 text-white'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  onClick={handleMpesaPayment}
+                  disabled={loading || !phoneNumber || (customAmount < MIN_AMOUNT && !invoice)}
+                  className="flex-1 p-3 rounded-lg transition-colors flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  data-testid="button-pay"
                 >
                   {loading ? (
                     <>
@@ -329,49 +274,54 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                 </button>
               </div>
 
-              {paymentMethod === 'mpesa' && (
-                <div className="mt-4 p-3 bg-green-500/5 border border-green-500/10 rounded-lg">
-                  <p className="text-xs text-green-400 text-center">
-                    💡 You'll receive an STK push on your phone. Enter your MPESA PIN to complete payment.
-                  </p>
-                </div>
-              )}
+              <div className="mt-4 p-3 bg-green-500/5 border border-green-500/10 rounded-lg">
+                <p className="text-xs text-green-400 text-center font-mono">
+                  You'll receive an STK push on your phone. Enter your M-Pesa PIN to complete payment.
+                </p>
+              </div>
             </>
           )}
 
-          {step === 'mpesa_pending' && (
+          {step === 'pending' && (
             <div className="py-8 text-center">
               <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Smartphone size={32} className="text-green-400" />
               </div>
-              <h3 className="text-xl font-bold mb-2">MPESA Payment Initiated</h3>
+              <h3 className="text-xl font-bold mb-2">M-Pesa Payment Initiated</h3>
               <div className="bg-black/50 rounded-lg p-4 mb-6">
-                <p className="text-gray-300 mb-2">{mpesaStatus}</p>
+                <p className="text-gray-300 mb-2 font-mono text-sm">{mpesaStatus}</p>
                 <p className="text-sm text-gray-400">
                   Amount: <span className="font-bold text-green-400">KES {(invoice?.amount || customAmount).toLocaleString()}</span>
                 </p>
                 <p className="text-sm text-gray-400 mt-1">
                   Phone: <span className="font-mono">{phoneNumber}</span>
                 </p>
+                {paymentRef && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Ref: <span className="font-mono">{paymentRef}</span>
+                  </p>
+                )}
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse delay-150"></div>
-                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse delay-300"></div>
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 font-mono">
                   Waiting for payment confirmation...
                 </p>
                 <button
                   onClick={() => {
-                    setStep('select');
+                    setStep('form');
                     setLoading(false);
+                    setMpesaStatus('');
                   }}
-                  className="text-sm text-gray-400 hover:text-white mt-4"
+                  className="text-sm text-gray-400 hover:text-white mt-4 font-mono"
+                  data-testid="button-cancel-pending"
                 >
-                  Cancel payment
+                  Cancel
                 </button>
               </div>
             </div>
@@ -383,8 +333,8 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                 <CheckCircle size={32} className="text-green-400" />
               </div>
               <h3 className="text-xl font-bold mb-2">Payment Successful!</h3>
-              <p className="text-gray-400 mb-6">
-                Your MPESA payment has been confirmed.
+              <p className="text-gray-400 mb-6 font-mono text-sm">
+                Your M-Pesa payment has been confirmed and wallet updated.
               </p>
               <div className="bg-black/50 rounded-lg p-4 mb-6">
                 <div className="flex justify-between items-center mb-2">
@@ -393,16 +343,23 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                     KES {(invoice?.amount || customAmount).toLocaleString()}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-2">
                   <span className="text-gray-400">Phone:</span>
                   <span className="font-mono text-sm">{phoneNumber}</span>
                 </div>
+                {paymentRef && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Ref:</span>
+                    <span className="font-mono text-xs text-primary">{paymentRef}</span>
+                  </div>
+                )}
               </div>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors w-full"
+                data-testid="button-continue"
               >
-                Continue to Dashboard
+                Continue
               </button>
             </div>
           )}
