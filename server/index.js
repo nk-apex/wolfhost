@@ -45,8 +45,8 @@ app.post('/api/mpesa/charge', async (req, res) => {
       formattedPhone = '254' + formattedPhone;
     }
 
-    if (formattedPhone.length !== 12 || !formattedPhone.startsWith('2547')) {
-      return res.status(400).json({ success: false, message: 'Invalid Safaricom phone number. Use format: 0712345678' });
+    if (formattedPhone.length !== 12 || !formattedPhone.startsWith('254')) {
+      return res.status(400).json({ success: false, message: 'Invalid Kenyan phone number. Use format: 0713046497' });
     }
 
     const amountInCents = Math.round(amount * 100);

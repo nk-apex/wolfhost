@@ -97,5 +97,5 @@ export const formatPhoneNumber = (phone) => {
 
 export const validatePhoneNumber = (phone) => {
   const formatted = formatPhoneNumber(phone);
-  return formatted.length === 12 && formatted.startsWith('2547');
+  return formatted.length === 12 && formatted.startsWith('254');
 };
