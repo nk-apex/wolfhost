@@ -51,6 +51,8 @@ app.post('/api/mpesa/charge', async (req, res) => {
 
     const amountInCents = Math.round(amount * 100);
 
+    console.log('Sending to Paystack:', { phone: formattedPhone, amount: amountInCents, email: `${formattedPhone}@mpesa.ke` });
+
     const response = await paystackFetch('/charge', {
       method: 'POST',
       body: JSON.stringify({
@@ -71,12 +73,10 @@ app.post('/api/mpesa/charge', async (req, res) => {
     });
 
     const data = await response.json();
+    console.log('Paystack response:', JSON.stringify(data));
 
     if (!response.ok || !data.status) {
-      let errorMessage = data.message || 'Failed to initiate M-Pesa payment';
-      if (data.message?.includes('phone')) {
-        errorMessage = 'Invalid phone number. Please use a valid Safaricom number.';
-      }
+      const errorMessage = data.message || 'Failed to initiate M-Pesa payment';
       return res.status(response.status || 400).json({ success: false, message: errorMessage });
     }
 
