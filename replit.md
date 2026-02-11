@@ -4,6 +4,16 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-11: Task Reward System with free trial servers
+  - Tasks page (src/pages/Tasks.jsx) with 4 social media tasks: WhatsApp Channel, WhatsApp Group, Telegram, YouTube
+  - Backend endpoints: GET /api/tasks, POST /api/tasks/complete, POST /api/tasks/claim-server
+  - Task progress stored in server/tasks.json per user
+  - Free server creation on Pterodactyl when all 4 tasks completed (1GB RAM, 5GB Disk, 1 vCPU)
+  - Free servers auto-delete after 3 days via hourly cleanup scheduler
+  - One free server per user + IP-based duplicate prevention (server-side IP detection)
+  - Free server records stored in server/free_servers.json
+  - Progress bar, task cards with open/complete buttons, server claim button
+  - Sidebar "Tasks" link with ClipboardCheck icon
 - 2026-02-11: W.O.L.F AI Assistant (Wise Operational Learning Function)
   - Floating chat widget (src/components/WolfChat.jsx) available on Landing page and all authenticated pages
   - Backend proxy endpoint POST /api/wolf/chat calls Grok AI API with WolfHost system context

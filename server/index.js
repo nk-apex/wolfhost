@@ -12,6 +12,47 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const TASKS_FILE = path.join(__dirname, 'tasks.json');
+const FREE_SERVERS_FILE = path.join(__dirname, 'free_servers.json');
+
+function loadTasks() {
+  try {
+    if (fs.existsSync(TASKS_FILE)) {
+      return JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading tasks:', e);
+  }
+  return {};
+}
+
+function saveTasks(data) {
+  try {
+    fs.writeFileSync(TASKS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving tasks:', e);
+  }
+}
+
+function loadFreeServers() {
+  try {
+    if (fs.existsSync(FREE_SERVERS_FILE)) {
+      return JSON.parse(fs.readFileSync(FREE_SERVERS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading free servers:', e);
+  }
+  return [];
+}
+
+function saveFreeServers(data) {
+  try {
+    fs.writeFileSync(FREE_SERVERS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving free servers:', e);
+  }
+}
+
 const SPENDING_FILE = path.join(__dirname, 'spending.json');
 
 function loadSpending() {
@@ -1399,6 +1440,258 @@ app.delete('/api/servers/:serverId', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error deleting server' });
   }
 });
+
+const TASK_DEFINITIONS = [
+  { id: 'whatsapp_channel', name: 'Follow WhatsApp Channel', link: 'https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y' },
+  { id: 'whatsapp_group', name: 'Join WhatsApp Group', link: 'https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu' },
+  { id: 'telegram_group', name: 'Join Telegram Group', link: 'https://t.me/+qoyEyvEgHC5mODVk' },
+  { id: 'youtube_channel', name: 'Subscribe to YouTube Channel', link: 'https://www.youtube.com/@silentwolf906' },
+];
+
+const FREE_SERVER_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
+
+const FREE_SERVER_LIMITS = {
+  memory: 1024,
+  swap: 0,
+  disk: 5120,
+  io: 500,
+  cpu: 100,
+  databases: 1,
+  allocations: 1,
+  backups: 0,
+};
+
+app.get('/api/tasks', (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+
+    const allTasks = loadTasks();
+    const userTasks = allTasks[userId] || {};
+
+    const tasks = TASK_DEFINITIONS.map(t => ({
+      ...t,
+      completed: !!userTasks[t.id],
+      completedAt: userTasks[t.id] || null,
+    }));
+
+    const completedCount = tasks.filter(t => t.completed).length;
+
+    const freeServers = loadFreeServers();
+    const userFreeServer = freeServers.find(s => s.userId === userId.toString());
+
+    return res.json({
+      success: true,
+      tasks,
+      completedCount,
+      totalTasks: TASK_DEFINITIONS.length,
+      allCompleted: completedCount === TASK_DEFINITIONS.length,
+      freeServerClaimed: !!userFreeServer,
+      freeServer: userFreeServer || null,
+    });
+  } catch (error) {
+    console.error('Tasks fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch tasks' });
+  }
+});
+
+app.post('/api/tasks/complete', (req, res) => {
+  try {
+    const { userId, taskId } = req.body;
+    if (!userId || !taskId) return res.status(400).json({ success: false, message: 'userId and taskId are required' });
+
+    const validTask = TASK_DEFINITIONS.find(t => t.id === taskId);
+    if (!validTask) return res.status(400).json({ success: false, message: 'Invalid task ID' });
+
+    const allTasks = loadTasks();
+    if (!allTasks[userId]) allTasks[userId] = {};
+
+    if (allTasks[userId][taskId]) {
+      return res.json({ success: true, message: 'Task already completed', alreadyCompleted: true });
+    }
+
+    allTasks[userId][taskId] = new Date().toISOString();
+    saveTasks(allTasks);
+
+    const completedCount = Object.keys(allTasks[userId]).length;
+
+    return res.json({
+      success: true,
+      message: 'Task completed',
+      completedCount,
+      totalTasks: TASK_DEFINITIONS.length,
+      allCompleted: completedCount === TASK_DEFINITIONS.length,
+    });
+  } catch (error) {
+    console.error('Task complete error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to complete task' });
+  }
+});
+
+app.post('/api/tasks/claim-server', async (req, res) => {
+  try {
+    const { userId, userEmail } = req.body;
+    if (!userId || !userEmail) {
+      return res.status(400).json({ success: false, message: 'userId and userEmail are required' });
+    }
+
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
+
+    const allTasks = loadTasks();
+    const userTasks = allTasks[userId] || {};
+    const completedCount = TASK_DEFINITIONS.filter(t => userTasks[t.id]).length;
+    if (completedCount < TASK_DEFINITIONS.length) {
+      return res.status(400).json({ success: false, message: 'Complete all tasks first' });
+    }
+
+    const freeServers = loadFreeServers();
+
+    const existingUser = freeServers.find(s => s.userId === userId.toString());
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'You have already claimed your free server' });
+    }
+
+    if (clientIp && clientIp !== 'unknown') {
+      const existingIp = freeServers.find(s => s.ip === clientIp);
+      if (existingIp) {
+        console.log(`Suspicious: IP ${clientIp} already claimed a free server (user ${existingIp.userId}), now user ${userId} trying`);
+        return res.status(400).json({ success: false, message: 'A free server has already been claimed from this network' });
+      }
+    }
+
+    const pteroUser = await verifyPteroUser(userId);
+    if (!pteroUser) {
+      return res.status(403).json({ success: false, message: 'User not found on the panel' });
+    }
+
+    const allocationId = await findFreeAllocation(1);
+    if (!allocationId) {
+      return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
+    }
+
+    const serverName = `${pteroUser.username}-free-trial`;
+    const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
+
+    console.log('Creating free trial server:', { serverName, userId, allocationId, expiresAt });
+
+    const serverPayload = {
+      name: serverName,
+      user: parseInt(userId),
+      egg: 15,
+      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
+      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
+      environment: {
+        GIT_ADDRESS: '',
+        BRANCH: '',
+        USERNAME: '',
+        ACCESS_TOKEN: '',
+        CMD_RUN: 'npm start',
+        AUTO_UPDATE: '0',
+        NODE_PACKAGES: '',
+        UNNODE_PACKAGES: '',
+        CUSTOM_ENVIRONMENT_VARIABLES: '',
+      },
+      limits: {
+        memory: FREE_SERVER_LIMITS.memory,
+        swap: FREE_SERVER_LIMITS.swap,
+        disk: FREE_SERVER_LIMITS.disk,
+        io: FREE_SERVER_LIMITS.io,
+        cpu: FREE_SERVER_LIMITS.cpu,
+      },
+      feature_limits: {
+        databases: FREE_SERVER_LIMITS.databases,
+        allocations: FREE_SERVER_LIMITS.allocations,
+        backups: FREE_SERVER_LIMITS.backups,
+      },
+      allocation: { default: allocationId },
+      description: `WolfHost Free Trial - Expires ${new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toLocaleDateString()}`,
+      start_on_completion: false,
+      external_id: `wolfhost-free-${userId}-${Date.now()}`,
+    };
+
+    const pteroResponse = await pteroFetch('/servers', {
+      method: 'POST',
+      body: JSON.stringify(serverPayload),
+    });
+
+    const pteroData = await pteroResponse.json();
+
+    if (!pteroResponse.ok) {
+      console.error('Free server create error:', JSON.stringify(pteroData));
+      let errorMessage = 'Failed to create free server';
+      if (pteroData.errors && pteroData.errors.length > 0) {
+        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+      }
+      return res.status(500).json({ success: false, message: errorMessage });
+    }
+
+    const serverAttrs = pteroData.attributes;
+
+    const freeServerRecord = {
+      userId: userId.toString(),
+      userEmail: userEmail.toLowerCase(),
+      ip: clientIp,
+      serverId: serverAttrs.id,
+      identifier: serverAttrs.identifier,
+      serverName: serverAttrs.name,
+      createdAt: new Date().toISOString(),
+      expiresAt,
+    };
+
+    freeServers.push(freeServerRecord);
+    saveFreeServers(freeServers);
+
+    console.log(`Free trial server created: ${serverAttrs.id} for user ${userId}, expires ${expiresAt}`);
+
+    return res.json({
+      success: true,
+      message: 'Free trial server created! It will be available for 3 days.',
+      server: {
+        id: serverAttrs.id,
+        identifier: serverAttrs.identifier,
+        name: serverAttrs.name,
+        expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error('Free server claim error:', error);
+    return res.status(500).json({ success: false, message: 'Server error creating free server' });
+  }
+});
+
+async function cleanupExpiredFreeServers() {
+  try {
+    const freeServers = loadFreeServers();
+    const now = new Date();
+    const expired = freeServers.filter(s => new Date(s.expiresAt) <= now);
+
+    if (expired.length === 0) return;
+
+    console.log(`Cleaning up ${expired.length} expired free servers...`);
+
+    for (const server of expired) {
+      try {
+        const deleteRes = await pteroFetch(`/servers/${server.serverId}`, { method: 'DELETE' });
+        if (deleteRes.status === 204 || deleteRes.ok) {
+          console.log(`Deleted expired free server ${server.serverId} (user ${server.userId})`);
+        } else {
+          console.error(`Failed to delete expired server ${server.serverId}: status ${deleteRes.status}`);
+        }
+      } catch (e) {
+        console.error(`Error deleting expired server ${server.serverId}:`, e.message);
+      }
+    }
+
+    const remaining = freeServers.filter(s => new Date(s.expiresAt) > now);
+    saveFreeServers(remaining);
+    console.log(`Cleanup complete. ${remaining.length} free servers remaining.`);
+  } catch (e) {
+    console.error('Free server cleanup error:', e);
+  }
+}
+
+setInterval(cleanupExpiredFreeServers, 60 * 60 * 1000);
+setTimeout(cleanupExpiredFreeServers, 10000);
 
 app.post('/api/wolf/chat', async (req, res) => {
   try {
