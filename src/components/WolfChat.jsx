@@ -73,7 +73,7 @@ const WolfChat = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <>
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -81,7 +81,7 @@ const WolfChat = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-20 right-0 w-[380px] max-h-[520px] flex flex-col rounded-xl border border-primary/20 bg-[#0a0a0a]/95 backdrop-blur-md shadow-2xl overflow-hidden"
+            className="fixed inset-3 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[380px] sm:max-h-[520px] z-50 flex flex-col rounded-xl border border-primary/20 bg-[#0a0a0a]/95 backdrop-blur-md shadow-2xl overflow-hidden"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-black/50">
               <div className="flex items-center gap-3">
@@ -101,7 +101,7 @@ const WolfChat = () => {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[380px] scrollbar-thin scrollbar-thumb-gray-800">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-800">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center ${
@@ -114,7 +114,7 @@ const WolfChat = () => {
                       : <User size={14} className="text-blue-400" />
                     }
                   </div>
-                  <div className={`max-w-[75%] px-3 py-2 rounded-lg text-sm leading-relaxed ${
+                  <div className={`max-w-[80%] sm:max-w-[75%] px-3 py-2 rounded-lg text-sm leading-relaxed ${
                     msg.role === 'assistant'
                       ? 'bg-gray-900 border border-gray-800 text-gray-300'
                       : 'bg-primary/10 border border-primary/20 text-white'
@@ -166,7 +166,7 @@ const WolfChat = () => {
 
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors ${
+        className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-lg transition-colors ${
           isOpen 
             ? 'bg-gray-800 border border-gray-700 text-gray-400' 
             : 'bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20'
@@ -178,9 +178,9 @@ const WolfChat = () => {
         } : {}}
         transition={!isOpen ? { duration: 2, repeat: Infinity } : {}}
       >
-        {isOpen ? <X size={22} /> : <MessageSquare size={22} />}
+        {isOpen ? <X size={20} /> : <MessageSquare size={20} />}
       </motion.button>
-    </div>
+    </>
   );
 };
 
