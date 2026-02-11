@@ -102,6 +102,7 @@ export const authAPI = {
         isPhoneVerified: false,
         twoFactorEnabled: false,
         panelId: data.user.panelId,
+        isAdmin: data.user.isAdmin || false,
         lastLogin: new Date().toISOString(),
       };
 
@@ -172,6 +173,7 @@ export const authAPI = {
         isPhoneVerified: false,
         twoFactorEnabled: false,
         panelId: data.user.panelId,
+        isAdmin: data.user.isAdmin || false,
       };
 
       if (typeof window !== 'undefined') {

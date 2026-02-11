@@ -505,6 +505,7 @@ app.post('/api/auth/login', async (req, res) => {
         firstName: panelUser.first_name,
         lastName: panelUser.last_name,
         panelId: panelUser.id,
+        isAdmin: panelUser.root_admin || false,
       },
     });
   } catch (error) {
@@ -583,11 +584,254 @@ app.post('/api/auth/register', async (req, res) => {
         firstName: panelUser.first_name,
         lastName: panelUser.last_name,
         panelId: panelUser.id,
+        isAdmin: panelUser.root_admin || false,
       },
     });
   } catch (error) {
     console.error('Registration error:', error);
     return res.status(500).json({ success: false, message: 'Server error creating account' });
+  }
+});
+
+async function verifyAdmin(userId) {
+  try {
+    const response = await pteroFetch(`/users/${userId}`);
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.attributes?.root_admin === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+app.get('/api/admin/overview', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const usersRes = await pteroFetch('/users?per_page=1');
+    const usersData = await usersRes.json();
+    const serversRes = await pteroFetch('/servers?per_page=1');
+    const serversData = await serversRes.json();
+    const nodesRes = await pteroFetch('/nodes?per_page=100');
+    const nodesData = await nodesRes.json();
+
+    return res.json({
+      success: true,
+      stats: {
+        totalUsers: usersData.meta?.pagination?.total || 0,
+        totalServers: serversData.meta?.pagination?.total || 0,
+        totalNodes: nodesData.meta?.pagination?.total || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Admin overview error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch overview' });
+  }
+});
+
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const response = await pteroFetch('/users?per_page=100&include=servers');
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch users' });
+    }
+
+    const users = (data.data || []).map(u => ({
+      id: u.attributes.id,
+      email: u.attributes.email,
+      username: u.attributes.username,
+      firstName: u.attributes.first_name,
+      lastName: u.attributes.last_name,
+      isAdmin: u.attributes.root_admin,
+      createdAt: u.attributes.created_at,
+      serverCount: u.attributes.relationships?.servers?.data?.length || 0,
+    }));
+
+    return res.json({ success: true, users, total: data.meta?.pagination?.total || users.length });
+  } catch (error) {
+    console.error('Admin users error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch users' });
+  }
+});
+
+app.patch('/api/admin/users/:id/admin', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const targetId = req.params.id;
+    const { isAdmin } = req.body;
+
+    const userRes = await pteroFetch(`/users/${targetId}`);
+    const userData = await userRes.json();
+    if (!userRes.ok) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const attrs = userData.attributes;
+    const updateRes = await pteroFetch(`/users/${targetId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        email: attrs.email,
+        username: attrs.username,
+        first_name: attrs.first_name,
+        last_name: attrs.last_name,
+        root_admin: isAdmin,
+      }),
+    });
+
+    if (!updateRes.ok) {
+      const errData = await updateRes.json();
+      return res.status(500).json({ success: false, message: errData.errors?.[0]?.detail || 'Failed to update user' });
+    }
+
+    return res.json({ success: true, message: `User ${isAdmin ? 'promoted to' : 'removed from'} admin` });
+  } catch (error) {
+    console.error('Admin toggle error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update user' });
+  }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const targetId = req.params.id;
+
+    if (targetId === userId) {
+      return res.status(400).json({ success: false, message: 'Cannot delete yourself' });
+    }
+
+    const deleteRes = await pteroFetch(`/users/${targetId}`, { method: 'DELETE' });
+
+    if (!deleteRes.ok && deleteRes.status !== 204) {
+      return res.status(500).json({ success: false, message: 'Failed to delete user' });
+    }
+
+    return res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Admin delete user error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete user' });
+  }
+});
+
+app.get('/api/admin/servers', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const response = await pteroFetch('/servers?per_page=100&include=user');
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch servers' });
+    }
+
+    const servers = (data.data || []).map(s => {
+      const attrs = s.attributes;
+      const owner = attrs.relationships?.user?.attributes;
+      let status = 'online';
+      if (attrs.suspended) status = 'suspended';
+      else if (attrs.status === 'installing') status = 'installing';
+      else if (attrs.status === 'install_failed') status = 'error';
+
+      return {
+        id: attrs.id,
+        identifier: attrs.identifier,
+        uuid: attrs.uuid,
+        name: attrs.name,
+        status,
+        node: attrs.node,
+        suspended: attrs.suspended,
+        ownerId: attrs.user,
+        ownerUsername: owner?.username || 'Unknown',
+        ownerEmail: owner?.email || '',
+        limits: attrs.limits,
+        createdAt: attrs.created_at,
+      };
+    });
+
+    return res.json({ success: true, servers, total: data.meta?.pagination?.total || servers.length });
+  } catch (error) {
+    console.error('Admin servers error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch servers' });
+  }
+});
+
+app.patch('/api/admin/servers/:id/suspend', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const serverId = req.params.id;
+    const suspendRes = await pteroFetch(`/servers/${serverId}/suspend`, { method: 'POST' });
+
+    if (!suspendRes.ok && suspendRes.status !== 204) {
+      return res.status(500).json({ success: false, message: 'Failed to suspend server' });
+    }
+
+    return res.json({ success: true, message: 'Server suspended' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to suspend server' });
+  }
+});
+
+app.patch('/api/admin/servers/:id/unsuspend', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const serverId = req.params.id;
+    const unsuspendRes = await pteroFetch(`/servers/${serverId}/unsuspend`, { method: 'POST' });
+
+    if (!unsuspendRes.ok && unsuspendRes.status !== 204) {
+      return res.status(500).json({ success: false, message: 'Failed to unsuspend server' });
+    }
+
+    return res.json({ success: true, message: 'Server unsuspended' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to unsuspend server' });
+  }
+});
+
+app.delete('/api/admin/servers/:id', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const serverId = req.params.id;
+    const deleteRes = await pteroFetch(`/servers/${serverId}`, { method: 'DELETE' });
+
+    if (!deleteRes.ok && deleteRes.status !== 204) {
+      return res.status(500).json({ success: false, message: 'Failed to delete server' });
+    }
+
+    return res.json({ success: true, message: 'Server deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to delete server' });
   }
 });
 

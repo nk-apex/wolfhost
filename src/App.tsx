@@ -14,6 +14,7 @@ import Referrals from "./pages/Referrals";
 import Billing from "./pages/Billing";
 import Wallet from "./pages/Wallet";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/billing" element={<Billing />} />
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/admin" element={<Admin />} />
             </Route>
 
             <Route path="/home" element={<Navigate to="/" replace />} />

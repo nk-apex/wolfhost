@@ -26,7 +26,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
 
-  const isAdminUnlocked = (user?.referrals || 0) >= 10;
+  const isAdminUnlocked = user?.isAdmin === true;
 
   const handleSignOut = () => {
     logout();
@@ -133,7 +133,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             );
           })}
 
-          {/* Admin Panel - Unlocked after 10 referrals */}
+          {/* Admin Panel - Visible to admins only */}
           {isAdminUnlocked && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
