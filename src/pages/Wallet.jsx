@@ -523,21 +523,15 @@ const Wallet = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center relative overflow-hidden"
+        className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center"
       >
-        <div className="absolute inset-0 opacity-30"
-          style={{
-            background: 'radial-gradient(ellipse at center, rgba(0,255,0,0.1) 0%, transparent 70%)',
-          }}
-        />
-        
-        <div className="w-20 h-20 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 relative z-10">
-          <WalletIcon size={40} className="text-primary" />
+        <div className="w-16 h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20">
+          <WalletIcon size={32} className="text-primary" />
         </div>
         
-        <p className="text-sm text-gray-400 mb-2 font-mono relative z-10">Available Balance</p>
+        <p className="text-sm text-gray-400 mb-2 font-mono">Available Balance</p>
         <motion.p 
-          className="text-5xl font-display font-bold text-white mb-8 relative z-10"
+          className="text-4xl font-display font-bold text-white mb-8"
           key={walletBalance}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
@@ -546,27 +540,23 @@ const Wallet = () => {
           KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
         </motion.p>
 
-        <div className="flex flex-col md:flex-row gap-3 justify-center relative z-10">
-          <motion.button
-            className="px-6 py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-all font-mono"
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            className="px-6 py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono"
             onClick={() => setShowDepositModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
             data-testid="button-deposit"
           >
             <ArrowDownToLine size={18} />
             Deposit
-          </motion.button>
-          <motion.button
-            className="px-6 py-3 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg flex items-center justify-center gap-2 transition-all font-mono"
+          </button>
+          <button
+            className="px-6 py-3 bg-black/20 hover:bg-gray-800/50 text-gray-300 border border-gray-700 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono"
             onClick={() => setShowWithdrawModal(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
             data-testid="button-withdraw"
           >
             <ArrowUpFromLine size={18} />
             Withdraw
-          </motion.button>
+          </button>
         </div>
       </motion.div>
 
@@ -581,19 +571,17 @@ const Wallet = () => {
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[50, 100, 500, 1000].map((amount) => (
-            <motion.button
+            <button
               key={amount}
-              className="px-4 py-3 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg font-mono text-lg transition-all"
+              className="px-4 py-3 bg-black/20 hover:bg-primary/10 border border-primary/20 hover:border-primary/30 rounded-lg font-mono text-lg text-gray-300 hover:text-primary transition-colors"
               onClick={() => {
                 setDepositForm({ ...depositForm, amount: amount.toString() });
                 setShowDepositModal(true);
               }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
               data-testid={`button-quick-deposit-${amount}`}
             >
               KES {amount}
-            </motion.button>
+            </button>
           ))}
         </div>
       </motion.div>
@@ -618,7 +606,7 @@ const Wallet = () => {
             {transactions.map((transaction, index) => (
               <motion.div
                 key={transaction.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-primary/10 hover:border-primary/30 transition-colors bg-black/20"
+                className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-black/20"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 + index * 0.05 }}
