@@ -284,7 +284,7 @@
 
 
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -294,7 +294,11 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 const Register = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { register } = useAuth();
+
+  const searchParams = new URLSearchParams(location.search);
+  const referralCode = searchParams.get('ref') || '';
   
   const [formData, setFormData] = useState({
     email: '',
@@ -355,7 +359,8 @@ const Register = () => {
       const result = await register({
         email: formData.email,
         username: formData.username,
-        password: formData.password
+        password: formData.password,
+        referralCode: referralCode || undefined,
       });
       
       if (result.success) {

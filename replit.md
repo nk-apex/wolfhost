@@ -4,6 +4,16 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-11: Complete referral system with real backend tracking
+  - Backend referrals.json storage: tracks referral codes, referrer-referred relationships, and completion status
+  - GET /api/referrals endpoint: returns user's referral code, referral list, completed/pending counts
+  - GET /api/referrals/check-admin-reward: auto-awards admin on Pterodactyl when user reaches 10 completed referrals
+  - Referral flow: share link → friend registers with ?ref=CODE → referral recorded as pending → friend buys server → referral completed → referrer credited
+  - Registration captures ?ref= query parameter and sends referralCode to backend
+  - Server purchase (POST /api/servers/create) auto-completes referrals and checks for 10-referral admin award
+  - Referrals.jsx fully rewritten: real data, progress bar to admin, completed/pending statuses, referral list
+  - referralAPI in api.js now calls real backend instead of returning mock data
+  - Admin Panel automatically awarded via Pterodactyl API (root_admin=true) when referrer reaches 10 completed referrals
 - 2026-02-11: Admin Dashboard for admin users
   - Admin Dashboard page (src/pages/Admin.jsx) with Overview, Users, and Servers tabs
   - Backend admin endpoints: GET /api/admin/overview, GET /api/admin/users, PATCH /api/admin/users/:id/admin, DELETE /api/admin/users/:id, GET /api/admin/servers, PATCH /api/admin/servers/:id/suspend, PATCH /api/admin/servers/:id/unsuspend, DELETE /api/admin/servers/:id

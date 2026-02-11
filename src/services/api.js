@@ -137,14 +137,19 @@ export const authAPI = {
         throw new Error('Password must be at least 6 characters');
       }
 
+      const payload = {
+        email: userData.email,
+        username: userData.username || userData.email.split('@')[0],
+        password: userData.password,
+      };
+      if (userData.referralCode) {
+        payload.referralCode = userData.referralCode;
+      }
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userData.email,
-          username: userData.username || userData.email.split('@')[0],
-          password: userData.password,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -587,149 +592,60 @@ export const activityAPI = {
 // ======================
 
 export const referralAPI = {
-  // Required by Referrals.jsx
   getReferrals: async () => {
     try {
-      await delay(API_DELAY);
-      
-      return {
-        success: true,
-        referrals: [
-          { 
-            id: '1', 
-            email: 'ref1@example.com', 
-            name: 'John Doe',
-            phone: '+254700000001',
-            joined: '2024-03-01', 
-            earnings: 250.00,
-            status: 'active',
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
-            lastActivity: '2024-03-15',
-            tier: 'basic'
-          },
-          { 
-            id: '2', 
-            email: 'ref2@example.com', 
-            name: 'Jane Smith',
-            phone: '+254700000002',
-            joined: '2024-02-15', 
-            earnings: 500.00,
-            status: 'active',
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
-            lastActivity: '2024-03-10',
-            tier: 'pro'
-          },
-          { 
-            id: '3', 
-            email: 'ref3@example.com', 
-            name: 'Mike Johnson',
-            phone: '+254700000003',
-            joined: '2024-01-20', 
-            earnings: 750.00,
-            status: 'inactive',
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike',
-            lastActivity: '2024-02-01',
-            tier: 'basic'
-          }
-        ],
-        summary: {
-          totalEarnings: 1500.00,
-          pendingEarnings: 250.00,
-          totalReferrals: 8,
-          activeReferrals: 5,
-          thisMonthEarnings: 500.00,
-          conversionRate: 12.5
-        }
-      };
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (!user.id) return { success: false, referrals: [], totalReferrals: 0 };
+
+      const response = await fetch(`/api/referrals?userId=${user.id}&email=${encodeURIComponent(user.email || '')}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('Referrals error:', error);
-      return { 
-        success: false, 
-        referrals: [], 
-        summary: {},
-        message: 'Failed to load referrals' 
-      };
+      return { success: false, referrals: [], totalReferrals: 0, message: 'Failed to load referrals' };
     }
   },
 
-  getReferralCode: async () => {
+  getReferralLink: async () => {
     try {
-      await delay(API_DELAY);
-      
-      const referralCode = localStorage.getItem('referral_code') || 'NEON-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-      localStorage.setItem('referral_code', referralCode);
-      
-      return {
-        success: true,
-        code: referralCode,
-        link: `https://neonhost.com/ref/${referralCode}`,
-        stats: {
-          clicks: 42,
-          conversions: 5,
-          earnings: 1500.00,
-          lastClick: '2024-03-12'
-        },
-        shareLinks: {
-          whatsapp: `https://wa.me/?text=Join%20NeonHost%20using%20my%20referral%20code%3A%20${referralCode}`,
-          twitter: `https://twitter.com/intent/tweet?text=Join%20NeonHost%20with%20my%20referral%20code%3A%20${referralCode}`,
-          email: `mailto:?subject=Join%20NeonHost&body=Use%20my%20referral%20code%3A%20${referralCode}`
-        }
-      };
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (!user.id) return { success: false, code: '', link: '' };
+
+      const response = await fetch(`/api/referrals?userId=${user.id}&email=${encodeURIComponent(user.email || '')}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await response.json();
+      if (data.success) {
+        const baseUrl = window.location.origin;
+        return {
+          success: true,
+          code: data.code,
+          link: `${baseUrl}/register?ref=${data.code}`,
+        };
+      }
+      return { success: false, code: '', link: '' };
     } catch (error) {
-      console.error('Referral code error:', error);
-      return { 
-        success: false, 
-        code: '', 
-        link: '',
-        message: 'Failed to load referral code' 
-      };
+      console.error('Referral link error:', error);
+      return { success: false, code: '', link: '' };
     }
   },
 
-  generateNewCode: async () => {
+  checkAdminReward: async () => {
     try {
-      await delay(API_DELAY);
-      
-      const newCode = 'NEON-' + Date.now().toString(36).toUpperCase().substr(-6);
-      localStorage.setItem('referral_code', newCode);
-      
-      return {
-        success: true,
-        code: newCode,
-        message: 'New referral code generated'
-      };
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (!user.id) return { success: false };
+
+      const response = await fetch(`/api/referrals/check-admin-reward?userId=${user.id}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      return await response.json();
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to generate new code' 
-      };
+      console.error('Admin reward check error:', error);
+      return { success: false };
     }
   },
-
-  getReferralStats: async (period = 'month') => {
-    try {
-      await delay(API_DELAY);
-      
-      return {
-        success: true,
-        stats: {
-          clicksOverTime: [10, 15, 8, 12, 20, 18, 22],
-          conversionsOverTime: [1, 2, 1, 3, 2, 1, 4],
-          earningsOverTime: [250, 500, 250, 750, 500, 250, 1000],
-          topReferrers: [
-            { name: 'John Doe', earnings: 750.00, referrals: 3 },
-            { name: 'Jane Smith', earnings: 500.00, referrals: 2 },
-            { name: 'Mike Johnson', earnings: 250.00, referrals: 1 }
-          ]
-        }
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        stats: {} 
-      };
-    }
-  }
 };
 
 // ======================

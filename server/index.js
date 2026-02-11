@@ -44,6 +44,76 @@ function recordSpending(email, amount, description, serverId) {
   saveSpending(records);
 }
 
+const REFERRALS_FILE = path.join(__dirname, 'referrals.json');
+
+function loadReferrals() {
+  try {
+    if (fs.existsSync(REFERRALS_FILE)) {
+      return JSON.parse(fs.readFileSync(REFERRALS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading referrals:', e);
+  }
+  return { codes: {}, referrals: [] };
+}
+
+function saveReferrals(data) {
+  try {
+    fs.writeFileSync(REFERRALS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving referrals:', e);
+  }
+}
+
+function getReferralCode(userId, email) {
+  const data = loadReferrals();
+  const existing = Object.entries(data.codes).find(([code, info]) => info.userId === userId.toString());
+  if (existing) return existing[0];
+  const code = 'WOLF-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+  data.codes[code] = { userId: userId.toString(), email: email.toLowerCase(), createdAt: new Date().toISOString() };
+  saveReferrals(data);
+  return code;
+}
+
+function recordReferral(referrerCode, referredUserId, referredEmail, referredUsername) {
+  const data = loadReferrals();
+  const codeInfo = data.codes[referrerCode];
+  if (!codeInfo) return false;
+  if (codeInfo.userId === referredUserId.toString()) return false;
+  const already = data.referrals.find(r => r.referredUserId === referredUserId.toString());
+  if (already) return false;
+  data.referrals.push({
+    referrerCode,
+    referrerUserId: codeInfo.userId,
+    referrerEmail: codeInfo.email,
+    referredUserId: referredUserId.toString(),
+    referredEmail: referredEmail.toLowerCase(),
+    referredUsername,
+    registeredAt: new Date().toISOString(),
+    completed: false,
+    completedAt: null,
+  });
+  saveReferrals(data);
+  return true;
+}
+
+function completeReferral(referredEmail) {
+  const data = loadReferrals();
+  const ref = data.referrals.find(r => r.referredEmail === referredEmail.toLowerCase() && !r.completed);
+  if (!ref) return null;
+  ref.completed = true;
+  ref.completedAt = new Date().toISOString();
+  saveReferrals(data);
+  return ref;
+}
+
+function getReferrerStats(userId) {
+  const data = loadReferrals();
+  const myReferrals = data.referrals.filter(r => r.referrerUserId === userId.toString());
+  const completedCount = myReferrals.filter(r => r.completed).length;
+  return { total: myReferrals.length, completed: completedCount, referrals: myReferrals };
+}
+
 function getTotalSpending(email) {
   const records = loadSpending();
   return records
@@ -516,7 +586,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, username, password, referralCode } = req.body;
 
     if (!email || !username || !password) {
       return res.status(400).json({ success: false, message: 'Email, username, and password are required' });
@@ -574,6 +644,11 @@ app.post('/api/auth/register', async (req, res) => {
 
     const panelUser = pteroData.attributes;
 
+    if (referralCode) {
+      const recorded = recordReferral(referralCode, panelUser.id, panelUser.email, panelUser.username);
+      console.log(`Referral tracking: code=${referralCode}, newUser=${panelUser.id}, recorded=${recorded}`);
+    }
+
     return res.json({
       success: true,
       message: 'Account created successfully',
@@ -590,6 +665,75 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     return res.status(500).json({ success: false, message: 'Server error creating account' });
+  }
+});
+
+app.get('/api/referrals', async (req, res) => {
+  try {
+    const { userId, email } = req.query;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' });
+    }
+
+    const code = getReferralCode(userId, email || '');
+    const stats = getReferrerStats(userId);
+
+    return res.json({
+      success: true,
+      code,
+      totalReferrals: stats.completed,
+      pendingReferrals: stats.total - stats.completed,
+      referrals: stats.referrals.map(r => ({
+        id: r.referredUserId,
+        username: r.referredUsername,
+        email: r.referredEmail,
+        registeredAt: r.registeredAt,
+        completed: r.completed,
+        completedAt: r.completedAt,
+        status: r.completed ? 'completed' : 'pending',
+      })),
+    });
+  } catch (error) {
+    console.error('Referrals fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch referrals' });
+  }
+});
+
+app.get('/api/referrals/check-admin-reward', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false });
+
+    const stats = getReferrerStats(userId);
+    if (stats.completed >= 10) {
+      const isAlreadyAdmin = await verifyAdmin(userId);
+      if (!isAlreadyAdmin) {
+        const userRes = await pteroFetch(`/users/${userId}`);
+        const userData = await userRes.json();
+        if (userRes.ok) {
+          const attrs = userData.attributes;
+          const updateRes = await pteroFetch(`/users/${userId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              email: attrs.email,
+              username: attrs.username,
+              first_name: attrs.first_name,
+              last_name: attrs.last_name,
+              root_admin: true,
+            }),
+          });
+          if (updateRes.ok) {
+            console.log(`Auto-awarded admin to user ${userId} for reaching 10 referrals`);
+            return res.json({ success: true, awarded: true, message: 'Congratulations! You reached 10 referrals and have been awarded Admin Panel access!' });
+          }
+        }
+      }
+      return res.json({ success: true, awarded: false, alreadyAdmin: isAlreadyAdmin, eligible: true });
+    }
+    return res.json({ success: true, awarded: false, eligible: false, completedReferrals: stats.completed });
+  } catch (error) {
+    console.error('Admin reward check error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to check admin reward' });
   }
 });
 
@@ -1030,6 +1174,37 @@ app.post('/api/servers/create', async (req, res) => {
 
     recordSpending(userEmail, requiredAmount, `Server "${name}" (${plan} plan)`, serverAttrs.id);
     console.log(`Recorded spending: KES ${requiredAmount} for user ${userEmail}, server ${serverAttrs.id}`);
+
+    const completedRef = completeReferral(userEmail);
+    if (completedRef) {
+      console.log(`Referral completed: ${userEmail} purchased a server, crediting referrer ${completedRef.referrerEmail}`);
+      const referrerStats = getReferrerStats(completedRef.referrerUserId);
+      if (referrerStats.completed >= 10) {
+        const isAlreadyAdmin = await verifyAdmin(completedRef.referrerUserId);
+        if (!isAlreadyAdmin) {
+          try {
+            const userRes = await pteroFetch(`/users/${completedRef.referrerUserId}`);
+            const userData = await userRes.json();
+            if (userRes.ok) {
+              const attrs = userData.attributes;
+              await pteroFetch(`/users/${completedRef.referrerUserId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                  email: attrs.email,
+                  username: attrs.username,
+                  first_name: attrs.first_name,
+                  last_name: attrs.last_name,
+                  root_admin: true,
+                }),
+              });
+              console.log(`Auto-awarded admin to referrer ${completedRef.referrerUserId} for reaching 10 referrals`);
+            }
+          } catch (e) {
+            console.error('Error auto-awarding admin:', e);
+          }
+        }
+      }
+    }
 
     return res.json({
       success: true,
