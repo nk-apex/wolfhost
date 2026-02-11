@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Zap, Shield, Cpu, CreditCard, ArrowRight, ChevronRight } from "lucide-react";
-import GlassCard from "../components/GlassCard";
+import { Zap, Shield, Cpu, CreditCard, ArrowRight, ChevronRight, MessageCircle, Users, Phone } from "lucide-react";
 import NeonBackground from "../components/NeonBackground";
 
 export default function Landing() {
@@ -10,16 +9,22 @@ export default function Landing() {
       title: "Hyper-Speed Servers",
       description: "Dedicated NVMe cores with 99.99% uptime guarantee.",
       icon: Cpu,
+      iconColor: "text-blue-400",
+      iconBg: "bg-blue-500/10",
     },
     {
       title: "Ironclad Security",
       description: "DDoS protection and automated daily backups included.",
       icon: Shield,
+      iconColor: "text-purple-400",
+      iconBg: "bg-purple-500/10",
     },
     {
       title: "Instant Payments",
       description: "Seamless deposits via M-Pesa STK Push.",
       icon: CreditCard,
+      iconColor: "text-green-400",
+      iconBg: "bg-green-500/10",
     },
   ];
 
@@ -34,7 +39,7 @@ export default function Landing() {
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <NeonBackground intensity={0.6} />
 
-      <nav className="fixed w-full z-50 bg-background/95 backdrop-blur-md border-b border-border/30">
+      <nav className="fixed w-full z-50 bg-background/95 backdrop-blur-md border-b border-primary/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
@@ -45,13 +50,13 @@ export default function Landing() {
               >
                 <Zap className="h-6 w-6 text-primary/90" />
               </motion.div>
-              <span className="ml-3 text-xl font-display font-bold tracking-widest text-primary/90">
-                WOLF<span className="text-primary/70">HOST</span>
+              <span className="ml-3 text-xl font-display font-bold tracking-widest text-white">
+                WOLF<span className="text-gray-400">HOST</span>
               </span>
             </div>
             <div className="flex space-x-2 sm:space-x-3">
               <Link to="/login">
-                <button className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-primary/80 hover:text-primary hover:bg-primary/5 rounded-lg border border-primary/20 transition-colors duration-200">
+                <button className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-300 hover:text-white hover:bg-primary/5 rounded-lg border border-primary/20 transition-colors duration-200">
                   Log In
                 </button>
               </Link>
@@ -67,29 +72,29 @@ export default function Landing() {
 
       <div className="relative pt-32 pb-20 sm:pt-40 sm:pb-24">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
             className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight mb-6"
           >
-            POWER YOUR <br className="hidden sm:block" />
+            <span className="text-white">POWER YOUR</span> <br className="hidden sm:block" />
             <span className="bg-gradient-to-r from-primary/90 via-primary to-primary/70 bg-clip-text text-transparent">
               DIGITAL EMPIRE
             </span>
           </motion.h1>
-          
-          <motion.p 
+
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
-            className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground font-mono"
+            className="mt-4 max-w-2xl mx-auto text-lg text-gray-400 font-mono"
           >
-            Premium hosting infrastructure for the next generation. 
+            Premium hosting infrastructure for the next generation.
             Deploy servers in seconds. Pay with crypto or mobile money.
           </motion.p>
-          
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.8 }}
@@ -101,13 +106,13 @@ export default function Landing() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                Deploy Now 
+                Deploy Now
                 <ArrowRight className="w-5 h-5" />
               </motion.button>
             </Link>
             <Link to="/login">
-              <motion.button 
-                className="px-6 py-3 text-foreground/80 hover:text-foreground hover:bg-foreground/5 border border-border rounded-lg transition-all duration-200"
+              <motion.button
+                className="px-6 py-3 text-gray-300 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg transition-all duration-200"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -123,10 +128,16 @@ export default function Landing() {
             className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto"
           >
             {stats.map((stat, index) => (
-              <GlassCard key={index} className="text-center p-4" hover={true}>
-                <div className="text-2xl sm:text-3xl font-bold text-primary/90">{stat.value}</div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-1">{stat.label}</div>
-              </GlassCard>
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 + index * 0.1 }}
+                className="p-4 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all text-center"
+              >
+                <div className="text-2xl sm:text-3xl font-bold text-white">{stat.value}</div>
+                <div className="text-xs sm:text-sm text-gray-500 mt-1 font-mono">{stat.label}</div>
+              </motion.div>
             ))}
           </motion.div>
 
@@ -136,9 +147,9 @@ export default function Landing() {
             transition={{ delay: 1, duration: 1 }}
             className="mt-16 max-w-6xl mx-auto"
           >
-            <GlassCard className="relative" hover={false}>
+            <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
               <div className="relative overflow-hidden rounded-lg">
-                <div className="w-full h-48 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg flex items-center justify-center">
+                <div className="w-full h-48 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10 rounded-lg flex items-center justify-center">
                   <div className="text-center">
                     <motion.div
                       className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-primary/5 border border-primary/20 mb-4"
@@ -147,13 +158,13 @@ export default function Landing() {
                     >
                       <Zap className="h-8 w-8 text-primary/90" />
                     </motion.div>
-                    <p className="text-muted-foreground font-mono text-sm">
-                      
+                    <p className="text-gray-500 font-mono text-sm">
+                      WolfHost Control Panel
                     </p>
                   </div>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -161,41 +172,40 @@ export default function Landing() {
       <div className="py-20 bg-background/50 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-display font-bold mb-4">
-              <span className="bg-gradient-to-r from-primary/90 via-primary to-primary/70 bg-clip-text text-transparent">
-                Enterprise-Grade Infrastructure
-              </span>
+            <h2 className="text-3xl sm:text-4xl font-display font-bold mb-4 text-white">
+              Enterprise-Grade Infrastructure
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+            <p className="text-gray-400 max-w-2xl mx-auto text-lg">
               Built with cutting-edge technology for maximum performance and reliability
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
             {features.map((feature, i) => (
-              <GlassCard key={i} className="p-6" hover={true}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ y: -5 }}
-                  className="group"
-                >
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-primary/5 border border-primary/20 mb-6 group-hover:scale-110 transition-transform duration-300">
-                    <feature.icon className="h-7 w-7 text-primary/90" />
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -5 }}
+                className="group"
+              >
+                <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all h-full">
+                  <div className={`inline-flex items-center justify-center w-14 h-14 rounded-lg ${feature.iconBg} border border-primary/10 mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                    <feature.icon className={`h-7 w-7 ${feature.iconColor}`} />
                   </div>
-                  <h3 className="text-xl font-bold mb-3 text-foreground group-hover:text-primary/90 transition-colors duration-300">
+                  <h3 className="text-xl font-bold mb-3 text-white group-hover:text-primary/90 transition-colors duration-300">
                     {feature.title}
                   </h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-gray-400 leading-relaxed">
                     {feature.description}
                   </p>
                   <div className="mt-4 flex items-center text-primary/80 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                    <span className="text-sm">Learn more</span>
+                    <span className="text-sm font-mono">Learn more</span>
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </div>
-                </motion.div>
-              </GlassCard>
+                </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -203,11 +213,11 @@ export default function Landing() {
 
       <div className="py-20 bg-gradient-to-b from-background/50 to-background">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <GlassCard className="p-8" hover={false}>
-            <h3 className="text-2xl sm:text-3xl font-display font-bold mb-6">
+          <div className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
+            <h3 className="text-2xl sm:text-3xl font-display font-bold mb-6 text-white">
               Ready to Deploy Your Infrastructure?
             </h3>
-            <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
+            <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
               Join thousands of developers and businesses who trust WolfHost for their hosting needs.
             </p>
             <Link to="/register">
@@ -220,47 +230,151 @@ export default function Landing() {
                 <ArrowRight className="w-5 h-5" />
               </motion.button>
             </Link>
-          </GlassCard>
+          </div>
         </div>
       </div>
 
-      <footer className="bg-background border-t border-border/30 py-12">
+      <footer className="bg-black/40 border-t border-primary/10 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center mb-6 md:mb-0">
-              <motion.div
-                className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary/5 border border-primary/20"
-                animate={{ boxShadow: ['0 0 10px hsl(120 100% 50% / 0.2)', '0 0 20px hsl(120 100% 50% / 0.3)', '0 0 10px hsl(120 100% 50% / 0.2)'] }}
-                transition={{ duration: 3, repeat: Infinity }}
-              >
-                <Zap className="h-6 w-6 text-primary/90" />
-              </motion.div>
-              <span className="ml-3 text-lg font-display font-bold tracking-widest text-primary/90">
-                WOLF<span className="text-primary/70">HOST</span>
-              </span>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+            <div className="md:col-span-1">
+              <div className="flex items-center mb-4">
+                <motion.div
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary/5 border border-primary/20"
+                  animate={{ boxShadow: ['0 0 10px hsl(120 100% 50% / 0.2)', '0 0 20px hsl(120 100% 50% / 0.3)', '0 0 10px hsl(120 100% 50% / 0.2)'] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                >
+                  <Zap className="h-6 w-6 text-primary/90" />
+                </motion.div>
+                <span className="ml-3 text-lg font-display font-bold tracking-widest text-white">
+                  WOLF<span className="text-gray-400">HOST</span>
+                </span>
+              </div>
+              <p className="text-gray-500 text-sm font-mono leading-relaxed">
+                Premium hosting infrastructure for the next generation. Deploy, scale, and manage with ease.
+              </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-muted-foreground">
-              <Link to="/login" className="hover:text-foreground transition-colors duration-200">
-                Login
-              </Link>
-              <Link to="/register" className="hover:text-foreground transition-colors duration-200">
-                Register
-              </Link>
-              <a href="#" className="hover:text-foreground transition-colors duration-200">
-                Documentation
-              </a>
-              <a href="#" className="hover:text-foreground transition-colors duration-200">
-                Support
-              </a>
-              <a href="#" className="hover:text-foreground transition-colors duration-200">
-                Status
-              </a>
+
+            <div>
+              <h4 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">Quick Links</h4>
+              <ul className="space-y-3">
+                <li>
+                  <Link to="/login" className="text-gray-400 hover:text-white transition-colors text-sm font-mono">
+                    Login
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/register" className="text-gray-400 hover:text-white transition-colors text-sm font-mono">
+                    Register
+                  </Link>
+                </li>
+                <li>
+                  <a href="https://panel.xwolf.space" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors text-sm font-mono">
+                    Control Panel
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">Connect With Us</h4>
+              <ul className="space-y-3">
+                <li>
+                  <a
+                    href="https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-mono"
+                  >
+                    <MessageCircle className="w-4 h-4 text-green-400" />
+                    WhatsApp Channel
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-mono"
+                  >
+                    <Users className="w-4 h-4 text-green-400" />
+                    WhatsApp Group
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://wa.me/254713046497"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-mono"
+                  >
+                    <Phone className="w-4 h-4 text-green-400" />
+                    +254 713 046 497
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-bold mb-4 text-sm uppercase tracking-wider">Support</h4>
+              <ul className="space-y-3">
+                <li>
+                  <a
+                    href="https://wa.me/254713046497"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-white transition-colors text-sm font-mono"
+                  >
+                    Contact Support
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm font-mono">
+                    Documentation
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm font-mono">
+                    Status Page
+                  </a>
+                </li>
+              </ul>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-border/30 text-center">
-            <p className="text-muted-foreground font-mono text-sm">
+
+          <div className="pt-8 border-t border-primary/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-gray-500 font-mono text-sm">
               &copy; {new Date().getFullYear()} WolfHost Infrastructure. All systems operational.
             </p>
+            <div className="flex items-center gap-4">
+              <a
+                href="https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-primary/5 border border-primary/10 text-gray-400 hover:text-green-400 hover:border-green-500/30 transition-all"
+                title="WhatsApp Channel"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </a>
+              <a
+                href="https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-primary/5 border border-primary/10 text-gray-400 hover:text-green-400 hover:border-green-500/30 transition-all"
+                title="WhatsApp Group"
+              >
+                <Users className="w-4 h-4" />
+              </a>
+              <a
+                href="https://wa.me/254713046497"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-primary/5 border border-primary/10 text-gray-400 hover:text-green-400 hover:border-green-500/30 transition-all"
+                title="WhatsApp"
+              >
+                <Phone className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
