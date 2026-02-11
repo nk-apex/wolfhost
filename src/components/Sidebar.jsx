@@ -68,6 +68,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           <X size={20} className="text-gray-500 hover:text-primary/80 transition-colors" />
         </button>
 
+        <div className="flex flex-col h-full overflow-y-auto">
         {/* Logo/Header */}
         <div className="p-6 border-b border-primary/10">
           <div className="flex items-center gap-2">
@@ -155,40 +156,33 @@ const Sidebar = ({ isOpen, onClose }) => {
           )}
         </nav>
 
-        {/* User Info - Updated to match image */}
-        <div className="absolute bottom-24 left-4 right-4">
-          <div className="p-4 rounded-lg border border-primary/10 bg-black/50">
-            <div className="mb-3">
-              <p className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-1">
+        {/* User Info */}
+        <div className="mt-auto px-4 pb-2 pt-4">
+          <div className="p-3 rounded-lg border border-primary/10 bg-black/50">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-mono text-gray-500 uppercase tracking-wider">
                 LOGGED IN AS
               </p>
-              <div className="space-y-1">
-                <p className="text-sm font-mono text-white truncate">
-                  {user?.username || user?.name || 'User'}
-                </p>
-                <p className="text-sm font-mono text-gray-400 truncate">
-                  {user?.email || ''}
-                </p>
-              </div>
+              <p className="text-sm font-mono text-white truncate max-w-[120px]">
+                {user?.username || user?.name || 'User'}
+              </p>
             </div>
-            
-            {/* Sign Out Button */}
             <motion.button
               onClick={handleSignOut}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-primary/10 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 group"
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border border-primary/10 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <LogOut size={16} className="text-gray-500 group-hover:text-primary/80 transition-colors" />
-              <span className="text-sm font-mono text-gray-400 group-hover:text-primary/80 transition-colors">
+              <LogOut size={14} className="text-gray-500 group-hover:text-primary/80 transition-colors" />
+              <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors">
                 SIGN OUT
               </span>
             </motion.button>
           </div>
         </div>
 
-        {/* Bottom Stats - Updated to match image */}
-        <div className="absolute bottom-4 left-4 right-4">
+        {/* Bottom Stats */}
+        <div className="px-4 pb-4 pt-2">
           <div className="p-4 rounded-lg border border-primary/10 bg-black/50">
             <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-2">System Status</div>
             <div className="flex items-center justify-between">
@@ -199,6 +193,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               <span className="text-xs font-mono text-gray-500">All secure</span>
             </div>
           </div>
+        </div>
         </div>
       </motion.aside>
     </>
