@@ -4,6 +4,16 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-11: Fixed wallet balance to deduct server purchase costs
+  - Added spending tracker (server/spending.json) to record server purchases
+  - Balance now = total deposits - total spending (was showing deposits only)
+  - Server purchases appear as debit transactions in Wallet, Billing, and Overview pages
+  - Auto-reconciliation: existing servers created before tracker are retroactively recorded
+  - Transactions show +/- with green/red color coding for credits/debits
+  - verifyUserBalance() also subtracts spending before allowing new purchases
+- 2026-02-11: Added "Manage Server" button + fixed server status
+  - "Manage Server" button links directly to the server on Pterodactyl panel (panel.xwolf.space/server/{identifier})
+  - Fixed status detection: uses Pterodactyl's `attrs.status` field (null=online, "installing"=installing) instead of broken `container.installed` check
 - 2026-02-11: Pterodactyl auto-server creation on purchase
   - Backend POST /api/servers/create auto-provisions server on Pterodactyl panel (nest 5, egg 15, node 1)
   - Three tiers: Limited (50 KSH, 5GB RAM), Unlimited (100 KSH, full RAM), Admin (200 KSH, admin panel)

@@ -11,7 +11,8 @@ import {
   X,
   DollarSign,
   CreditCard,
-  Mail
+  Mail,
+  Server
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { walletAPI } from '../services/api';
@@ -624,26 +625,32 @@ const Wallet = () => {
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    transaction.method === 'Card'
+                    transaction.channel === 'server_purchase'
+                      ? 'bg-red-500/10 border border-red-500/20'
+                      : transaction.method === 'Card'
                       ? 'bg-blue-500/10 border border-blue-500/20'
-                      : transaction.amount > 0
-                        ? 'bg-primary/10 border border-primary/20'
-                        : 'bg-red-500/10 border border-red-500/20'
+                      : transaction.direction === 'debit'
+                        ? 'bg-red-500/10 border border-red-500/20'
+                        : 'bg-primary/10 border border-primary/20'
                   }`}>
-                    {transaction.method === 'Card' ? (
+                    {transaction.channel === 'server_purchase' ? (
+                      <Server size={24} className="text-red-400" />
+                    ) : transaction.method === 'Card' ? (
                       <CreditCard size={24} className="text-blue-400" />
-                    ) : transaction.amount > 0 ? (
-                      <ArrowDownToLine size={24} className="text-primary" />
-                    ) : (
+                    ) : transaction.direction === 'debit' ? (
                       <ArrowUpFromLine size={24} className="text-red-400" />
+                    ) : (
+                      <ArrowDownToLine size={24} className="text-primary" />
                     )}
                   </div>
                   <div>
                     <p className="font-mono">
-                      {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                      {transaction.channel === 'server_purchase' ? 'Server Purchase' : transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
                     </p>
                     <p className="text-sm text-gray-500 font-mono">
-                      {transaction.method === 'Card' && transaction.last4
+                      {transaction.channel === 'server_purchase'
+                        ? transaction.description
+                        : transaction.method === 'Card' && transaction.last4
                         ? `Card ****${transaction.last4}`
                         : transaction.method || transaction.description || 'Transaction'}
                     </p>
@@ -652,9 +659,9 @@ const Wallet = () => {
 
                 <div className="text-right">
                   <p className={`font-mono text-lg ${
-                    transaction.amount > 0 ? 'text-primary' : 'text-red-400'
+                    transaction.direction === 'debit' ? 'text-red-400' : 'text-primary'
                   }`}>
-                    {transaction.amount > 0 ? '+' : ''}KES {Math.abs(transaction.amount).toFixed(2)}
+                    {transaction.direction === 'debit' ? '-' : '+'}KES {Math.abs(transaction.amount).toFixed(2)}
                   </p>
                   <p className="text-xs text-gray-500 font-mono">{transaction.date ? new Date(transaction.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</p>
                 </div>

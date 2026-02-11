@@ -1,9 +1,65 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const SPENDING_FILE = path.join(__dirname, 'spending.json');
+
+function loadSpending() {
+  try {
+    if (fs.existsSync(SPENDING_FILE)) {
+      return JSON.parse(fs.readFileSync(SPENDING_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading spending data:', e);
+  }
+  return [];
+}
+
+function saveSpending(records) {
+  try {
+    fs.writeFileSync(SPENDING_FILE, JSON.stringify(records, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving spending data:', e);
+  }
+}
+
+function recordSpending(email, amount, description, serverId) {
+  const records = loadSpending();
+  records.push({
+    email: email.toLowerCase(),
+    amount,
+    description,
+    serverId: serverId?.toString() || '',
+    date: new Date().toISOString(),
+  });
+  saveSpending(records);
+}
+
+function getTotalSpending(email) {
+  const records = loadSpending();
+  return records
+    .filter(r => r.email === email.toLowerCase())
+    .reduce((sum, r) => sum + r.amount, 0);
+}
+
+function refundSpending(serverId) {
+  const records = loadSpending();
+  const updated = records.filter(r => r.serverId !== serverId.toString());
+  if (updated.length !== records.length) {
+    saveSpending(updated);
+    return true;
+  }
+  return false;
+}
 
 const PAYSTACK_API_URL = 'https://api.paystack.co';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
@@ -276,7 +332,7 @@ app.get('/api/transactions', async (req, res) => {
       }
     }
 
-    const transactions = allTransactions.map((txn) => ({
+    const deposits = allTransactions.map((txn) => ({
       id: txn.id,
       reference: txn.reference,
       amount: txn.amount / 100,
@@ -296,7 +352,35 @@ app.get('/api/transactions', async (req, res) => {
       cardType: txn.authorization?.card_type || '',
       last4: txn.authorization?.last4 || '',
       email: txn.customer?.email || '',
+      direction: 'credit',
     }));
+
+    let spendingRecords = [];
+    if (email) {
+      const allSpending = loadSpending().filter(r => r.email === email.toLowerCase());
+      spendingRecords = allSpending.map((r, i) => ({
+        id: `spend-${i}-${Date.now()}`,
+        reference: `SERVER-${r.serverId}`,
+        amount: r.amount,
+        currency: 'KES',
+        status: 'success',
+        channel: 'server_purchase',
+        paidAt: r.date,
+        createdAt: r.date,
+        phone: '',
+        type: 'server_purchase',
+        description: r.description,
+        method: 'Wallet',
+        cardType: '',
+        last4: '',
+        email: r.email,
+        direction: 'debit',
+      }));
+    }
+
+    const transactions = [...deposits, ...spendingRecords].sort((a, b) =>
+      new Date(b.paidAt || b.createdAt) - new Date(a.paidAt || a.createdAt)
+    );
 
     const meta = data.meta || {};
 
@@ -353,17 +437,22 @@ app.get('/api/transactions/totals', async (req, res) => {
 
     const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
 
+    const spending = email ? getTotalSpending(email) : 0;
+    const balance = Math.max(0, totalDeposits - spending);
+
     return res.json({
       success: true,
       totalDeposits,
+      totalSpending: spending,
       totalCount: transactions.length,
-      balance: totalDeposits,
+      balance,
     });
   } catch (error) {
     console.error('Totals fetch error:', error);
     return res.json({
       success: true,
       totalDeposits: 0,
+      totalSpending: 0,
       totalCount: 0,
       balance: 0,
     });
@@ -581,7 +670,9 @@ async function verifyUserBalance(email, requiredAmount) {
       }
     }
 
-    return transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
+    const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
+    const spending = getTotalSpending(email);
+    return Math.max(0, totalDeposits - spending);
   } catch (e) {
     console.error('Balance verification error:', e);
     return 0;
@@ -693,6 +784,9 @@ app.post('/api/servers/create', async (req, res) => {
     const serverAttrs = pteroData.attributes;
     console.log('Server created successfully:', serverAttrs.id, serverAttrs.identifier);
 
+    recordSpending(userEmail, requiredAmount, `Server "${name}" (${plan} plan)`, serverAttrs.id);
+    console.log(`Recorded spending: KES ${requiredAmount} for user ${userEmail}, server ${serverAttrs.id}`);
+
     return res.json({
       success: true,
       message: 'Server created successfully',
@@ -733,6 +827,26 @@ app.get('/api/servers', async (req, res) => {
     }
 
     const userServers = pteroData.attributes?.relationships?.servers?.data || [];
+    const userEmail = pteroData.attributes?.email || '';
+
+    if (userEmail && userServers.length > 0) {
+      const existingSpending = loadSpending();
+      const trackedServerIds = new Set(existingSpending.filter(r => r.email === userEmail.toLowerCase()).map(r => r.serverId));
+
+      for (const s of userServers) {
+        const sid = s.attributes.id.toString();
+        if (!trackedServerIds.has(sid)) {
+          const mem = s.attributes.limits?.memory || 0;
+          const cpu = s.attributes.limits?.cpu || 0;
+          let plan = 'Limited';
+          if ((mem === 0 || mem > 100000) && cpu >= 400) plan = 'Admin';
+          else if (mem === 0 || mem > 100000) plan = 'Unlimited';
+          const cost = TIER_PRICES[plan] || 50;
+          recordSpending(userEmail, cost, `Server "${s.attributes.name}" (${plan} plan)`, sid);
+          console.log(`Auto-reconciled spending: KES ${cost} for server ${sid} (${s.attributes.name}), user ${userEmail}`);
+        }
+      }
+    }
 
     const allocCache = {};
 

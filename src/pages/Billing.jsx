@@ -705,13 +705,13 @@ const Billing = () => {
                   >
                     <td className="p-3 font-mono text-sm text-gray-300">{txn.reference || txn.id}</td>
                     <td className="p-3 font-mono text-sm text-gray-400 hidden md:table-cell">
-                      {txn.method || 'M-Pesa'}
+                      {txn.channel === 'server_purchase' ? 'Server Purchase' : txn.method || 'M-Pesa'}
                     </td>
                     <td className="p-3 font-mono text-sm text-gray-400">
                       {txn.date ? new Date(txn.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
                     </td>
-                    <td className="p-3 font-mono text-sm text-primary">
-                      KES {Math.abs(txn.amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                    <td className={`p-3 font-mono text-sm ${txn.direction === 'debit' ? 'text-red-400' : 'text-primary'}`}>
+                      {txn.direction === 'debit' ? '-' : '+'}KES {Math.abs(txn.amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded text-xs font-mono ${

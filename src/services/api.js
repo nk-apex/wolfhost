@@ -991,8 +991,8 @@ export const walletAPI = {
 
       const transactions = (data.transactions || []).map(txn => ({
         id: txn.id || txn.reference,
-        type: txn.amount > 0 ? 'deposit' : 'withdrawal',
-        amount: txn.amount,
+        type: txn.direction === 'debit' ? 'server_purchase' : txn.amount > 0 ? 'deposit' : 'withdrawal',
+        amount: txn.direction === 'debit' ? -txn.amount : txn.amount,
         method: txn.method || 'M-Pesa',
         date: txn.paidAt || txn.createdAt,
         status: txn.status === 'success' ? 'completed' : txn.status,
@@ -1000,7 +1000,9 @@ export const walletAPI = {
         description: txn.description || 'M-Pesa deposit',
         phone: txn.phone,
         last4: txn.last4 || '',
-        currency: txn.currency || 'KES'
+        currency: txn.currency || 'KES',
+        direction: txn.direction || 'credit',
+        channel: txn.channel || ''
       }));
 
       const deposits = transactions.filter(t => t.amount > 0);

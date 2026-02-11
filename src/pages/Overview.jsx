@@ -100,7 +100,8 @@ const Overview = () => {
     return <Clock className="w-3 h-3 text-yellow-400" />;
   };
 
-  const getChannelIcon = (channel) => {
+  const getChannelIcon = (channel, direction) => {
+    if (channel === 'server_purchase') return <Server className="w-4 h-4 text-red-400" />;
     if (channel === 'card') return <CreditCard className="w-4 h-4 text-blue-400" />;
     if (channel === 'mobile_money') return <Smartphone className="w-4 h-4 text-green-400" />;
     return <ArrowDownToLine className="w-4 h-4 text-primary" />;
@@ -264,19 +265,22 @@ const Overview = () => {
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-shrink-0">
-                        {getChannelIcon(txn.channel)}
+                        {getChannelIcon(txn.channel, txn.direction)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-mono truncate">
-                            {txn.channel === 'card' ? 'Card Payment' : txn.channel === 'mobile_money' ? 'M-Pesa Deposit' : 'Deposit'}
+                            {txn.channel === 'server_purchase' ? txn.description : txn.channel === 'card' ? 'Card Payment' : txn.channel === 'mobile_money' ? 'M-Pesa Deposit' : 'Deposit'}
                             {txn.last4 && <span className="text-gray-500 ml-1">****{txn.last4}</span>}
                             {txn.phone && <span className="text-gray-500 ml-1">{txn.phone}</span>}
                           </p>
                           {getStatusIcon(txn.status)}
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          KES {txn.amount?.toLocaleString()} - {formatTimeAgo(txn.paidAt || txn.createdAt)}
+                          <span className={txn.direction === 'debit' ? 'text-red-400' : 'text-green-400'}>
+                            {txn.direction === 'debit' ? '-' : '+'}KES {txn.amount?.toLocaleString()}
+                          </span>
+                          {' '}- {formatTimeAgo(txn.paidAt || txn.createdAt)}
                         </p>
                       </div>
                     </div>
