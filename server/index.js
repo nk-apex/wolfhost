@@ -1442,11 +1442,26 @@ Keep responses concise, friendly, and helpful. If asked about something unrelate
   }
 });
 
-app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'WolfHost API' });
-});
+const distPath = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath, {
+    setHeaders: (res) => {
+      res.set('Cache-Control', 'no-cache');
+    }
+  }));
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+      res.set('Cache-Control', 'no-cache');
+      res.sendFile(path.join(distPath, 'index.html'));
+    }
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.json({ status: 'ok', service: 'WolfHost API' });
+  });
+}
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Paystack API server running on port ${PORT}`);
+  console.log(`WolfHost server running on port ${PORT}`);
 });
