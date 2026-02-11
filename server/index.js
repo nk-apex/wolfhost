@@ -1449,10 +1449,12 @@ if (fs.existsSync(distPath)) {
       res.set('Cache-Control', 'no-cache');
     }
   }));
-  app.get('*', (req, res) => {
+  app.use((req, res, next) => {
     if (!req.path.startsWith('/api/')) {
       res.set('Cache-Control', 'no-cache');
       res.sendFile(path.join(distPath, 'index.html'));
+    } else {
+      next();
     }
   });
 } else {
