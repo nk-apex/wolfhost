@@ -780,13 +780,24 @@ app.get('/api/servers', async (req, res) => {
         return `${d}MB`;
       };
 
+      let status = 'online';
+      if (attrs.suspended) {
+        status = 'suspended';
+      } else if (attrs.status === 'installing') {
+        status = 'installing';
+      } else if (attrs.status === 'install_failed') {
+        status = 'error';
+      } else if (attrs.status === 'suspended') {
+        status = 'suspended';
+      }
+
       return {
         id: attrs.id.toString(),
         identifier: attrs.identifier,
         uuid: attrs.uuid,
         name: attrs.name,
         description: attrs.description || '',
-        status: attrs.suspended ? 'suspended' : (attrs.container?.installed === 1 ? 'online' : 'installing'),
+        status,
         plan: plan,
         ip: ip ? `${ip}:${port}` : '',
         node: attrs.node,

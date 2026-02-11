@@ -20,7 +20,8 @@ import {
   Shield,
   Zap,
   Crown,
-  Check
+  Check,
+  ExternalLink
 } from 'lucide-react';
 import { serverAPI, walletAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -386,6 +387,19 @@ const Servers = () => {
                     <p className="font-mono text-sm">{server.uptime || '99.9%'}</p>
                   </div>
                 </div>
+
+                <motion.a
+                  href={server.identifier ? `https://panel.xwolf.space/server/${server.identifier}` : 'https://panel.xwolf.space'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full mb-3 px-4 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg text-sm font-mono flex items-center justify-center gap-2 transition-all text-primary font-semibold"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  data-testid={`button-manage-server-${server.id}`}
+                >
+                  <ExternalLink size={16} />
+                  Manage Server
+                </motion.a>
 
                 <div className="flex flex-wrap gap-2">
                   <motion.button
