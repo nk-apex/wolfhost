@@ -4,6 +4,17 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-11: Admin Dashboard for admin users
+  - Admin Dashboard page (src/pages/Admin.jsx) with Overview, Users, and Servers tabs
+  - Backend admin endpoints: GET /api/admin/overview, GET /api/admin/users, PATCH /api/admin/users/:id/admin, DELETE /api/admin/users/:id, GET /api/admin/servers, PATCH /api/admin/servers/:id/suspend, PATCH /api/admin/servers/:id/unsuspend, DELETE /api/admin/servers/:id
+  - Server-side admin verification via Pterodactyl root_admin field (verifyAdmin function)
+  - Login/register now return isAdmin flag from Pterodactyl panel
+  - Sidebar "Admin Panel" link shows only for admin users (was gated by referral count)
+  - Users tab: view all users, delete users, toggle admin status with confirmation dialog
+  - Servers tab: view all servers with owner info, suspend/unsuspend, delete, link to panel
+  - Overview tab: total users, servers, and nodes count from Pterodactyl API
+  - Search/filter functionality on Users and Servers tabs
+  - Route protected: non-admin users redirected to /overview
 - 2026-02-11: Fixed wallet balance to deduct server purchase costs
   - Added spending tracker (server/spending.json) to record server purchases
   - Balance now = total deposits - total spending (was showing deposits only)
