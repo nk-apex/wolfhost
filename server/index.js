@@ -8,8 +8,15 @@ app.use(express.json());
 const PAYSTACK_API_URL = 'https://api.paystack.co';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
+const PTERODACTYL_API_URL = 'https://panel.xwolf.space';
+const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
+
 if (!PAYSTACK_SECRET_KEY) {
   console.error('PAYSTACK_SECRET_KEY is not set');
+}
+
+if (!PTERODACTYL_API_KEY) {
+  console.error('PTERODACTYL_API_KEY is not set');
 }
 
 async function paystackFetch(path, options = {}) {
@@ -321,6 +328,84 @@ app.get('/api/transactions/totals', async (req, res) => {
       totalCount: 0,
       balance: 0,
     });
+  }
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, username, password } = req.body;
+
+    if (!email || !username || !password) {
+      return res.status(400).json({ success: false, message: 'Email, username, and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const nameParts = username.split(' ');
+    const firstName = nameParts[0] || username;
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : username;
+
+    console.log('Creating Pterodactyl user:', { email, username, firstName, lastName });
+
+    const pteroResponse = await fetch(`${PTERODACTYL_API_URL}/api/application/users`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${PTERODACTYL_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email,
+        username: username,
+        first_name: firstName,
+        last_name: lastName,
+        password: password,
+      }),
+    });
+
+    const pteroData = await pteroResponse.json();
+    console.log('Pterodactyl response status:', pteroResponse.status);
+
+    if (!pteroResponse.ok) {
+      console.error('Pterodactyl error:', JSON.stringify(pteroData));
+
+      let errorMessage = 'Failed to create panel account';
+      if (pteroData.errors && pteroData.errors.length > 0) {
+        const details = pteroData.errors.map(e => e.detail).join(', ');
+        if (details.toLowerCase().includes('email')) {
+          errorMessage = 'An account with this email already exists on the panel';
+        } else if (details.toLowerCase().includes('username')) {
+          errorMessage = 'This username is already taken on the panel';
+        } else {
+          errorMessage = details;
+        }
+      }
+
+      return res.status(pteroResponse.status === 422 ? 409 : pteroResponse.status).json({
+        success: false,
+        message: errorMessage,
+      });
+    }
+
+    const panelUser = pteroData.attributes;
+
+    return res.json({
+      success: true,
+      message: 'Account created successfully',
+      user: {
+        id: panelUser.id,
+        email: panelUser.email,
+        username: panelUser.username,
+        firstName: panelUser.first_name,
+        lastName: panelUser.last_name,
+        panelId: panelUser.id,
+      },
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    return res.status(500).json({ success: false, message: 'Server error creating account' });
   }
 });
 

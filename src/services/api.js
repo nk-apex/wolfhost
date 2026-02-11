@@ -1129,23 +1129,40 @@ export const authAPI = {
 
   register: async (userData) => {
     try {
-      await delay(API_DELAY);
-      console.log('📝 Mock registration:', userData);
-      
-      // Validate required fields
       if (!userData.email || !userData.password) {
         throw new Error('Email and password are required');
       }
-      
+
       if (userData.password.length < 6) {
         throw new Error('Password must be at least 6 characters');
       }
-      
+
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userData.email,
+          username: userData.username || userData.email.split('@')[0],
+          password: userData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        return {
+          success: false,
+          error: data.message || 'Registration failed',
+          message: data.message || 'Registration failed'
+        };
+      }
+
       const newUser = {
-        id: 'new-' + Date.now(),
-        email: userData.email,
-        name: userData.name || 'New User',
-        phone: userData.phone || '',
+        id: data.user.panelId || data.user.id,
+        email: data.user.email,
+        name: data.user.username || userData.username,
+        username: data.user.username,
+        phone: '',
         wallet: 0.00,
         referrals: 0,
         tier: 'basic',
@@ -1154,26 +1171,27 @@ export const authAPI = {
         country: 'Kenya',
         isEmailVerified: false,
         isPhoneVerified: false,
-        twoFactorEnabled: false
+        twoFactorEnabled: false,
+        panelId: data.user.panelId,
       };
-      
-      // Store user in localStorage
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('current_user', JSON.stringify(newUser));
-        localStorage.setItem('auth_token', 'mock-jwt-token-new-' + Date.now());
+        localStorage.setItem('auth_token', 'panel-token-' + Date.now());
       }
-      
+
       return {
         success: true,
         user: newUser,
-        token: 'mock-jwt-token-new-' + Date.now(),
+        token: 'panel-token-' + Date.now(),
         message: 'Registration successful'
       };
     } catch (error) {
       console.error('Register error:', error);
-      return { 
-        success: false, 
-        message: error.message || 'Registration failed' 
+      return {
+        success: false,
+        error: error.message || 'Registration failed',
+        message: error.message || 'Registration failed'
       };
     }
   },
