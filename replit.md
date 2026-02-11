@@ -4,6 +4,19 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-11: W.O.L.F AI Assistant (Wise Operational Learning Function)
+  - Floating chat widget (src/components/WolfChat.jsx) available on Landing page and all authenticated pages
+  - Backend proxy endpoint POST /api/wolf/chat calls Grok AI API with WolfHost system context
+  - System prompt teaches W.O.L.F about server tiers, payments, referrals, and account features
+  - Chat UI: dark glass panel, message history, loading states, keyboard support (Enter to send)
+  - Styled consistently with cyberpunk theme (green accents, dark backgrounds, gray text)
+  - 30-second timeout on API calls with graceful error handling
+- 2026-02-11: Updated Login & Register pages styling
+  - White headings, gray labels, green accents only
+  - WOLFHOST branding: "WOLF" in green, "HOST" in gray
+  - Dark glass panels (border-primary/20 bg-black/30) replacing GlassCard
+  - Cleaned up ~200 lines of commented-out legacy code
+  - Consistent input styling with dark backgrounds and gray borders
 - 2026-02-11: Complete referral system with real backend tracking
   - Backend referrals.json storage: tracks referral codes, referrer-referred relationships, and completion status
   - GET /api/referrals endpoint: returns user's referral code, referral list, completed/pending counts

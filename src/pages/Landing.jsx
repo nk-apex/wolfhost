@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Zap, Shield, Cpu, CreditCard, ArrowRight, ChevronRight, MessageCircle, Users, Phone } from "lucide-react";
 import NeonBackground from "../components/NeonBackground";
+import WolfChat from "../components/WolfChat";
 
 export default function Landing() {
   const features = [
@@ -378,6 +379,7 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+      <WolfChat />
     </div>
   );
 }

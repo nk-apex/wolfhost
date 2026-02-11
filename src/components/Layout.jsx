@@ -5,6 +5,7 @@ import NeonBackground from './NeonBackground';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import LoadingSpinner from './LoadingSpinner';
+import WolfChat from './WolfChat';
 
 const Layout = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -44,6 +45,7 @@ const Layout = () => {
           </main>
         </div>
       </div>
+      <WolfChat />
     </div>
   );
 };

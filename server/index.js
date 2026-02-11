@@ -1399,6 +1399,48 @@ app.delete('/api/servers/:serverId', async (req, res) => {
   }
 });
 
+app.post('/api/wolf/chat', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, error: 'Message is required' });
+    }
+
+    const systemContext = `You are W.O.L.F (Wise Operational Learning Function), the AI assistant for WolfHost - a game server hosting platform. You help users navigate the platform and answer questions about:
+- Creating and managing game servers (Minecraft, etc.)
+- Wallet top-ups via M-Pesa or Card payments (minimum 50 KSH)
+- Server tiers: Limited (50 KSH), Unlimited (100 KSH), Admin (200 KSH)
+- Billing and transaction history
+- Referral program (refer 10 friends who buy servers to earn Admin Panel access)
+- Account settings
+Keep responses concise, friendly, and helpful. If asked about something unrelated to WolfHost, politely redirect to hosting topics.`;
+
+    const fullQuery = `${systemContext}\n\nUser: ${message.trim()}`;
+    const apiUrl = `https://apiskeith.vercel.app/ai/grok?q=${encodeURIComponent(fullQuery)}`;
+
+    const response = await fetch(apiUrl, { 
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(30000)
+    });
+
+    if (!response.ok) {
+      throw new Error(`API responded with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const answer = data?.answer || data?.response || data?.result || data?.message || JSON.stringify(data);
+
+    res.json({ success: true, response: answer });
+  } catch (error) {
+    console.error('W.O.L.F chat error:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: 'W.O.L.F is temporarily unavailable. Please try again.' 
+    });
+  }
+});
+
 app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'WolfHost API' });
 });
