@@ -3,12 +3,21 @@ console.log('Paystack MPESA Service Loaded');
 export const paystackAPI = {
   initializeMpesaPayment: async (phone, amount, metadata = {}) => {
     try {
-      console.log('Initiating MPESA Payment:', { phone, amount });
+      let userEmail = '';
+      try {
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+          const u = JSON.parse(storedUser);
+          userEmail = u.email || '';
+        }
+      } catch (e) {}
+
+      console.log('Initiating MPESA Payment:', { phone, amount, userEmail });
 
       const response = await fetch('/api/mpesa/charge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, amount, metadata }),
+        body: JSON.stringify({ phone, amount, metadata, userEmail }),
       });
 
       const data = await response.json();

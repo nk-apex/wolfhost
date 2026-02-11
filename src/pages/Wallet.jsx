@@ -245,7 +245,7 @@ const Wallet = () => {
   const [processing, setProcessing] = useState(false);
   const [stkStatus, setStkStatus] = useState({ show: false, status: '', message: '' });
 
-  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: '', method: 'M-Pesa' });
+  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: 'M-Pesa' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: 'M-Pesa' });
   const [cardWaiting, setCardWaiting] = useState(false);
   const [cardRef, setCardRef] = useState('');

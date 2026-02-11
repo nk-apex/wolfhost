@@ -4,6 +4,13 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-11: Fixed Billing & Wallet pages to show per-user real-time transaction data
+  - Backend /api/transactions and /api/transactions/totals now filter by user email (Paystack customer filter)
+  - M-Pesa charges now use the user's actual email instead of generated phone email
+  - All frontend API calls (balance, transactions, stats) pass logged-in user email
+  - Card payment email auto-fills from user profile
+  - Cleaned up api.js: removed ~1000 lines of legacy commented-out code
+  - Each user now sees only their own transactions, balance, and payment history
 - 2026-02-11: Full Pterodactyl panel integration (panel.xwolf.space)
   - Backend endpoint /api/auth/register creates users on Pterodactyl panel via Application API
   - Backend endpoint /api/auth/login verifies users exist on Pterodactyl panel by email/username

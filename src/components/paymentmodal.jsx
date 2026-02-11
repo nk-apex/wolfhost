@@ -7,9 +7,9 @@ import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
 const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(user?.email || '');
   const [loading, setLoading] = useState(false);
   const [customAmount, setCustomAmount] = useState(invoice?.amount || 100);
   const [step, setStep] = useState('form');
@@ -216,7 +216,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
       setMpesaStatus('');
       setPaymentRef('');
       setPhoneNumber('');
-      setEmail('');
+      setEmail(user?.email || '');
       setPaymentMethod('mpesa');
       setCustomAmount(invoice?.amount || 100);
       setDisplayText('');

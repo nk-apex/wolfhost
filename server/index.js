@@ -33,7 +33,7 @@ async function paystackFetch(path, options = {}) {
 
 app.post('/api/mpesa/charge', async (req, res) => {
   try {
-    const { phone, amount, metadata } = req.body;
+    const { phone, amount, metadata, userEmail } = req.body;
 
     if (!phone || !amount) {
       return res.status(400).json({ success: false, message: 'Phone and amount are required' });
@@ -58,13 +58,14 @@ app.post('/api/mpesa/charge', async (req, res) => {
 
     const amountInCents = Math.round(amount * 100);
     const paystackPhone = '+' + formattedPhone;
+    const chargeEmail = userEmail || `${formattedPhone}@mpesa.ke`;
 
-    console.log('Sending to Paystack:', { phone: paystackPhone, amount: amountInCents, email: `${formattedPhone}@mpesa.ke` });
+    console.log('Sending to Paystack:', { phone: paystackPhone, amount: amountInCents, email: chargeEmail });
 
     const response = await paystackFetch('/charge', {
       method: 'POST',
       body: JSON.stringify({
-        email: `${formattedPhone}@mpesa.ke`,
+        email: chargeEmail,
         amount: amountInCents,
         currency: 'KES',
         mobile_money: {
@@ -75,6 +76,7 @@ app.post('/api/mpesa/charge', async (req, res) => {
           ...metadata,
           payment_type: 'mpesa_stk',
           phone_number: formattedPhone,
+          user_email: chargeEmail,
           country: 'KE',
         },
       }),
@@ -240,11 +242,14 @@ app.post('/api/mpesa/submit-otp', async (req, res) => {
 
 app.get('/api/transactions', async (req, res) => {
   try {
-    const { perPage = 50, page = 1, status } = req.query;
+    const { perPage = 50, page = 1, status, email } = req.query;
 
     let path = `/transaction?perPage=${perPage}&page=${page}&currency=KES`;
     if (status) {
       path += `&status=${status}`;
+    }
+    if (email) {
+      path += `&customer=${encodeURIComponent(email)}`;
     }
 
     const response = await paystackFetch(path);
@@ -257,7 +262,21 @@ app.get('/api/transactions', async (req, res) => {
       });
     }
 
-    const transactions = (data.data || []).map((txn) => ({
+    let allTransactions = data.data || [];
+
+    if (email && allTransactions.length === 0) {
+      const altResponse = await paystackFetch(`/transaction?perPage=${perPage}&page=${page}&currency=KES${status ? `&status=${status}` : ''}`);
+      const altData = await altResponse.json();
+      if (altResponse.ok && altData.status) {
+        allTransactions = (altData.data || []).filter(txn => {
+          const txnEmail = txn.customer?.email?.toLowerCase();
+          const filterEmail = email.toLowerCase();
+          return txnEmail === filterEmail || txn.metadata?.user_email?.toLowerCase() === filterEmail;
+        });
+      }
+    }
+
+    const transactions = allTransactions.map((txn) => ({
       id: txn.id,
       reference: txn.reference,
       amount: txn.amount / 100,
@@ -299,7 +318,14 @@ app.get('/api/transactions', async (req, res) => {
 
 app.get('/api/transactions/totals', async (req, res) => {
   try {
-    const response = await paystackFetch('/transaction?perPage=100&currency=KES&status=success');
+    const { email } = req.query;
+
+    let path = '/transaction?perPage=100&currency=KES&status=success';
+    if (email) {
+      path += `&customer=${encodeURIComponent(email)}`;
+    }
+
+    const response = await paystackFetch(path);
     const data = await response.json();
 
     if (!response.ok || !data.status) {
@@ -311,7 +337,20 @@ app.get('/api/transactions/totals', async (req, res) => {
       });
     }
 
-    const transactions = data.data || [];
+    let transactions = data.data || [];
+
+    if (email && transactions.length === 0) {
+      const altResponse = await paystackFetch('/transaction?perPage=100&currency=KES&status=success');
+      const altData = await altResponse.json();
+      if (altResponse.ok && altData.status) {
+        transactions = (altData.data || []).filter(txn => {
+          const txnEmail = txn.customer?.email?.toLowerCase();
+          const filterEmail = email.toLowerCase();
+          return txnEmail === filterEmail || txn.metadata?.user_email?.toLowerCase() === filterEmail;
+        });
+      }
+    }
+
     const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
 
     return res.json({
