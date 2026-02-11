@@ -17,6 +17,8 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
   const [mpesaStatus, setMpesaStatus] = useState('');
   const [paymentRef, setPaymentRef] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('mpesa');
+  const [displayText, setDisplayText] = useState('');
+  const [accountRef, setAccountRef] = useState('');
 
   const MIN_AMOUNT = 50;
 
@@ -59,7 +61,14 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
       }
 
       setPaymentRef(response.reference || response.data?.reference);
-      setMpesaStatus('STK Push sent! Enter your M-Pesa PIN on your phone.');
+      setDisplayText(response.data?.display_text || '');
+      setAccountRef(response.data?.account_reference || '');
+
+      if (response.data?.status === 'pay_offline') {
+        setMpesaStatus('Payment initiated! Check your phone for the STK push, or use the manual payment option below.');
+      } else {
+        setMpesaStatus('STK Push sent! Enter your M-Pesa PIN on your phone.');
+      }
       pollForPayment(response.reference || response.data?.reference, amount);
     } catch (err) {
       console.error('M-Pesa payment error:', err);
@@ -210,6 +219,8 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
       setEmail('');
       setPaymentMethod('mpesa');
       setCustomAmount(invoice?.amount || 100);
+      setDisplayText('');
+      setAccountRef('');
       onClose();
     }
   };
@@ -462,7 +473,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
               <h3 className="text-xl font-bold mb-2">
                 {paymentMethod === 'mpesa' ? 'M-Pesa Payment Initiated' : 'Card Payment Processing'}
               </h3>
-              <div className="bg-black/50 rounded-lg p-4 mb-6">
+              <div className="bg-black/50 rounded-lg p-4 mb-4">
                 <p className="text-gray-300 mb-2 font-mono text-sm">{mpesaStatus}</p>
                 <p className="text-sm text-gray-400">
                   Amount: <span className={`font-bold text-lg ${paymentMethod === 'mpesa' ? 'text-green-400' : 'text-blue-400'}`}>
@@ -480,6 +491,25 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                   </p>
                 )}
               </div>
+
+              {paymentMethod === 'mpesa' && accountRef && (
+                <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-4 mb-4 text-left">
+                  <p className="text-sm font-bold text-yellow-400 mb-2">Didn't receive STK push?</p>
+                  <ul className="text-xs text-gray-300 space-y-1 font-mono list-disc list-inside">
+                    <li>Make sure your phone has network signal</li>
+                    <li>Check that M-Pesa is active on your line</li>
+                    <li>Try dismissing any pending M-Pesa prompts</li>
+                    <li>Cancel and try again in a few seconds</li>
+                    <li>Or switch to <span className="text-blue-400">Card payment</span> instead</li>
+                  </ul>
+                  {displayText && (
+                    <p className="text-xs text-gray-400 mt-3 italic">{displayText}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    Account Ref: <span className="font-mono select-all">{accountRef}</span>
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-center gap-2">
