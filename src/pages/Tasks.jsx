@@ -31,6 +31,7 @@ const Tasks = () => {
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
+  const [openedTasks, setOpenedTasks] = useState({});
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -60,8 +61,9 @@ const Tasks = () => {
     if (userId) fetchTasks();
   }, [userId]);
 
-  const handleOpenLink = (link) => {
+  const handleOpenLink = (taskId, link) => {
     window.open(link, '_blank', 'noopener,noreferrer');
+    setOpenedTasks(prev => ({ ...prev, [taskId]: true }));
   };
 
   const handleCompleteTask = async (taskId) => {
@@ -202,14 +204,14 @@ const Tasks = () => {
 
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
-                  onClick={() => handleOpenLink(task.link)}
+                  onClick={() => handleOpenLink(task.id, task.link)}
                   className="px-3 py-1.5 text-xs font-mono rounded-lg border border-gray-600/50 text-gray-300 hover:text-white hover:border-gray-500 transition-all flex items-center gap-1"
                 >
                   Open
                   <ExternalLink size={12} />
                 </button>
 
-                {!task.completed && (
+                {!task.completed && openedTasks[task.id] && (
                   <button
                     onClick={() => handleCompleteTask(task.id)}
                     disabled={completingTask === task.id}

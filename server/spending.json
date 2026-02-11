@@ -19,5 +19,12 @@
     "description": "Server \"silentwolf\" (Unlimited plan)",
     "serverId": "2",
     "date": "2026-02-11T10:43:55.792Z"
+  },
+  {
+    "email": "wolfsilent906@gmail.com",
+    "amount": 50,
+    "description": "Server \"admin-free-trial\" (Limited plan)",
+    "serverId": "6",
+    "date": "2026-02-11T14:13:16.462Z"
   }
 ]
