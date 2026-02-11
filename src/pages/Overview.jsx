@@ -184,27 +184,19 @@ const Overview = () => {
             transition={{ delay: index * 0.1 }}
           >
             <Link to={stat.link} data-testid={`link-stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
-              <div 
-                className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all"
-                style={{ boxShadow: `0 0 40px ${stat.color}` }}
-              >
-                <div 
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ background: `radial-gradient(ellipse at center, ${stat.color} 0%, transparent 70%)` }}
-                />
-                <div className="flex justify-between items-start relative z-10">
+              <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm group hover:border-primary/30 transition-colors">
+                <div className="flex justify-between items-start">
                   <div>
                     <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
                     <h3 className="text-2xl font-display font-bold text-white truncate" data-testid={`text-stat-value-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
                       {stat.value}
                     </h3>
                   </div>
-                  <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                  <div className="p-2 bg-primary/10 rounded-lg">
                     <stat.icon className="w-5 h-5 text-primary" />
                   </div>
                 </div>
-                <div className="mt-4 text-xs text-gray-500 font-mono relative z-10">{stat.subValue}</div>
-                <ArrowUpRight className="absolute bottom-3 right-3 w-4 h-4 text-primary/50 group-hover:text-primary transition-colors" />
+                <div className="mt-4 text-xs text-gray-500 font-mono">{stat.subValue}</div>
               </div>
             </Link>
           </motion.div>
