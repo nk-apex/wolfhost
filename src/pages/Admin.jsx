@@ -17,7 +17,6 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import GlassCard from '../components/GlassCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'sonner';
 
@@ -196,33 +195,37 @@ const Admin = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-wrap justify-between items-end gap-4">
         <div className="flex items-center gap-3">
-          <Shield className="text-primary" size={28} />
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Shield className="w-6 h-6 text-primary" />
+          </div>
           <div>
-            <h1 className="text-2xl font-orbitron font-bold text-primary">Admin Dashboard</h1>
-            <p className="text-sm text-muted-foreground font-mono">Manage users, servers, and system</p>
+            <h1 className="text-3xl font-bold mb-1">Admin Dashboard</h1>
+            <p className="text-gray-400 font-mono text-sm">Manage users, servers, and system</p>
           </div>
         </div>
         <button
           onClick={fetchData}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors font-mono text-sm"
+          className="group px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
-          <RefreshCw size={16} />
-          Refresh
+          <div className="flex items-center text-sm font-mono">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </div>
         </button>
       </div>
 
-      <div className="flex gap-2 p-1 bg-black/30 rounded-lg border border-primary/10">
+      <div className="flex gap-2 p-1 rounded-xl border border-primary/10 bg-black/30 backdrop-blur-sm">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-md font-mono text-sm transition-all flex-1 justify-center ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-mono text-sm transition-all flex-1 justify-center ${
               activeTab === tab.id
-                ? 'bg-primary/20 text-primary border border-primary/30'
-                : 'text-muted-foreground hover:text-primary/80 hover:bg-primary/5'
+                ? 'bg-primary/20 text-white border border-primary/30'
+                : 'text-gray-400 hover:text-white hover:bg-primary/5'
             }`}
           >
             <tab.icon size={16} />
@@ -233,13 +236,13 @@ const Admin = () => {
 
       {activeTab !== 'overview' && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
           <input
             type="text"
             placeholder={`Search ${activeTab}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-primary/20 rounded-lg text-sm font-mono text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+            className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-primary/20 rounded-lg text-sm font-mono text-white placeholder:text-gray-500 focus:border-primary/50 focus:outline-none"
           />
         </div>
       )}
@@ -251,41 +254,60 @@ const Admin = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
-            <GlassCard hover={false}>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center">
-                  <Users className="text-blue-400" size={24} />
+            {[
+              {
+                icon: Users,
+                label: 'Total Users',
+                value: stats.totalUsers,
+                subValue: 'Registered accounts',
+                iconColor: 'text-blue-400',
+                iconBg: 'bg-blue-500/10',
+                glowColor: 'rgba(59,130,246,0.15)',
+              },
+              {
+                icon: Server,
+                label: 'Total Servers',
+                value: stats.totalServers,
+                subValue: 'Active instances',
+                iconColor: 'text-green-400',
+                iconBg: 'bg-green-500/10',
+                glowColor: 'rgba(34,197,94,0.15)',
+              },
+              {
+                icon: Activity,
+                label: 'Nodes',
+                value: stats.totalNodes,
+                subValue: 'Infrastructure nodes',
+                iconColor: 'text-purple-400',
+                iconBg: 'bg-purple-500/10',
+                glowColor: 'rgba(168,85,247,0.15)',
+              },
+            ].map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <div
+                  className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all"
+                  style={{ boxShadow: `0 0 40px ${stat.glowColor}` }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
+                      <h3 className="text-2xl font-display font-bold text-white">{stat.value}</h3>
+                    </div>
+                    <div className={`p-2 ${stat.iconBg} rounded-lg`}>
+                      <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+                    </div>
+                  </div>
+                  <div className="mt-4 text-xs text-gray-500 font-mono">{stat.subValue}</div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground font-mono">Total Users</p>
-                  <p className="text-3xl font-orbitron font-bold text-blue-400">{stats.totalUsers}</p>
-                </div>
-              </div>
-            </GlassCard>
-            <GlassCard hover={false}>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-center">
-                  <Server className="text-green-400" size={24} />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground font-mono">Total Servers</p>
-                  <p className="text-3xl font-orbitron font-bold text-green-400">{stats.totalServers}</p>
-                </div>
-              </div>
-            </GlassCard>
-            <GlassCard hover={false}>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
-                  <Activity className="text-purple-400" size={24} />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground font-mono">Nodes</p>
-                  <p className="text-3xl font-orbitron font-bold text-purple-400">{stats.totalNodes}</p>
-                </div>
-              </div>
-            </GlassCard>
+              </motion.div>
+            ))}
           </motion.div>
         )}
 
@@ -297,14 +319,20 @@ const Admin = () => {
             exit={{ opacity: 0 }}
             className="space-y-3"
           >
-            <p className="text-xs text-muted-foreground font-mono">{filteredUsers.length} users</p>
+            <p className="text-xs text-gray-500 font-mono">{filteredUsers.length} users</p>
             {filteredUsers.length === 0 ? (
-              <GlassCard hover={false}>
-                <p className="text-center text-muted-foreground font-mono py-8">No users found</p>
-              </GlassCard>
+              <div className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center">
+                <p className="text-gray-400 font-mono">No users found</p>
+              </div>
             ) : (
-              filteredUsers.map(u => (
-                <GlassCard key={u.id} hover={false} className="!p-4">
+              filteredUsers.map((u, index) => (
+                <motion.div
+                  key={u.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="p-4 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all"
+                >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
@@ -314,13 +342,13 @@ const Admin = () => {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-semibold text-foreground truncate">{u.username}</span>
+                          <span className="font-mono text-sm font-semibold text-white truncate">{u.username}</span>
                           {u.isAdmin && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-mono border border-primary/30">ADMIN</span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground font-mono truncate">{u.email}</p>
-                        <p className="text-xs text-muted-foreground/60 font-mono">
+                        <p className="text-xs text-gray-500 font-mono truncate">{u.email}</p>
+                        <p className="text-xs text-gray-600 font-mono">
                           {u.serverCount} server{u.serverCount !== 1 ? 's' : ''} · ID: {u.id}
                         </p>
                       </div>
@@ -348,7 +376,7 @@ const Admin = () => {
                       </button>
                     </div>
                   </div>
-                </GlassCard>
+                </motion.div>
               ))
             )}
           </motion.div>
@@ -362,14 +390,20 @@ const Admin = () => {
             exit={{ opacity: 0 }}
             className="space-y-3"
           >
-            <p className="text-xs text-muted-foreground font-mono">{filteredServers.length} servers</p>
+            <p className="text-xs text-gray-500 font-mono">{filteredServers.length} servers</p>
             {filteredServers.length === 0 ? (
-              <GlassCard hover={false}>
-                <p className="text-center text-muted-foreground font-mono py-8">No servers found</p>
-              </GlassCard>
+              <div className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center">
+                <p className="text-gray-400 font-mono">No servers found</p>
+              </div>
             ) : (
-              filteredServers.map(s => (
-                <GlassCard key={s.id} hover={false} className="!p-4">
+              filteredServers.map((s, index) => (
+                <motion.div
+                  key={s.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="p-4 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all"
+                >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-center flex-shrink-0">
@@ -377,17 +411,17 @@ const Admin = () => {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-semibold text-foreground truncate">{s.name}</span>
+                          <span className="font-mono text-sm font-semibold text-white truncate">{s.name}</span>
                           <span className={`flex items-center gap-1 text-[10px] font-mono ${statusColor(s.status)}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${statusDot(s.status)}`} />
                             {s.status.toUpperCase()}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground font-mono truncate">
+                        <p className="text-xs text-gray-500 font-mono truncate">
                           Owner: {s.ownerUsername} · Node {s.node} · ID: {s.id}
                         </p>
                         {s.limits && (
-                          <p className="text-xs text-muted-foreground/60 font-mono">
+                          <p className="text-xs text-gray-600 font-mono">
                             {s.limits.memory}MB RAM · {s.limits.disk}MB Disk · {s.limits.cpu}% CPU
                           </p>
                         )}
@@ -432,7 +466,7 @@ const Admin = () => {
                       </button>
                     </div>
                   </div>
-                </GlassCard>
+                </motion.div>
               ))
             )}
           </motion.div>
@@ -452,7 +486,7 @@ const Admin = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card p-6 max-w-md w-full space-y-4"
+              className="p-6 max-w-md w-full space-y-4 rounded-xl border border-primary/20 bg-black/80 backdrop-blur-md"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3">
@@ -460,18 +494,18 @@ const Admin = () => {
                   <AlertTriangle className="text-red-400" size={20} />
                 </div>
                 <div>
-                  <h3 className="font-orbitron font-bold text-foreground">Confirm Delete</h3>
-                  <p className="text-sm text-muted-foreground font-mono">This action cannot be undone</p>
+                  <h3 className="font-bold text-white">Confirm Delete</h3>
+                  <p className="text-sm text-gray-400 font-mono">This action cannot be undone</p>
                 </div>
               </div>
-              <p className="text-sm font-mono text-foreground">
+              <p className="text-sm font-mono text-gray-300">
                 Are you sure you want to delete{' '}
                 <span className="text-red-400 font-bold">{confirmAction.name}</span>?
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmAction(null)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-primary/20 text-muted-foreground hover:bg-primary/5 transition-colors font-mono text-sm"
+                  className="flex-1 px-4 py-2 rounded-lg border border-primary/20 text-gray-400 hover:bg-primary/5 transition-colors font-mono text-sm"
                 >
                   Cancel
                 </button>
