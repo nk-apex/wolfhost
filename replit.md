@@ -4,11 +4,15 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
-- 2026-02-11: Integrated Pterodactyl panel (panel.xwolf.space) with signup flow
+- 2026-02-11: Full Pterodactyl panel integration (panel.xwolf.space)
   - Backend endpoint /api/auth/register creates users on Pterodactyl panel via Application API
-  - Frontend register flow now calls backend which creates panel account with same credentials
+  - Backend endpoint /api/auth/login verifies users exist on Pterodactyl panel by email/username
+  - Frontend login and register flows now use real panel authentication
+  - Sidebar "LOGGED IN AS" now shows actual user's username and email (was hardcoded)
+  - getUser() no longer returns mock user when not logged in
+  - Removed demo account info from login page
   - Error handling for duplicate email/username on the panel
-  - PTERODACTYL_API_KEY stored as environment secret
+  - PTERODACTYL_API_KEY and PAYSTACK_SECRET_KEY stored as environment secrets
 - 2026-02-06: Updated server deployment to use 3-tier pricing popup
   - Limited (KES 50): 1 vCPU, 1GB RAM, 10GB storage, 10 slots, basic protection
   - Unlimited (KES 100): 2 vCPU, 4GB RAM, 40GB storage, unlimited slots, advanced protection
