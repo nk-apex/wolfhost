@@ -331,6 +331,60 @@ app.get('/api/transactions/totals', async (req, res) => {
   }
 });
 
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email/username and password are required' });
+    }
+
+    const isEmail = email.includes('@');
+    const filterParam = isEmail ? `filter[email]=${encodeURIComponent(email)}` : `filter[username]=${encodeURIComponent(email)}`;
+
+    console.log('Looking up Pterodactyl user:', { email, isEmail });
+
+    const pteroResponse = await fetch(`${PTERODACTYL_API_URL}/api/application/users?${filterParam}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${PTERODACTYL_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    const pteroData = await pteroResponse.json();
+
+    if (!pteroResponse.ok) {
+      console.error('Pterodactyl lookup error:', JSON.stringify(pteroData));
+      return res.status(500).json({ success: false, message: 'Failed to verify account' });
+    }
+
+    const users = pteroData.data || [];
+    if (users.length === 0) {
+      return res.status(401).json({ success: false, message: 'No account found with those credentials. Please sign up first.' });
+    }
+
+    const panelUser = users[0].attributes;
+
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      user: {
+        id: panelUser.id,
+        email: panelUser.email,
+        username: panelUser.username,
+        firstName: panelUser.first_name,
+        lastName: panelUser.last_name,
+        panelId: panelUser.id,
+      },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ success: false, message: 'Server error during login' });
+  }
+});
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, username, password } = req.body;

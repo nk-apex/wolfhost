@@ -405,10 +405,10 @@ const Login = () => {
               )}
             </motion.button>
 
-            {/* Demo Account Info */}
             <div className="text-center p-3 rounded-lg bg-primary/3 border border-primary/15">
-              <p className="text-xs text-muted-foreground mb-1">Demo Account:</p>
-              <p className="text-sm font-mono text-primary/80">demo@wolfhost.com / demo123</p>
+              <p className="text-xs text-muted-foreground">
+                Use your panel account credentials to sign in
+              </p>
             </div>
           </form>
 

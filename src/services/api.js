@@ -1085,44 +1085,69 @@ initializeLocalStorage();
 // ======================
 
 export const authAPI = {
-  login: async (email, password) => {
+  login: async (credentials) => {
     try {
-      await delay(API_DELAY);
-      console.log('🔐 Mock login attempt:', email);
-      
-      // Basic validation
+      const email = credentials.email || credentials;
+      const password = credentials.password || arguments[1];
+
       if (!email || !password) {
         throw new Error('Email and password are required');
       }
-      
-      if (!email.includes('@')) {
-        throw new Error('Please enter a valid email address');
+
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        return {
+          success: false,
+          error: data.message || 'Login failed. Please check your credentials.',
+          message: data.message || 'Login failed. Please check your credentials.'
+        };
       }
-      
-      // Simulate successful login
+
       const userData = {
-        ...mockUser,
-        email: email,
-        lastLogin: new Date().toISOString()
+        id: data.user.panelId || data.user.id,
+        email: data.user.email,
+        name: data.user.firstName && data.user.lastName
+          ? `${data.user.firstName} ${data.user.lastName}`
+          : data.user.username,
+        username: data.user.username,
+        phone: '',
+        wallet: 0.00,
+        referrals: 0,
+        tier: 'basic',
+        createdAt: new Date().toISOString().split('T')[0],
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.user.email}`,
+        country: 'Kenya',
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        twoFactorEnabled: false,
+        panelId: data.user.panelId,
+        lastLogin: new Date().toISOString(),
       };
-      
-      // Store user in localStorage
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('current_user', JSON.stringify(userData));
-        localStorage.setItem('auth_token', 'mock-jwt-token-' + Date.now());
+        localStorage.setItem('auth_token', 'panel-token-' + Date.now());
       }
-      
+
       return {
         success: true,
         user: userData,
-        token: 'mock-jwt-token-' + Date.now(),
+        token: 'panel-token-' + Date.now(),
         message: 'Login successful'
       };
     } catch (error) {
       console.error('Login error:', error);
-      return { 
-        success: false, 
-        message: error.message || 'Login failed. Please check your credentials.' 
+      return {
+        success: false,
+        error: error.message || 'Login failed. Please check your credentials.',
+        message: error.message || 'Login failed. Please check your credentials.'
       };
     }
   },
@@ -1223,21 +1248,21 @@ export const authAPI = {
   getUser: async () => {
     try {
       await delay(API_DELAY);
-      
-      // Try to get user from localStorage first
+
       if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('auth_token');
         const storedUser = localStorage.getItem('current_user');
-        if (storedUser) {
+        if (token && storedUser) {
           return {
             success: true,
             user: JSON.parse(storedUser)
           };
         }
       }
-      
+
       return {
-        success: true,
-        user: mockUser
+        success: false,
+        message: 'Not logged in'
       };
     } catch (error) {
       console.error('Get user error:', error);

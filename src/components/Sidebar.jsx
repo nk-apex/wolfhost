@@ -164,10 +164,10 @@ const Sidebar = ({ isOpen, onClose }) => {
               </p>
               <div className="space-y-1">
                 <p className="text-sm font-mono text-white truncate">
-                  silentwolf@gmail.com
+                  {user?.username || user?.name || 'User'}
                 </p>
                 <p className="text-sm font-mono text-gray-400 truncate">
-                  britonkiplangat777@gmail.com
+                  {user?.email || ''}
                 </p>
               </div>
             </div>
