@@ -502,6 +502,359 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+const TIER_LIMITS = {
+  Limited: {
+    memory: 5120,
+    swap: 0,
+    disk: 10240,
+    io: 500,
+    cpu: 100,
+    databases: 1,
+    allocations: 1,
+    backups: 1,
+  },
+  Unlimited: {
+    memory: 0,
+    swap: 0,
+    disk: 40960,
+    io: 500,
+    cpu: 200,
+    databases: 2,
+    allocations: 2,
+    backups: 3,
+  },
+  Admin: {
+    memory: 0,
+    swap: 0,
+    disk: 81920,
+    io: 500,
+    cpu: 400,
+    databases: 5,
+    allocations: 5,
+    backups: 5,
+  },
+};
+
+async function pteroFetch(path, options = {}) {
+  const response = await fetch(`${PTERODACTYL_API_URL}/api/application${path}`, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${PTERODACTYL_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...options.headers,
+    },
+  });
+  return response;
+}
+
+async function findFreeAllocation(nodeId = 1) {
+  const response = await pteroFetch(`/nodes/${nodeId}/allocations?per_page=100`);
+  const data = await response.json();
+  if (!response.ok || !data.data) return null;
+  const free = data.data.find(a => !a.attributes.assigned);
+  return free ? free.attributes.id : null;
+}
+
+const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 200 };
+
+async function verifyUserBalance(email, requiredAmount) {
+  try {
+    let path = `/transaction?perPage=100&currency=KES&status=success`;
+    if (email) {
+      path += `&customer=${encodeURIComponent(email)}`;
+    }
+    const response = await paystackFetch(path);
+    const data = await response.json();
+    if (!response.ok || !data.status) return 0;
+
+    let transactions = data.data || [];
+    if (email && transactions.length === 0) {
+      const altResponse = await paystackFetch('/transaction?perPage=100&currency=KES&status=success');
+      const altData = await altResponse.json();
+      if (altResponse.ok && altData.status) {
+        transactions = (altData.data || []).filter(txn => {
+          const txnEmail = txn.customer?.email?.toLowerCase();
+          const filterEmail = email.toLowerCase();
+          return txnEmail === filterEmail || txn.metadata?.user_email?.toLowerCase() === filterEmail;
+        });
+      }
+    }
+
+    return transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
+  } catch (e) {
+    console.error('Balance verification error:', e);
+    return 0;
+  }
+}
+
+async function verifyPteroUser(userId) {
+  try {
+    const response = await pteroFetch(`/users/${userId}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.attributes || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+app.post('/api/servers/create', async (req, res) => {
+  try {
+    const { name, plan, userId, userEmail } = req.body;
+
+    if (!name || !plan || !userId || !userEmail) {
+      return res.status(400).json({ success: false, message: 'Server name, plan, user ID, and email are required' });
+    }
+
+    const tierConfig = TIER_LIMITS[plan];
+    if (!tierConfig) {
+      return res.status(400).json({ success: false, message: 'Invalid server plan' });
+    }
+
+    const pteroUser = await verifyPteroUser(userId);
+    if (!pteroUser) {
+      return res.status(403).json({ success: false, message: 'User not found on the panel' });
+    }
+
+    if (pteroUser.email.toLowerCase() !== userEmail.toLowerCase()) {
+      return res.status(403).json({ success: false, message: 'User verification failed' });
+    }
+
+    const requiredAmount = TIER_PRICES[plan] || 50;
+    const balance = await verifyUserBalance(userEmail, requiredAmount);
+    if (balance < requiredAmount) {
+      return res.status(402).json({
+        success: false,
+        message: `Insufficient balance. You need KES ${requiredAmount} but have KES ${balance.toFixed(2)}. Please top up your wallet first.`,
+      });
+    }
+
+    const allocationId = await findFreeAllocation(1);
+    if (!allocationId) {
+      return res.status(503).json({ success: false, message: 'No available ports. Please try again later or contact support.' });
+    }
+
+    console.log('Creating Pterodactyl server:', { name, plan, userId, allocationId, verifiedBalance: balance });
+
+    const serverPayload = {
+      name: name,
+      user: parseInt(userId),
+      egg: 15,
+      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
+      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
+      environment: {
+        GIT_ADDRESS: '',
+        BRANCH: '',
+        USERNAME: '',
+        ACCESS_TOKEN: '',
+        CMD_RUN: 'npm start',
+        AUTO_UPDATE: '0',
+        NODE_PACKAGES: '',
+        UNNODE_PACKAGES: '',
+        CUSTOM_ENVIRONMENT_VARIABLES: '',
+      },
+      limits: {
+        memory: tierConfig.memory,
+        swap: tierConfig.swap,
+        disk: tierConfig.disk,
+        io: tierConfig.io,
+        cpu: tierConfig.cpu,
+      },
+      feature_limits: {
+        databases: tierConfig.databases,
+        allocations: tierConfig.allocations,
+        backups: tierConfig.backups,
+      },
+      allocation: {
+        default: allocationId,
+      },
+      description: `WolfHost ${plan} Plan - Created via WolfHost Panel`,
+      start_on_completion: false,
+      external_id: `wolfhost-${userId}-${Date.now()}`,
+    };
+
+    const pteroResponse = await pteroFetch('/servers', {
+      method: 'POST',
+      body: JSON.stringify(serverPayload),
+    });
+
+    const pteroData = await pteroResponse.json();
+
+    if (!pteroResponse.ok) {
+      console.error('Pterodactyl server create error:', JSON.stringify(pteroData));
+      let errorMessage = 'Failed to create server on the panel';
+      if (pteroData.errors && pteroData.errors.length > 0) {
+        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+      }
+      return res.status(pteroResponse.status || 500).json({ success: false, message: errorMessage });
+    }
+
+    const serverAttrs = pteroData.attributes;
+    console.log('Server created successfully:', serverAttrs.id, serverAttrs.identifier);
+
+    return res.json({
+      success: true,
+      message: 'Server created successfully',
+      server: {
+        id: serverAttrs.id,
+        identifier: serverAttrs.identifier,
+        uuid: serverAttrs.uuid,
+        name: serverAttrs.name,
+        description: serverAttrs.description,
+        plan: plan,
+        status: serverAttrs.suspended ? 'suspended' : 'installing',
+        node: serverAttrs.node,
+        allocation: serverAttrs.allocation,
+        limits: serverAttrs.limits,
+        feature_limits: serverAttrs.feature_limits,
+      },
+    });
+  } catch (error) {
+    console.error('Server creation error:', error);
+    return res.status(500).json({ success: false, message: 'Server error creating server' });
+  }
+});
+
+app.get('/api/servers', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const pteroResponse = await pteroFetch(`/users/${userId}?include=servers`);
+    const pteroData = await pteroResponse.json();
+
+    if (!pteroResponse.ok) {
+      console.error('Pterodactyl servers fetch error:', JSON.stringify(pteroData));
+      return res.json({ success: true, servers: [] });
+    }
+
+    const userServers = pteroData.attributes?.relationships?.servers?.data || [];
+
+    const allocCache = {};
+
+    const servers = await Promise.all(userServers.map(async (s) => {
+      const attrs = s.attributes;
+      let ip = '';
+      let port = '';
+
+      if (attrs.allocation && !allocCache[attrs.allocation]) {
+        try {
+          const allocRes = await pteroFetch(`/nodes/${attrs.node}/allocations?per_page=100`);
+          const allocData = await allocRes.json();
+          if (allocRes.ok && allocData.data) {
+            allocData.data.forEach(a => {
+              allocCache[a.attributes.id] = a.attributes;
+            });
+          }
+        } catch (e) {}
+      }
+
+      if (allocCache[attrs.allocation]) {
+        const alloc = allocCache[attrs.allocation];
+        ip = alloc.alias || alloc.ip;
+        port = alloc.port;
+      }
+
+      let plan = 'Limited';
+      const mem = attrs.limits.memory;
+      const cpu = attrs.limits.cpu;
+      if ((mem === 0 || mem > 100000) && cpu >= 400) {
+        plan = 'Admin';
+      } else if (mem === 0 || mem > 100000) {
+        plan = 'Unlimited';
+      }
+
+      const formatMem = (m) => {
+        if (m === 0 || m > 100000) return 'Unlimited';
+        if (m >= 1024) return `${Math.round(m / 1024)}GB`;
+        return `${m}MB`;
+      };
+
+      const formatDisk = (d) => {
+        if (d === 0 || d > 1000000) return 'Unlimited';
+        if (d >= 1024) return `${Math.round(d / 1024)}GB`;
+        return `${d}MB`;
+      };
+
+      return {
+        id: attrs.id.toString(),
+        identifier: attrs.identifier,
+        uuid: attrs.uuid,
+        name: attrs.name,
+        description: attrs.description || '',
+        status: attrs.suspended ? 'suspended' : (attrs.container?.installed === 1 ? 'online' : 'installing'),
+        plan: plan,
+        ip: ip ? `${ip}:${port}` : '',
+        node: attrs.node,
+        cpu: `${cpu}%`,
+        ram: formatMem(mem),
+        storage: formatDisk(attrs.limits.disk),
+        uptime: '-',
+      };
+    }));
+
+    return res.json({
+      success: true,
+      servers,
+      total: servers.length,
+    });
+  } catch (error) {
+    console.error('Servers fetch error:', error);
+    return res.json({ success: true, servers: [] });
+  }
+});
+
+app.delete('/api/servers/:serverId', async (req, res) => {
+  try {
+    const { serverId } = req.params;
+    const { userId, userEmail } = req.query;
+
+    if (!serverId) {
+      return res.status(400).json({ success: false, message: 'Server ID is required' });
+    }
+
+    if (userId && userEmail) {
+      const pteroUser = await verifyPteroUser(userId);
+      if (!pteroUser || pteroUser.email.toLowerCase() !== userEmail.toLowerCase()) {
+        return res.status(403).json({ success: false, message: 'User verification failed' });
+      }
+
+      const serverRes = await pteroFetch(`/servers/${serverId}`);
+      if (serverRes.ok) {
+        const serverData = await serverRes.json();
+        if (serverData.attributes && serverData.attributes.user !== parseInt(userId)) {
+          return res.status(403).json({ success: false, message: 'You do not own this server' });
+        }
+      }
+    }
+
+    console.log('Deleting Pterodactyl server:', serverId);
+
+    const pteroResponse = await pteroFetch(`/servers/${serverId}`, {
+      method: 'DELETE',
+    });
+
+    if (pteroResponse.status === 204 || pteroResponse.ok) {
+      console.log('Server deleted successfully:', serverId);
+      return res.json({ success: true, message: 'Server deleted successfully' });
+    }
+
+    const pteroData = await pteroResponse.json().catch(() => ({}));
+    console.error('Pterodactyl delete error:', JSON.stringify(pteroData));
+    return res.status(pteroResponse.status || 500).json({
+      success: false,
+      message: pteroData.errors?.[0]?.detail || 'Failed to delete server',
+    });
+  } catch (error) {
+    console.error('Server deletion error:', error);
+    return res.status(500).json({ success: false, message: 'Server error deleting server' });
+  }
+});
+
 const PORT = 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Paystack API server running on port ${PORT}`);

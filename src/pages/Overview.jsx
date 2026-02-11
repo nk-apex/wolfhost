@@ -42,9 +42,15 @@ const Overview = () => {
 
   const fetchData = async () => {
     try {
-      const storedServers = JSON.parse(localStorage.getItem('servers') || '[]');
-      const onlineCount = storedServers.filter(s => s.status === 'running' || s.status === 'online').length;
-      setServerCount({ total: storedServers.length, online: onlineCount });
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const userId = user.panelId || user.id;
+      if (userId) {
+        const serverResult = await fetchWithTimeout(`/api/servers?userId=${encodeURIComponent(userId)}`);
+        if (serverResult.success && serverResult.servers) {
+          const onlineCount = serverResult.servers.filter(s => s.status === 'running' || s.status === 'online').length;
+          setServerCount({ total: serverResult.servers.length, online: onlineCount });
+        }
+      }
     } catch (e) {}
 
     try {

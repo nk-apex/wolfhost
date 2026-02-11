@@ -29,20 +29,20 @@ const SERVER_TIERS = {
   Limited: {
     price: 50,
     color: 'primary',
-    specs: { cpu: '1 vCPU', ram: '1GB', storage: '10GB', slots: '10 Slots' },
-    features: ['Basic DDoS Protection', 'Shared Resources', 'Community Support'],
+    specs: { cpu: '1 vCPU', ram: '5GB', storage: '10GB', slots: '10 Slots' },
+    features: ['5GB RAM Allocation', 'Nest 5 (Wolfhost)', 'Basic DDoS Protection', 'Community Support'],
   },
   Unlimited: {
     price: 100,
     color: 'blue',
-    specs: { cpu: '2 vCPU', ram: '4GB', storage: '40GB', slots: 'Unlimited' },
-    features: ['Advanced DDoS Protection', 'Dedicated Resources', 'Priority Support'],
+    specs: { cpu: '2 vCPU', ram: 'Unlimited', storage: '40GB', slots: 'Unlimited' },
+    features: ['Full RAM Access', 'Nest 5 (Wolfhost)', 'Advanced DDoS Protection', 'Priority Support'],
   },
   Admin: {
     price: 200,
     color: 'purple',
-    specs: { cpu: '4 vCPU', ram: '8GB', storage: '80GB', slots: 'Unlimited' },
-    features: ['Full DDoS Protection', 'Dedicated Resources', 'Admin Panel Access', '24/7 Support'],
+    specs: { cpu: '4 vCPU', ram: 'Unlimited', storage: '80GB', slots: 'Unlimited' },
+    features: ['Full RAM Access', 'Admin Panel Access', 'Full DDoS Protection', '24/7 Support'],
   },
 };
 
@@ -122,27 +122,18 @@ const Servers = () => {
   };
 
   const handleStart = async (serverId) => {
-    const result = await serverAPI.startServer(serverId);
-    if (result.success) {
-      setServers(servers.map(s => s.id === serverId ? result.server : s));
-      showMessage('success', 'Server started successfully');
-    }
+    showMessage('success', 'Use the Pterodactyl panel to start your server. Opening panel...');
+    window.open('https://panel.xwolf.space', '_blank');
   };
 
   const handleStop = async (serverId) => {
-    const result = await serverAPI.stopServer(serverId);
-    if (result.success) {
-      setServers(servers.map(s => s.id === serverId ? result.server : s));
-      showMessage('success', 'Server stopped');
-    }
+    showMessage('success', 'Use the Pterodactyl panel to stop your server. Opening panel...');
+    window.open('https://panel.xwolf.space', '_blank');
   };
 
   const handleRestart = async (serverId) => {
-    const result = await serverAPI.restartServer(serverId);
-    if (result.success) {
-      setServers(servers.map(s => s.id === serverId ? result.server : s));
-      showMessage('success', 'Server restarted');
-    }
+    showMessage('success', 'Use the Pterodactyl panel to restart your server. Opening panel...');
+    window.open('https://panel.xwolf.space', '_blank');
   };
 
   const handleDelete = async (serverId) => {
@@ -154,11 +145,15 @@ const Servers = () => {
 
   const confirmDelete = async () => {
     if (!serverToDelete) return;
-    const result = await serverAPI.deleteServer(serverToDelete.id);
-    if (result.success) {
-      setServers(servers.filter(s => s.id !== serverToDelete.id));
-      showMessage('success', `Server "${serverToDelete.name}" deleted successfully`);
-    } else {
+    try {
+      const result = await serverAPI.deleteServer(serverToDelete.id);
+      if (result.success) {
+        setServers(servers.filter(s => s.id !== serverToDelete.id));
+        showMessage('success', `Server "${serverToDelete.name}" deleted successfully from the panel`);
+      } else {
+        showMessage('error', result.message || 'Failed to delete server');
+      }
+    } catch (err) {
       showMessage('error', 'Failed to delete server');
     }
     setShowDeleteModal(false);
@@ -171,8 +166,13 @@ const Servers = () => {
   };
 
   const handleConsole = (serverId) => {
-    setSelectedServer(servers.find(s => s.id === serverId));
-    setShowConsoleModal(true);
+    showMessage('success', 'Opening server console on the panel...');
+    const server = servers.find(s => s.id === serverId);
+    if (server?.identifier) {
+      window.open(`https://panel.xwolf.space/server/${server.identifier}`, '_blank');
+    } else {
+      window.open('https://panel.xwolf.space', '_blank');
+    }
   };
 
   const handleCreateServer = async (e) => {
@@ -192,14 +192,22 @@ const Servers = () => {
 
     setCreating(true);
     try {
-      const result = await serverAPI.createServer(newServer);
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const result = await serverAPI.createServer({
+        name: newServer.name,
+        plan: newServer.plan,
+        userId: user.panelId || user.id,
+        userEmail: user.email,
+      });
       if (result.success) {
-        setServers([...servers, result.server]);
+        showMessage('success', 'Server created successfully on the panel!');
         setShowCreateModal(false);
         setNewServer({ name: '', plan: 'Limited' });
         setSelectedTier(null);
-        showMessage('success', 'Server created successfully');
+        fetchServers();
         fetchBalance();
+      } else {
+        showMessage('error', result.message || 'Failed to create server');
       }
     } catch (err) {
       showMessage('error', 'Failed to create server');
@@ -210,7 +218,8 @@ const Servers = () => {
 
   const filteredServers = servers.filter(server =>
     server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    server.ip.includes(searchQuery)
+    (server.ip && server.ip.includes(searchQuery)) ||
+    (server.identifier && server.identifier.includes(searchQuery))
   );
 
   if (loading) {
@@ -346,10 +355,10 @@ const Servers = () => {
                       <h3 className="font-bold truncate">{server.name}</h3>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${server.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                      <span className="text-xs font-mono text-gray-400">{server.status.toUpperCase()}</span>
+                      <div className={`w-2 h-2 rounded-full ${server.status === 'online' || server.status === 'running' ? 'bg-green-500 animate-pulse' : server.status === 'installing' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} />
+                      <span className="text-xs font-mono text-gray-400">{(server.status || 'unknown').toUpperCase()}</span>
                       <span className="text-xs font-mono text-primary">·</span>
-                      <span className="text-xs font-mono text-gray-400">{server.ip}</span>
+                      <span className="text-xs font-mono text-gray-400">{server.ip || server.identifier || 'Provisioning...'}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -380,14 +389,14 @@ const Servers = () => {
 
                 <div className="flex flex-wrap gap-2">
                   <motion.button
-                    onClick={() => server.status === 'online' ? handleStop(server.id) : handleStart(server.id)}
+                    onClick={() => (server.status === 'online' || server.status === 'running') ? handleStop(server.id) : handleStart(server.id)}
                     className="flex-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg text-xs font-mono flex items-center justify-center gap-1 transition-all"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     data-testid={`button-toggle-server-${server.id}`}
                   >
-                    {server.status === 'online' ? <StopCircle size={14} /> : <Play size={14} />}
-                    {server.status === 'online' ? 'Stop' : 'Start'}
+                    {(server.status === 'online' || server.status === 'running') ? <StopCircle size={14} /> : <Play size={14} />}
+                    {(server.status === 'online' || server.status === 'running') ? 'Stop' : 'Start'}
                   </motion.button>
                   <motion.button
                     onClick={() => handleRestart(server.id)}

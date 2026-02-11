@@ -4,6 +4,17 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-11: Pterodactyl auto-server creation on purchase
+  - Backend POST /api/servers/create auto-provisions server on Pterodactyl panel (nest 5, egg 15, node 1)
+  - Three tiers: Limited (50 KSH, 5GB RAM), Unlimited (100 KSH, full RAM), Admin (200 KSH, admin panel)
+  - Server-side balance verification via Paystack before provisioning
+  - Server-side user ownership verification via Pterodactyl user lookup
+  - Backend GET /api/servers?userId=X fetches real servers from panel
+  - Backend DELETE /api/servers/:id with ownership check removes server from panel
+  - Frontend serverAPI now calls real backend (removed localStorage mock data)
+  - Overview page server count from real API instead of localStorage
+  - Server controls (start/stop/restart/console) redirect to Pterodactyl panel
+  - Automatic allocation assignment (finds free port on node 1)
 - 2026-02-11: Fixed Billing & Wallet pages to show per-user real-time transaction data
   - Backend /api/transactions and /api/transactions/totals now filter by user email (Paystack customer filter)
   - M-Pesa charges now use the user's actual email instead of generated phone email

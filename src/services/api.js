@@ -735,270 +735,84 @@ export const referralAPI = {
 // ======================
 
 export const serverAPI = {
-  // Required by Servers.jsx
   getServers: async () => {
     try {
-      await delay(API_DELAY);
-      
-      // Get from localStorage or use default
-      const storedServers = localStorage.getItem('servers');
-      const servers = storedServers ? JSON.parse(storedServers) : [
-        { 
-          id: '1', 
-          name: 'Production Web Server', 
-          type: 'pro', 
-          status: 'running', 
-          cpu: 45, 
-          memory: 68, 
-          storage: 42,
-          uptime: '15d 6h',
-          ip: '192.168.1.100',
-          location: 'Nairobi, KE',
-          price: 1250.00,
-          tags: ['production', 'web'],
-          created: '2024-02-01',
-          lastBackup: '2024-03-12',
-          bandwidth: '450/500 GB'
-        },
-        { 
-          id: '2', 
-          name: 'Development Server', 
-          type: 'basic', 
-          status: 'stopped', 
-          cpu: 0, 
-          memory: 12, 
-          storage: 25,
-          uptime: '0d 0h',
-          ip: '192.168.1.101',
-          location: 'Nairobi, KE',
-          price: 500.00,
-          tags: ['development'],
-          created: '2024-03-01',
-          lastBackup: '2024-03-10',
-          bandwidth: '120/200 GB'
-        },
-        { 
-          id: '3', 
-          name: 'Database Server', 
-          type: 'enterprise', 
-          status: 'running', 
-          cpu: 25, 
-          memory: 85, 
-          storage: 78,
-          uptime: '30d 12h',
-          ip: '192.168.1.102',
-          location: 'Nairobi, KE',
-          price: 2500.00,
-          tags: ['database', 'production'],
-          created: '2024-01-15',
-          lastBackup: '2024-03-13',
-          bandwidth: '200/300 GB'
-        }
-      ];
-      
-      return {
-        success: true,
-        servers: servers,
-        total: servers.length,
-        running: servers.filter(s => s.status === 'running').length,
-        totalCost: servers.reduce((sum, s) => sum + s.price, 0)
-      };
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (!user.panelId && !user.id) {
+        return { success: true, servers: [], total: 0 };
+      }
+      const userId = user.panelId || user.id;
+      const response = await fetch(`/api/servers?userId=${encodeURIComponent(userId)}`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('Servers error:', error);
-      return { 
-        success: false, 
-        servers: [],
-        message: 'Failed to load servers' 
-      };
+      return { success: false, servers: [], message: 'Failed to load servers' };
     }
   },
 
   createServer: async (serverData) => {
     try {
-      console.log('🆕 Mock create server:', serverData);
-      await delay(API_DELAY * 2);
-      
-      const newServer = {
-        id: Date.now().toString(),
-        name: serverData.name || 'New Server',
-        type: serverData.type || 'basic',
-        status: 'creating',
-        cpu: 0,
-        memory: 0,
-        storage: serverData.storage || 20,
-        uptime: '0d 0h',
-        ip: '192.168.1.' + (100 + Math.floor(Math.random() * 155)),
-        location: serverData.location || 'Nairobi, KE',
-        price: serverData.price || 500.00,
-        tags: serverData.tags || ['new'],
-        created: new Date().toISOString().split('T')[0],
-        lastBackup: null,
-        bandwidth: '0/100 GB'
-      };
-      
-      // Get existing servers and add new one
-      const response = await serverAPI.getServers();
-      const servers = response.servers;
-      servers.push(newServer);
-      
-      // Save to localStorage
-      localStorage.setItem('servers', JSON.stringify(servers));
-      
-      // Simulate server creation completion
-      setTimeout(() => {
-        newServer.status = 'running';
-        newServer.cpu = 5;
-        newServer.memory = 10;
-        newServer.uptime = '0d 1h';
-        localStorage.setItem('servers', JSON.stringify(servers));
-      }, 5000);
-      
-      return {
-        success: true,
-        server: newServer,
-        message: 'Server creation initiated'
-      };
+      const response = await fetch('/api/servers/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(serverData),
+        signal: AbortSignal.timeout(30000),
+      });
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('Create server error:', error);
-      return { 
-        success: false, 
-        message: 'Failed to create server' 
-      };
-    }
-  },
-
-  updateServer: async (serverId, updates) => {
-    try {
-      console.log('🔄 Mock update server:', serverId, updates);
-      await delay(API_DELAY);
-      
-      const response = await serverAPI.getServers();
-      const servers = response.servers;
-      const serverIndex = servers.findIndex(s => s.id === serverId);
-      
-      if (serverIndex === -1) {
-        throw new Error('Server not found');
-      }
-      
-      servers[serverIndex] = {
-        ...servers[serverIndex],
-        ...updates,
-        updated: new Date().toISOString()
-      };
-      
-      localStorage.setItem('servers', JSON.stringify(servers));
-      
-      return {
-        success: true,
-        server: servers[serverIndex],
-        message: 'Server updated successfully'
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: error.message || 'Failed to update server' 
-      };
+      return { success: false, message: 'Failed to create server' };
     }
   },
 
   deleteServer: async (serverId) => {
     try {
-      console.log('🗑️ Mock delete server:', serverId);
-      await delay(API_DELAY);
-      
-      const response = await serverAPI.getServers();
-      const servers = response.servers.filter(s => s.id !== serverId);
-      
-      localStorage.setItem('servers', JSON.stringify(servers));
-      
-      return {
-        success: true,
-        message: 'Server deleted successfully'
-      };
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const userId = user.panelId || user.id;
+      const userEmail = user.email || '';
+      const params = new URLSearchParams({ userId, userEmail });
+      const response = await fetch(`/api/servers/${serverId}?${params}`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await response.json();
+      return data;
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to delete server' 
-      };
+      console.error('Delete server error:', error);
+      return { success: false, message: 'Failed to delete server' };
     }
+  },
+
+  startServer: async (serverId) => {
+    return { success: true, message: 'Use the Pterodactyl panel to start/stop servers' };
+  },
+
+  stopServer: async (serverId) => {
+    return { success: true, message: 'Use the Pterodactyl panel to start/stop servers' };
   },
 
   restartServer: async (serverId) => {
-    try {
-      console.log('🔄 Mock restart server:', serverId);
-      await delay(API_DELAY * 3);
-      
-      const response = await serverAPI.getServers();
-      const servers = response.servers;
-      const serverIndex = servers.findIndex(s => s.id === serverId);
-      
-      if (serverIndex === -1) {
-        throw new Error('Server not found');
-      }
-      
-      servers[serverIndex].status = 'restarting';
-      localStorage.setItem('servers', JSON.stringify(servers));
-      
-      // Simulate restart completion
-      setTimeout(() => {
-        servers[serverIndex].status = 'running';
-        localStorage.setItem('servers', JSON.stringify(servers));
-      }, 3000);
-      
-      return {
-        success: true,
-        message: 'Server restart initiated'
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: error.message || 'Failed to restart server' 
-      };
-    }
+    return { success: true, message: 'Use the Pterodactyl panel to restart servers' };
   },
 
   getServerMetrics: async (serverId) => {
-    try {
-      await delay(API_DELAY);
-      
-      return {
-        success: true,
-        metrics: {
-          cpu: Array.from({ length: 24 }, () => Math.floor(Math.random() * 100)),
-          memory: Array.from({ length: 24 }, () => Math.floor(Math.random() * 100)),
-          disk: Array.from({ length: 24 }, () => Math.floor(Math.random() * 100)),
-          network: Array.from({ length: 24 }, () => Math.floor(Math.random() * 1000)),
-          uptime: '99.8%',
-          responseTime: 45
-        }
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        metrics: {} 
-      };
-    }
+    return { success: true, metrics: {} };
   },
 
   getServerTypes: async () => {
-    try {
-      await delay(API_DELAY);
-      
-      return {
-        success: true,
-        types: [
-          { id: 'basic', name: 'Basic', cpu: 1, memory: 2, storage: 20, price: 500.00, description: 'Perfect for small projects' },
-          { id: 'pro', name: 'Professional', cpu: 2, memory: 4, storage: 50, price: 1250.00, description: 'Great for production apps' },
-          { id: 'enterprise', name: 'Enterprise', cpu: 4, memory: 8, storage: 100, price: 2500.00, description: 'For mission-critical applications' }
-        ]
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        types: [] 
-      };
-    }
-  }
+    return {
+      success: true,
+      types: [
+        { id: 'Limited', name: 'Limited', cpu: 1, memory: 5, storage: 10, price: 50, description: '5GB RAM, Nest 5' },
+        { id: 'Unlimited', name: 'Unlimited', cpu: 2, memory: 0, storage: 40, price: 100, description: 'Full RAM access, Nest 5' },
+        { id: 'Admin', name: 'Admin', cpu: 4, memory: 0, storage: 80, price: 200, description: 'Admin panel, unlimited' },
+      ],
+    };
+  },
 };
 
 // ======================
