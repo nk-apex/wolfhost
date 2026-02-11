@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { referralAPI } from '../services/api';
-import GlassCard from '../components/GlassCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'sonner';
 
@@ -95,89 +94,108 @@ const Referrals = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 className="text-2xl font-orbitron font-bold text-primary">Referral Program</h1>
-          <p className="text-sm text-muted-foreground font-mono">Invite friends, earn rewards. 10 referrals = Admin Panel!</p>
+          <h1 className="text-3xl font-bold mb-2">Referral Program</h1>
+          <p className="text-gray-400 font-mono">
+            Invite friends, earn rewards. 10 referrals = Admin Panel!
+          </p>
         </div>
         <button
           onClick={fetchReferralData}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors font-mono text-sm"
+          className="group px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
-          <RefreshCw size={16} />
-          Refresh
+          <div className="flex items-center text-sm font-mono">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </div>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <GlassCard hover={false}>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-center">
-              <CheckCircle className="text-green-400" size={24} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          {
+            icon: CheckCircle,
+            label: 'Completed',
+            value: completedCount,
+            subValue: 'Successful referrals',
+            iconColor: 'text-green-400',
+            iconBg: 'bg-green-500/10',
+            glowColor: 'rgba(34,197,94,0.15)',
+          },
+          {
+            icon: Clock,
+            label: 'Pending',
+            value: pendingCount,
+            subValue: 'Waiting to buy a server',
+            iconColor: 'text-yellow-400',
+            iconBg: 'bg-yellow-500/10',
+            glowColor: 'rgba(234,179,8,0.15)',
+          },
+          {
+            icon: Shield,
+            label: 'Admin Panel',
+            value: isAdminUnlocked ? 'UNLOCKED' : 'LOCKED',
+            subValue: isAdminUnlocked ? 'Full admin access granted' : `${10 - completedCount} more to unlock`,
+            iconColor: isAdminUnlocked ? 'text-primary' : 'text-gray-500',
+            iconBg: isAdminUnlocked ? 'bg-primary/10' : 'bg-gray-500/10',
+            glowColor: isAdminUnlocked ? 'rgba(0,255,0,0.15)' : 'rgba(100,100,100,0.1)',
+          },
+        ].map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <div
+              className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all"
+              style={{ boxShadow: `0 0 40px ${stat.glowColor}` }}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
+                  <h3 className="text-2xl font-display font-bold text-white">{stat.value}</h3>
+                </div>
+                <div className={`p-2 ${stat.iconBg} rounded-lg`}>
+                  <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+                </div>
+              </div>
+              <div className="mt-4 text-xs text-gray-500 font-mono">{stat.subValue}</div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-mono">Completed</p>
-              <p className="text-3xl font-orbitron font-bold text-green-400">{completedCount}</p>
-            </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard hover={false}>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
-              <Clock className="text-yellow-400" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-mono">Pending</p>
-              <p className="text-3xl font-orbitron font-bold text-yellow-400">{pendingCount}</p>
-              <p className="text-[10px] text-muted-foreground/60 font-mono">Waiting to buy a server</p>
-            </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard hover={false}>
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isAdminUnlocked ? 'bg-primary/10 border border-primary/30' : 'bg-gray-500/10 border border-gray-500/30'}`}>
-              <Shield className={isAdminUnlocked ? 'text-primary' : 'text-gray-500'} size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-mono">Admin Panel</p>
-              <p className={`text-lg font-orbitron font-bold ${isAdminUnlocked ? 'text-primary' : 'text-gray-500'}`}>
-                {isAdminUnlocked ? 'UNLOCKED!' : 'LOCKED'}
-              </p>
-              {!isAdminUnlocked && (
-                <p className="text-[10px] text-muted-foreground/60 font-mono">{10 - completedCount} more to unlock</p>
-              )}
-            </div>
-          </div>
-        </GlassCard>
+          </motion.div>
+        ))}
       </div>
 
       {adminAwarded && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="p-6 rounded-xl border-2 border-primary bg-primary/5 text-center space-y-3"
+          className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center space-y-3"
         >
           <Award className="mx-auto text-primary" size={48} />
-          <h2 className="text-xl font-orbitron font-bold text-primary">Congratulations!</h2>
-          <p className="text-muted-foreground font-mono">
+          <h2 className="text-xl font-bold text-white">Congratulations!</h2>
+          <p className="text-gray-400 font-mono">
             You've reached 10 referrals and have been awarded Admin Panel access!
           </p>
           <a
             href="/admin"
-            className="inline-flex items-center gap-2 px-6 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition-colors font-mono text-sm"
+            className="inline-flex items-center gap-2 px-6 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors font-mono text-sm"
           >
             Access Admin Panel <ExternalLink size={14} />
           </a>
         </motion.div>
       )}
 
-      <GlassCard hover={false}>
-        <h2 className="text-lg font-orbitron font-bold mb-4 flex items-center gap-2">
-          <Share2 className="text-primary" size={20} />
-          Your Referral Link
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+      >
+        <h2 className="text-xl font-bold mb-4 flex items-center">
+          <Share2 className="w-5 h-5 mr-2 text-primary" /> Your Referral Link
         </h2>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -186,17 +204,17 @@ const Referrals = () => {
               type="text"
               value={referralLink}
               readOnly
-              className="w-full bg-black/30 border border-primary/20 rounded-lg px-4 py-3 font-mono text-sm text-foreground focus:outline-none focus:border-primary/40"
+              className="w-full bg-black/40 border border-primary/20 rounded-lg px-4 py-3 font-mono text-sm text-white focus:outline-none focus:border-primary/40"
             />
             <button
               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-primary/10 rounded-lg transition-colors"
               onClick={() => copyToClipboard(referralLink)}
             >
-              {copied ? <CheckCircle size={18} className="text-primary" /> : <Copy size={18} className="text-muted-foreground" />}
+              {copied ? <CheckCircle size={18} className="text-primary" /> : <Copy size={18} className="text-gray-400" />}
             </button>
           </div>
           <button
-            className="px-4 py-3 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-all font-mono text-sm text-primary"
+            className="px-4 py-3 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-all font-mono text-sm"
             onClick={shareReferral}
           >
             <Share2 size={16} />
@@ -204,25 +222,29 @@ const Referrals = () => {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-gray-400">
           <span className="font-mono">Referral Code:</span>
-          <span className="font-mono text-primary font-bold">{referralCode}</span>
+          <span className="font-mono text-white font-bold">{referralCode}</span>
         </div>
-      </GlassCard>
+      </motion.div>
 
-      <GlassCard hover={false}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+      >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-orbitron font-bold flex items-center gap-2">
-            <Shield className="text-primary" size={20} />
-            Admin Panel Progress
+          <h2 className="text-xl font-bold flex items-center">
+            <Shield className="w-5 h-5 mr-2 text-primary" /> Admin Panel Progress
           </h2>
-          <span className="font-mono text-sm text-primary">{completedCount}/10</span>
+          <span className="font-mono text-sm text-gray-400">{completedCount}/10</span>
         </div>
 
         <div className="mb-4">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-muted-foreground font-mono">Progress</span>
-            <span className="text-primary font-mono">{Math.round(progress)}%</span>
+            <span className="text-gray-400 font-mono">Progress</span>
+            <span className="text-white font-mono">{Math.round(progress)}%</span>
           </div>
           <div className="h-3 bg-primary/10 rounded-full overflow-hidden">
             <motion.div
@@ -234,7 +256,7 @@ const Referrals = () => {
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground font-mono">
+        <p className="text-sm text-gray-400 font-mono">
           {isAdminUnlocked
             ? 'Admin Panel unlocked! You have full admin access.'
             : `${10 - completedCount} more completed referrals needed. A referral is completed when the invited user purchases a server.`
@@ -248,18 +270,22 @@ const Referrals = () => {
             Access Admin Panel <ExternalLink size={14} />
           </a>
         )}
-      </GlassCard>
+      </motion.div>
 
-      <GlassCard hover={false}>
-        <h2 className="text-lg font-orbitron font-bold mb-4 flex items-center gap-2">
-          <Users className="text-primary" size={20} />
-          Your Referrals
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+      >
+        <h2 className="text-xl font-bold mb-4 flex items-center">
+          <Users className="w-5 h-5 mr-2 text-primary" /> Your Referrals
         </h2>
 
         {referrals.length === 0 ? (
           <div className="text-center py-8">
-            <Users size={48} className="mx-auto text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground font-mono">No referrals yet. Share your link to get started!</p>
+            <Users size={48} className="mx-auto text-gray-600 mb-4" />
+            <p className="text-gray-400 font-mono">No referrals yet. Share your link to get started!</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -269,7 +295,7 @@ const Referrals = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-primary/10"
+                className="flex items-center justify-between p-4 rounded-lg bg-black/20 border border-primary/10 hover:border-primary/20 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -278,8 +304,8 @@ const Referrals = () => {
                     </span>
                   </div>
                   <div>
-                    <p className="font-mono text-sm text-foreground">{ref.username}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{ref.email}</p>
+                    <p className="font-mono text-sm text-white">{ref.username}</p>
+                    <p className="text-xs text-gray-500 font-mono">{ref.email}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -290,7 +316,7 @@ const Referrals = () => {
                   }`}>
                     {ref.completed ? 'COMPLETED' : 'PENDING'}
                   </span>
-                  <p className="text-[10px] text-muted-foreground/60 font-mono mt-1">
+                  <p className="text-[10px] text-gray-600 font-mono mt-1">
                     {new Date(ref.registeredAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -298,48 +324,62 @@ const Referrals = () => {
             ))}
           </div>
         )}
-      </GlassCard>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <GlassCard hover={false}>
-          <h3 className="font-orbitron font-bold mb-3 text-primary">How it Works</h3>
-          <ul className="space-y-3 text-sm text-muted-foreground font-mono">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+        >
+          <h3 className="font-bold mb-4 flex items-center">
+            <Gift className="w-5 h-5 mr-2 text-primary" /> How it Works
+          </h3>
+          <ul className="space-y-3 text-sm text-gray-400 font-mono">
             <li className="flex items-start gap-3">
-              <span className="text-primary font-bold min-w-[20px]">1.</span>
+              <span className="text-white font-bold min-w-[20px]">1.</span>
               Share your unique referral link with friends
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-primary font-bold min-w-[20px]">2.</span>
+              <span className="text-white font-bold min-w-[20px]">2.</span>
               They sign up using your link
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-primary font-bold min-w-[20px]">3.</span>
+              <span className="text-white font-bold min-w-[20px]">3.</span>
               When they purchase a server, your referral is completed
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-primary font-bold min-w-[20px]">4.</span>
+              <span className="text-white font-bold min-w-[20px]">4.</span>
               Reach 10 completed referrals to unlock Admin Panel!
             </li>
           </ul>
-        </GlassCard>
+        </motion.div>
 
-        <GlassCard hover={false}>
-          <h3 className="font-orbitron font-bold mb-3 text-primary">Rewards</h3>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+        >
+          <h3 className="font-bold mb-4 flex items-center">
+            <Award className="w-5 h-5 mr-2 text-primary" /> Rewards
+          </h3>
           <ul className="space-y-3 text-sm font-mono">
             <li className="flex items-center justify-between">
-              <span className="text-muted-foreground">Per Completed Referral</span>
+              <span className="text-gray-400">Per Completed Referral</span>
               <span className="text-green-400">+1 Point</span>
             </li>
             <li className="flex items-center justify-between">
-              <span className="text-muted-foreground">5 Referrals</span>
+              <span className="text-gray-400">5 Referrals</span>
               <span className="text-blue-400">Halfway There!</span>
             </li>
             <li className="flex items-center justify-between">
-              <span className="text-muted-foreground">10 Referrals</span>
-              <span className="text-primary font-bold">Admin Panel Access</span>
+              <span className="text-gray-400">10 Referrals</span>
+              <span className="text-white font-bold">Admin Panel Access</span>
             </li>
           </ul>
-        </GlassCard>
+        </motion.div>
       </div>
     </div>
   );
