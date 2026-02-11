@@ -50,8 +50,8 @@ export default function Landing() {
               >
                 <Zap className="h-6 w-6 text-primary/90" />
               </motion.div>
-              <span className="ml-3 text-xl font-display font-bold tracking-widest text-white">
-                WOLF<span className="text-gray-400">HOST</span>
+              <span className="ml-3 text-xl font-display font-bold tracking-widest">
+                <span className="text-primary">WOLF</span><span className="text-gray-400">HOST</span>
               </span>
             </div>
             <div className="flex space-x-2 sm:space-x-3">
@@ -70,7 +70,7 @@ export default function Landing() {
         </div>
       </nav>
 
-      <div className="relative pt-32 pb-20 sm:pt-40 sm:pb-24">
+      <div className="relative pt-32 pb-20 sm:pt-40 sm:pb-24 z-10">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -169,7 +169,7 @@ export default function Landing() {
         </div>
       </div>
 
-      <div className="py-20 bg-background/50 relative">
+      <div className="py-20 bg-background/50 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-display font-bold mb-4 text-white">
@@ -211,7 +211,7 @@ export default function Landing() {
         </div>
       </div>
 
-      <div className="py-20 bg-gradient-to-b from-background/50 to-background">
+      <div className="py-20 bg-gradient-to-b from-background/50 to-background relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
             <h3 className="text-2xl sm:text-3xl font-display font-bold mb-6 text-white">
@@ -234,7 +234,7 @@ export default function Landing() {
         </div>
       </div>
 
-      <footer className="bg-black/40 border-t border-primary/10 pt-16 pb-8">
+      <footer className="bg-black/40 border-t border-primary/10 pt-16 pb-8 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div className="md:col-span-1">
@@ -246,8 +246,8 @@ export default function Landing() {
                 >
                   <Zap className="h-6 w-6 text-primary/90" />
                 </motion.div>
-                <span className="ml-3 text-lg font-display font-bold tracking-widest text-white">
-                  WOLF<span className="text-gray-400">HOST</span>
+                <span className="ml-3 text-lg font-display font-bold tracking-widest">
+                  <span className="text-primary">WOLF</span><span className="text-gray-400">HOST</span>
                 </span>
               </div>
               <p className="text-gray-500 text-sm font-mono leading-relaxed">
