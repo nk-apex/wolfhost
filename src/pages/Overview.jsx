@@ -41,9 +41,11 @@ const Overview = () => {
   };
 
   const fetchData = async () => {
+    const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+    const userId = currentUser.panelId || currentUser.id;
+    const userEmail = currentUser.email || '';
+
     try {
-      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
-      const userId = user.panelId || user.id;
       if (userId) {
         const serverResult = await fetchWithTimeout(`/api/servers?userId=${encodeURIComponent(userId)}`);
         if (serverResult.success && serverResult.servers) {
@@ -54,9 +56,10 @@ const Overview = () => {
     } catch (e) {}
 
     try {
+      const emailParam = userEmail ? `email=${encodeURIComponent(userEmail)}` : '';
       const [balanceResult, txnResult] = await Promise.all([
-        fetchWithTimeout('/api/transactions/totals'),
-        fetchWithTimeout('/api/transactions?perPage=10')
+        fetchWithTimeout(`/api/transactions/totals${emailParam ? `?${emailParam}` : ''}`),
+        fetchWithTimeout(`/api/transactions?perPage=10${emailParam ? `&${emailParam}` : ''}`)
       ]);
 
       if (balanceResult.success) {
