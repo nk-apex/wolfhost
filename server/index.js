@@ -855,6 +855,10 @@ app.delete('/api/servers/:serverId', async (req, res) => {
   }
 });
 
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'WolfHost API' });
+});
+
 const PORT = 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Paystack API server running on port ${PORT}`);
