@@ -14,6 +14,26 @@ app.use(express.json());
 
 const TASKS_FILE = path.join(__dirname, 'tasks.json');
 const FREE_SERVERS_FILE = path.join(__dirname, 'free_servers.json');
+const WELCOME_CLAIMS_FILE = path.join(__dirname, 'welcome_claims.json');
+
+function loadWelcomeClaims() {
+  try {
+    if (fs.existsSync(WELCOME_CLAIMS_FILE)) {
+      return JSON.parse(fs.readFileSync(WELCOME_CLAIMS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading welcome claims:', e);
+  }
+  return {};
+}
+
+function saveWelcomeClaims(data) {
+  try {
+    fs.writeFileSync(WELCOME_CLAIMS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving welcome claims:', e);
+  }
+}
 
 function loadTasks() {
   try {
@@ -1656,6 +1676,156 @@ app.post('/api/tasks/claim-server', async (req, res) => {
   } catch (error) {
     console.error('Free server claim error:', error);
     return res.status(500).json({ success: false, message: 'Server error creating free server' });
+  }
+});
+
+app.post('/api/free-server/claim-welcome', async (req, res) => {
+  try {
+    const { userId, userEmail } = req.body;
+    if (!userId || !userEmail) {
+      return res.status(400).json({ success: false, message: 'userId and userEmail are required' });
+    }
+
+    const welcomeClaims = loadWelcomeClaims();
+    if (welcomeClaims[userId.toString()]) {
+      return res.status(400).json({ success: false, message: 'You have already claimed your free server', alreadyClaimed: true });
+    }
+
+    const pteroUser = await verifyPteroUser(userId);
+    if (!pteroUser) {
+      return res.status(403).json({ success: false, message: 'User not found on the panel' });
+    }
+
+    if (pteroUser.email.toLowerCase() !== userEmail.toLowerCase()) {
+      return res.status(403).json({ success: false, message: 'User verification failed' });
+    }
+
+    const allocationId = await findFreeAllocation(1);
+    if (!allocationId) {
+      return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
+    }
+
+    const serverName = `${pteroUser.username}-welcome-trial`;
+    const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
+
+    console.log('Creating welcome free trial server:', { serverName, userId, allocationId, expiresAt });
+
+    const serverPayload = {
+      name: serverName,
+      user: parseInt(userId),
+      egg: 15,
+      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
+      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
+      environment: {
+        GIT_ADDRESS: '',
+        BRANCH: '',
+        USERNAME: '',
+        ACCESS_TOKEN: '',
+        CMD_RUN: 'npm start',
+        AUTO_UPDATE: '0',
+        NODE_PACKAGES: '',
+        UNNODE_PACKAGES: '',
+        CUSTOM_ENVIRONMENT_VARIABLES: '',
+      },
+      limits: {
+        memory: FREE_SERVER_LIMITS.memory,
+        swap: FREE_SERVER_LIMITS.swap,
+        disk: FREE_SERVER_LIMITS.disk,
+        io: FREE_SERVER_LIMITS.io,
+        cpu: FREE_SERVER_LIMITS.cpu,
+      },
+      feature_limits: {
+        databases: FREE_SERVER_LIMITS.databases,
+        allocations: FREE_SERVER_LIMITS.allocations,
+        backups: FREE_SERVER_LIMITS.backups,
+      },
+      allocation: { default: allocationId },
+      description: `WolfHost Welcome Trial - Expires ${new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toLocaleDateString()}`,
+      start_on_completion: false,
+      external_id: `wolfhost-welcome-${userId}-${Date.now()}`,
+    };
+
+    const pteroResponse = await pteroFetch('/servers', {
+      method: 'POST',
+      body: JSON.stringify(serverPayload),
+    });
+
+    const pteroData = await pteroResponse.json();
+
+    if (!pteroResponse.ok) {
+      console.error('Welcome free server create error:', JSON.stringify(pteroData));
+      let errorMessage = 'Failed to create free server';
+      if (pteroData.errors && pteroData.errors.length > 0) {
+        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+      }
+      return res.status(500).json({ success: false, message: errorMessage });
+    }
+
+    const serverAttrs = pteroData.attributes;
+
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
+
+    const freeServerRecord = {
+      userId: userId.toString(),
+      userEmail: userEmail.toLowerCase(),
+      ip: clientIp,
+      serverId: serverAttrs.id,
+      identifier: serverAttrs.identifier,
+      serverName: serverAttrs.name,
+      createdAt: new Date().toISOString(),
+      expiresAt,
+      type: 'welcome',
+    };
+
+    freeServers.push(freeServerRecord);
+    saveFreeServers(freeServers);
+
+    const updatedClaims = loadWelcomeClaims();
+    updatedClaims[userId.toString()] = {
+      claimedAt: new Date().toISOString(),
+      serverId: serverAttrs.id,
+      expiresAt,
+    };
+    saveWelcomeClaims(updatedClaims);
+
+    console.log(`Welcome trial server created: ${serverAttrs.id} for user ${userId}, expires ${expiresAt}`);
+
+    return res.json({
+      success: true,
+      message: 'Your free 3-day trial server has been created!',
+      server: {
+        id: serverAttrs.id,
+        identifier: serverAttrs.identifier,
+        name: serverAttrs.name,
+        expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error('Welcome free server claim error:', error);
+    return res.status(500).json({ success: false, message: 'Server error creating free server' });
+  }
+});
+
+app.get('/api/free-server/status', (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+
+    const welcomeClaims = loadWelcomeClaims();
+    const hasClaimed = !!welcomeClaims[userId.toString()];
+
+    const freeServers = loadFreeServers();
+    const userFreeServer = freeServers.find(s => s.userId === userId.toString());
+
+    return res.json({
+      success: true,
+      hasFreeServer: hasClaimed || !!userFreeServer,
+      freeServer: userFreeServer || null,
+      claimed: hasClaimed,
+    });
+  } catch (error) {
+    console.error('Free server status error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to check free server status' });
   }
 });
 

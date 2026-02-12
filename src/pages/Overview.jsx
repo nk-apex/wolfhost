@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import WelcomeFreeServerPopup from '../components/WelcomeFreeServerPopup';
 
 const Overview = () => {
   const { user } = useAuth();
@@ -27,10 +28,31 @@ const Overview = () => {
   const [transactions, setTransactions] = useState([]);
   const [serverCount, setServerCount] = useState({ total: 0, online: 0 });
   const [loading, setLoading] = useState(true);
+  const [showWelcomePopup, setShowWelcomePopup] = useState(false);
 
   useEffect(() => {
     fetchData();
+    checkWelcomePopup();
   }, []);
+
+  const checkWelcomePopup = async () => {
+    const dismissed = localStorage.getItem('welcome_popup_dismissed');
+    if (dismissed) return;
+
+    const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+    const userId = currentUser.panelId || currentUser.id;
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`/api/free-server/status?userId=${encodeURIComponent(userId)}`);
+      const data = await response.json();
+      if (data.success && !data.hasFreeServer) {
+        setShowWelcomePopup(true);
+      }
+    } catch (e) {
+      console.error('Failed to check free server status:', e);
+    }
+  };
 
   const fetchWithTimeout = (url, timeoutMs = 10000) => {
     const controller = new AbortController();
@@ -158,6 +180,13 @@ const Overview = () => {
 
   return (
     <div className="space-y-8" data-testid="overview-page">
+      {showWelcomePopup && user && (
+        <WelcomeFreeServerPopup
+          user={user}
+          onClose={() => setShowWelcomePopup(false)}
+          onClaimed={() => fetchData()}
+        />
+      )}
       <div className="mb-8 flex flex-wrap justify-between items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2" data-testid="text-welcome-heading">Command Center</h1>

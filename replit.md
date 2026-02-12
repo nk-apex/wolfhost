@@ -4,6 +4,14 @@
 WolfHost is a hosting panel frontend application with a neon green cyberpunk theme. It provides server hosting management, billing, wallet, referrals, and settings pages. Built with React, Vite, TypeScript/JavaScript, Tailwind CSS, and shadcn/ui components.
 
 ## Recent Changes
+- 2026-02-12: Welcome Free Server for new users
+  - New users see a popup on Overview page offering a free 3-day trial server
+  - Backend POST /api/free-server/claim-welcome creates server on Pterodactyl (1GB RAM, 5GB Disk, 1 vCPU)
+  - Backend GET /api/free-server/status checks if user already claimed
+  - Persistent welcome_claims.json prevents re-claiming even after server expires
+  - Email verified against Pterodactyl user before creation
+  - After claiming, second popup prompts user to top up wallet for a permanent server
+  - WelcomeFreeServerPopup component (src/components/WelcomeFreeServerPopup.jsx)
 - 2026-02-11: Task Reward System with free trial servers
   - Tasks page (src/pages/Tasks.jsx) with 4 social media tasks: WhatsApp Channel, WhatsApp Group, Telegram, YouTube
   - Backend endpoints: GET /api/tasks, POST /api/tasks/complete, POST /api/tasks/claim-server
