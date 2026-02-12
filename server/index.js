@@ -1777,6 +1777,7 @@ app.post('/api/free-server/claim-welcome', async (req, res) => {
       type: 'welcome',
     };
 
+    const freeServers = loadFreeServers();
     freeServers.push(freeServerRecord);
     saveFreeServers(freeServers);
 
