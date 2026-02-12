@@ -42,9 +42,10 @@ export const paystackAPI = {
     }
   },
 
-  verifyPayment: async (reference) => {
+  verifyPayment: async (reference, userId) => {
     try {
-      const response = await fetch(`/api/mpesa/verify/${encodeURIComponent(reference)}`);
+      const url = userId ? `/api/mpesa/verify/${encodeURIComponent(reference)}?userId=${userId}` : `/api/mpesa/verify/${encodeURIComponent(reference)}`;
+      const response = await fetch(url);
       const data = await response.json();
 
       if (!response.ok) {
@@ -99,9 +100,10 @@ export const paystackAPI = {
     }
   },
 
-  verifyCardPayment: async (reference) => {
+  verifyCardPayment: async (reference, userId) => {
     try {
-      const response = await fetch(`/api/card/verify/${encodeURIComponent(reference)}`);
+      const url = userId ? `/api/card/verify/${encodeURIComponent(reference)}?userId=${userId}` : `/api/card/verify/${encodeURIComponent(reference)}`;
+      const response = await fetch(url);
       const data = await response.json();
 
       if (!response.ok) {

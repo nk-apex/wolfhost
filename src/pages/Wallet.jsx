@@ -343,7 +343,7 @@ const Wallet = () => {
         attempts++;
 
         try {
-          const result = await paystackAPI.verifyPayment(reference);
+          const result = await paystackAPI.verifyPayment(reference, user?.id);
 
           if (result.success && result.data?.status === 'success') {
             const paidAmount = result.data.amount / 100;
@@ -421,7 +421,7 @@ const Wallet = () => {
     setStkStatus({ show: true, status: 'pending', message: 'Verifying card payment...' });
 
     try {
-      const result = await paystackAPI.verifyCardPayment(cardRef);
+      const result = await paystackAPI.verifyCardPayment(cardRef, user?.id);
 
       if (result.success) {
         const paidAmount = result.data.amount / 100;

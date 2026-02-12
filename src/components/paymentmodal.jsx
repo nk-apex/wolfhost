@@ -133,7 +133,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
     setMpesaStatus('Verifying card payment...');
 
     try {
-      const result = await paystackAPI.verifyCardPayment(paymentRef);
+      const result = await paystackAPI.verifyCardPayment(paymentRef, user?.id);
 
       if (result.success) {
         const paidAmount = result.data.amount / 100;
@@ -175,7 +175,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
       attempts++;
 
       try {
-        const result = await paystackAPI.verifyPayment(reference);
+        const result = await paystackAPI.verifyPayment(reference, user?.id);
 
         if (result.success && result.data?.status === 'success') {
           setStep('success');

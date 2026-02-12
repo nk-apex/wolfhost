@@ -26,5 +26,12 @@
     "description": "Server \"admin-free-trial\" (Limited plan)",
     "serverId": "6",
     "date": "2026-02-11T14:13:16.462Z"
+  },
+  {
+    "email": "korir@gmail.com",
+    "amount": 50,
+    "description": "Server \"korir-welcome-trial\" (Limited plan)",
+    "serverId": "15",
+    "date": "2026-02-12T12:21:44.789Z"
   }
 ]

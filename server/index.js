@@ -15,6 +15,42 @@ app.use(express.json());
 const TASKS_FILE = path.join(__dirname, 'tasks.json');
 const FREE_SERVERS_FILE = path.join(__dirname, 'free_servers.json');
 const WELCOME_CLAIMS_FILE = path.join(__dirname, 'welcome_claims.json');
+const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
+
+function loadNotifications() {
+  try {
+    if (fs.existsSync(NOTIFICATIONS_FILE)) {
+      return JSON.parse(fs.readFileSync(NOTIFICATIONS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading notifications:', e);
+  }
+  return {};
+}
+
+function saveNotifications(data) {
+  try {
+    fs.writeFileSync(NOTIFICATIONS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving notifications:', e);
+  }
+}
+
+function addNotification(userId, type, title, message) {
+  const allNotifs = loadNotifications();
+  const key = userId.toString();
+  if (!allNotifs[key]) allNotifs[key] = [];
+  allNotifs[key].unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type,
+    title,
+    message,
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  if (allNotifs[key].length > 50) allNotifs[key] = allNotifs[key].slice(0, 50);
+  saveNotifications(allNotifs);
+}
 
 function loadWelcomeClaims() {
   try {
@@ -308,6 +344,12 @@ app.get('/api/mpesa/verify/:reference', async (req, res) => {
       });
     }
 
+    const isSuccess = data.status === true && data.data?.status === 'success';
+    if (isSuccess && req.query.userId) {
+      const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      addNotification(req.query.userId, 'payment', 'M-Pesa Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via M-Pesa.`);
+    }
+
     return res.json({
       success: data.status === true,
       data: data.data,
@@ -391,8 +433,14 @@ app.get('/api/card/verify/:reference', async (req, res) => {
       });
     }
 
+    const cardSuccess = data.status === true && data.data?.status === 'success';
+    if (cardSuccess && req.query.userId) {
+      const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      addNotification(req.query.userId, 'payment', 'Card Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via card.`);
+    }
+
     return res.json({
-      success: data.status === true && data.data?.status === 'success',
+      success: cardSuccess,
       data: data.data,
       message: data.message,
     });
@@ -710,6 +758,8 @@ app.post('/api/auth/register', async (req, res) => {
       const recorded = recordReferral(referralCode, panelUser.id, panelUser.email, panelUser.username);
       console.log(`Referral tracking: code=${referralCode}, newUser=${panelUser.id}, recorded=${recorded}`);
     }
+
+    addNotification(panelUser.id, 'welcome', 'Welcome to WolfHost!', 'Your account has been created successfully. Claim your free trial server to get started!');
 
     return res.json({
       success: true,
@@ -1237,9 +1287,12 @@ app.post('/api/servers/create', async (req, res) => {
     recordSpending(userEmail, requiredAmount, `Server "${name}" (${plan} plan)`, serverAttrs.id);
     console.log(`Recorded spending: KES ${requiredAmount} for user ${userEmail}, server ${serverAttrs.id}`);
 
+    addNotification(userId, 'server', 'Server Created', `Your "${name}" server (${plan} plan) has been deployed successfully!`);
+
     const completedRef = completeReferral(userEmail);
     if (completedRef) {
       console.log(`Referral completed: ${userEmail} purchased a server, crediting referrer ${completedRef.referrerEmail}`);
+      addNotification(completedRef.referrerUserId, 'referral', 'Referral Completed!', `Your referral ${userEmail} just purchased a server. Keep referring to earn admin access!`);
       const referrerStats = getReferrerStats(completedRef.referrerUserId);
       if (referrerStats.completed >= 10) {
         const isAlreadyAdmin = await verifyAdmin(completedRef.referrerUserId);
@@ -1789,6 +1842,8 @@ app.post('/api/free-server/claim-welcome', async (req, res) => {
     };
     saveWelcomeClaims(updatedClaims);
 
+    addNotification(userId, 'server', 'Free Trial Server Ready!', `Your free 3-day trial server "${serverAttrs.name}" is live! It expires on ${new Date(expiresAt).toLocaleDateString()}.`);
+
     console.log(`Welcome trial server created: ${serverAttrs.id} for user ${userId}, expires ${expiresAt}`);
 
     return res.json({
@@ -1903,6 +1958,50 @@ Keep responses concise, friendly, and helpful. If asked about something unrelate
       success: false, 
       error: 'W.O.L.F is temporarily unavailable. Please try again.' 
     });
+  }
+});
+
+app.get('/api/notifications', (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+
+    const allNotifs = loadNotifications();
+    const userNotifs = allNotifs[userId.toString()] || [];
+    const unreadCount = userNotifs.filter(n => !n.read).length;
+
+    return res.json({
+      success: true,
+      notifications: userNotifs,
+      unreadCount,
+    });
+  } catch (error) {
+    console.error('Notifications fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+  }
+});
+
+app.post('/api/notifications/read', (req, res) => {
+  try {
+    const { userId, notificationId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+
+    const allNotifs = loadNotifications();
+    const key = userId.toString();
+    if (!allNotifs[key]) return res.json({ success: true });
+
+    if (notificationId) {
+      const notif = allNotifs[key].find(n => n.id === notificationId);
+      if (notif) notif.read = true;
+    } else {
+      allNotifs[key].forEach(n => { n.read = true; });
+    }
+
+    saveNotifications(allNotifs);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Notification read error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update notifications' });
   }
 });
 
