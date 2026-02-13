@@ -255,6 +255,58 @@ async function paystackFetch(path, options = {}) {
   return response;
 }
 
+async function resolvePaystackCustomer(email) {
+  try {
+    const res = await paystackFetch(`/customer/${encodeURIComponent(email)}`);
+    const data = await res.json();
+    if (res.ok && data.status && data.data) {
+      return data.data.customer_code || null;
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function fetchUserTransactions(email, perPage = 100, page = 1, status = null) {
+  let customerCode = null;
+  if (email) {
+    customerCode = await resolvePaystackCustomer(email);
+  }
+
+  let basePath = `/transaction?perPage=${perPage}&page=${page}&currency=KES`;
+  if (status) basePath += `&status=${status}`;
+
+  if (customerCode) {
+    const res = await paystackFetch(`${basePath}&customer=${encodeURIComponent(customerCode)}`);
+    const data = await res.json();
+    if (res.ok && data.status && (data.data || []).length > 0) {
+      return { transactions: data.data, meta: data.meta || {} };
+    }
+  }
+
+  const res = await paystackFetch(basePath);
+  const data = await res.json();
+  if (!res.ok || !data.status) return { transactions: [], meta: {} };
+
+  if (email) {
+    const filterEmail = email.toLowerCase();
+    const filtered = (data.data || []).filter(txn => {
+      const txnEmail = (txn.customer?.email || '').toLowerCase();
+      const metaEmail = (txn.metadata?.user_email || '').toLowerCase();
+      const metaPhone = txn.metadata?.phone_number || '';
+      const authPhone = txn.authorization?.mobile_money_number || '';
+      const phoneFromEmail = filterEmail.replace(/@.*$/, '');
+      return txnEmail === filterEmail
+        || metaEmail === filterEmail
+        || (metaPhone && filterEmail.includes(metaPhone))
+        || (authPhone && filterEmail.includes(authPhone))
+        || (phoneFromEmail.match(/^\d{10,}$/) && (metaPhone.includes(phoneFromEmail) || authPhone.includes(phoneFromEmail)));
+    });
+    return { transactions: filtered, meta: data.meta || {} };
+  }
+
+  return { transactions: data.data || [], meta: data.meta || {} };
+}
+
 app.post('/api/mpesa/charge', async (req, res) => {
   try {
     const { phone, amount, metadata, userEmail } = req.body;
@@ -480,37 +532,12 @@ app.get('/api/transactions', async (req, res) => {
   try {
     const { perPage = 50, page = 1, status, email } = req.query;
 
-    let path = `/transaction?perPage=${perPage}&page=${page}&currency=KES`;
-    if (status) {
-      path += `&status=${status}`;
-    }
-    if (email) {
-      path += `&customer=${encodeURIComponent(email)}`;
-    }
-
-    const response = await paystackFetch(path);
-    const data = await response.json();
-
-    if (!response.ok || !data.status) {
-      return res.status(response.status || 400).json({
-        success: false,
-        message: data.message || 'Failed to fetch transactions',
-      });
-    }
-
-    let allTransactions = data.data || [];
-
-    if (email && allTransactions.length === 0) {
-      const altResponse = await paystackFetch(`/transaction?perPage=${perPage}&page=${page}&currency=KES${status ? `&status=${status}` : ''}`);
-      const altData = await altResponse.json();
-      if (altResponse.ok && altData.status) {
-        allTransactions = (altData.data || []).filter(txn => {
-          const txnEmail = txn.customer?.email?.toLowerCase();
-          const filterEmail = email.toLowerCase();
-          return txnEmail === filterEmail || txn.metadata?.user_email?.toLowerCase() === filterEmail;
-        });
-      }
-    }
+    const { transactions: allTransactions, meta } = await fetchUserTransactions(
+      email || null,
+      parseInt(perPage),
+      parseInt(page),
+      status || null
+    );
 
     const deposits = allTransactions.map((txn) => ({
       id: txn.id,
@@ -562,8 +589,6 @@ app.get('/api/transactions', async (req, res) => {
       new Date(b.paidAt || b.createdAt) - new Date(a.paidAt || a.createdAt)
     );
 
-    const meta = data.meta || {};
-
     return res.json({
       success: true,
       transactions,
@@ -584,36 +609,7 @@ app.get('/api/transactions/totals', async (req, res) => {
   try {
     const { email } = req.query;
 
-    let path = '/transaction?perPage=100&currency=KES&status=success';
-    if (email) {
-      path += `&customer=${encodeURIComponent(email)}`;
-    }
-
-    const response = await paystackFetch(path);
-    const data = await response.json();
-
-    if (!response.ok || !data.status) {
-      return res.json({
-        success: true,
-        totalDeposits: 0,
-        totalCount: 0,
-        balance: 0,
-      });
-    }
-
-    let transactions = data.data || [];
-
-    if (email && transactions.length === 0) {
-      const altResponse = await paystackFetch('/transaction?perPage=100&currency=KES&status=success');
-      const altData = await altResponse.json();
-      if (altResponse.ok && altData.status) {
-        transactions = (altData.data || []).filter(txn => {
-          const txnEmail = txn.customer?.email?.toLowerCase();
-          const filterEmail = email.toLowerCase();
-          return txnEmail === filterEmail || txn.metadata?.user_email?.toLowerCase() === filterEmail;
-        });
-      }
-    }
+    const { transactions } = await fetchUserTransactions(email || null, 100, 1, 'success');
 
     const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
 
@@ -636,6 +632,44 @@ app.get('/api/transactions/totals', async (req, res) => {
       totalCount: 0,
       balance: 0,
     });
+  }
+});
+
+app.get('/api/admin/payments', async (req, res) => {
+  try {
+    const { perPage = 50, page = 1, userId } = req.query;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const { transactions: allTxns } = await fetchUserTransactions(null, parseInt(perPage), parseInt(page), 'success');
+
+    const payments = allTxns.map(txn => ({
+      id: txn.id,
+      reference: txn.reference,
+      amount: txn.amount / 100,
+      currency: txn.currency,
+      status: txn.status,
+      channel: txn.channel,
+      paidAt: txn.paid_at || txn.transaction_date,
+      createdAt: txn.created_at,
+      email: txn.customer?.email || '',
+      phone: txn.metadata?.phone_number || txn.authorization?.mobile_money_number || '',
+      method: txn.channel === 'mobile_money' ? 'M-Pesa' : txn.channel === 'card' ? 'Card' : txn.channel || 'Unknown',
+      customerName: txn.customer?.first_name ? `${txn.customer.first_name} ${txn.customer.last_name || ''}`.trim() : '',
+    }));
+
+    const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
+
+    return res.json({
+      success: true,
+      payments,
+      totalAmount,
+      totalCount: payments.length,
+    });
+  } catch (error) {
+    console.error('Admin payments fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching payments' });
   }
 });
 

@@ -459,15 +459,15 @@ const Servers = () => {
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
-              className="w-full max-w-3xl bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+              className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl font-bold flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                     <Server className="w-5 h-5 text-primary" />
                     Choose Server Tier
                   </h2>
@@ -498,7 +498,7 @@ const Servers = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                   {Object.entries(SERVER_TIERS).map(([tierName, tier]) => {
                     const canAfford = balanceLoaded && walletBalance >= tier.price;
                     const TierIcon = tierName === 'Limited' ? Shield : tierName === 'Unlimited' ? Zap : Crown;
@@ -597,15 +597,15 @@ const Servers = () => {
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
-              className="w-full max-w-md bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+              className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                     <Plus className="w-5 h-5 text-primary" />
                     Deploy {selectedTier} Server
                   </h2>
@@ -755,15 +755,15 @@ const Servers = () => {
             onClick={cancelDelete}
           >
             <motion.div
-              className="w-full max-w-md bg-black/90 backdrop-blur-sm border border-red-500/20 rounded-xl shadow-2xl"
+              className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-black/90 backdrop-blur-sm border border-red-500/20 rounded-xl shadow-2xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold flex items-center gap-2 text-red-400">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-red-400">
                     <AlertCircle className="w-5 h-5" />
                     Confirm Deletion
                   </h2>
