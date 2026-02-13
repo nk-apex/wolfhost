@@ -21,6 +21,11 @@ import {
   Mail,
   Clock,
   TrendingUp,
+  Upload,
+  Zap,
+  Crown,
+  CheckCircle,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -42,6 +47,34 @@ const Admin = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmAction, setConfirmAction] = useState(null);
+  const [uploadServerTarget, setUploadServerTarget] = useState(null);
+  const [uploadServerLoading, setUploadServerLoading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(null);
+
+  const handleUploadServer = async (targetUserId, plan) => {
+    const targetUsername = uploadServerTarget?.username || 'User';
+    setUploadServerLoading(true);
+    try {
+      const res = await fetch('/api/admin/upload-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminUserId: user.id, targetUserId, plan }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUploadServerTarget(null);
+        setUploadSuccess({ username: targetUsername, plan, serverName: data.server?.name });
+        setStats(prev => ({ ...prev, totalServers: prev.totalServers + 1 }));
+        fetchData();
+      } else {
+        toast.error(data.message || 'Failed to upload server');
+      }
+    } catch {
+      toast.error('Failed to upload server');
+    } finally {
+      setUploadServerLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.isAdmin) {
@@ -449,6 +482,13 @@ const Admin = () => {
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                       <button
+                        onClick={() => setUploadServerTarget(u)}
+                        title="Upload server"
+                        className="p-1.5 sm:p-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors"
+                      >
+                        <Upload size={14} />
+                      </button>
+                      <button
                         onClick={() => handleToggleAdmin(u.id, !u.isAdmin)}
                         disabled={u.id === user.id || actionLoading === `admin-${u.id}`}
                         title={u.isAdmin ? 'Remove admin' : 'Make admin'}
@@ -724,6 +764,140 @@ const Admin = () => {
                   {actionLoading ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {uploadServerTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => { if (!uploadServerLoading) setUploadServerTarget(null); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-primary/20 bg-black/90 backdrop-blur-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-white">
+                    <Upload className="w-5 h-5 text-primary" />
+                    Upload Server
+                  </h3>
+                  <button
+                    onClick={() => setUploadServerTarget(null)}
+                    disabled={uploadServerLoading}
+                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-30"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 mb-5 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-primary font-mono text-sm font-bold">
+                      {uploadServerTarget.username.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-mono font-semibold text-white truncate">{uploadServerTarget.username}</p>
+                    <p className="text-xs text-gray-500 font-mono truncate">{uploadServerTarget.email}</p>
+                  </div>
+                </div>
+
+                <p className="text-xs sm:text-sm text-gray-400 font-mono mb-4">Select a server tier to upload:</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { name: 'Limited', icon: Shield, color: 'primary', specs: '5GB RAM · 10GB Disk · 1 vCPU' },
+                    { name: 'Unlimited', icon: Zap, color: 'blue', specs: 'Full RAM · 40GB Disk · 2 vCPU' },
+                    { name: 'Admin', icon: Crown, color: 'purple', specs: 'Full RAM · 80GB Disk · 4 vCPU' },
+                  ].map((tier) => {
+                    const borderCls = tier.color === 'primary' ? 'border-primary/30 hover:border-primary/60' : tier.color === 'blue' ? 'border-blue-500/30 hover:border-blue-500/60' : 'border-purple-500/30 hover:border-purple-500/60';
+                    const bgCls = tier.color === 'primary' ? 'bg-primary/5' : tier.color === 'blue' ? 'bg-blue-500/5' : 'bg-purple-500/5';
+                    const iconCls = tier.color === 'primary' ? 'text-primary' : tier.color === 'blue' ? 'text-blue-400' : 'text-purple-400';
+                    const btnCls = tier.color === 'primary' ? 'bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary' : tier.color === 'blue' ? 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-400';
+
+                    return (
+                      <motion.div
+                        key={tier.name}
+                        className={`p-4 rounded-xl border ${borderCls} ${bgCls} transition-all cursor-pointer`}
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          if (!uploadServerLoading) handleUploadServer(uploadServerTarget.id, tier.name);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className={`p-1.5 rounded-lg ${bgCls} border ${borderCls.split(' ')[0]}`}>
+                            <tier.icon className={`w-4 h-4 ${iconCls}`} />
+                          </div>
+                          <h4 className="font-bold text-sm text-white">{tier.name}</h4>
+                        </div>
+                        <p className="text-[10px] sm:text-xs text-gray-500 font-mono mb-3">{tier.specs}</p>
+                        <button
+                          disabled={uploadServerLoading}
+                          className={`w-full px-3 py-2 rounded-lg border font-mono text-xs transition-all flex items-center justify-center gap-1.5 ${btnCls} disabled:opacity-50`}
+                        >
+                          {uploadServerLoading ? (
+                            <LoadingSpinner size="sm" />
+                          ) : (
+                            <>
+                              <Upload size={12} />
+                              Upload
+                            </>
+                          )}
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {uploadSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setUploadSuccess(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm rounded-xl border border-green-500/30 bg-black/90 backdrop-blur-md p-5 sm:p-6 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
+                <CheckCircle className="w-7 h-7 text-green-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Server Uploaded</h3>
+              <p className="text-sm text-gray-400 font-mono mb-1">
+                <span className="text-green-400 font-bold">{uploadSuccess.plan}</span> server has been uploaded to
+              </p>
+              <p className="text-sm font-mono font-bold text-white mb-4">{uploadSuccess.username}</p>
+              {uploadSuccess.serverName && (
+                <p className="text-xs text-gray-500 font-mono mb-4">Server: {uploadSuccess.serverName}</p>
+              )}
+              <button
+                onClick={() => setUploadSuccess(null)}
+                className="w-full px-4 py-2.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors font-mono text-sm"
+              >
+                Done
+              </button>
             </motion.div>
           </motion.div>
         )}

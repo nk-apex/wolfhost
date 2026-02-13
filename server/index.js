@@ -1181,6 +1181,106 @@ async function findFreeAllocation(nodeId = 1) {
 
 const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 200 };
 
+app.post('/api/admin/upload-server', async (req, res) => {
+  try {
+    const { adminUserId, targetUserId, plan } = req.body;
+
+    if (!adminUserId || !(await verifyAdmin(adminUserId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    if (!targetUserId || !plan) {
+      return res.status(400).json({ success: false, message: 'Target user ID and plan are required' });
+    }
+
+    const tierConfig = TIER_LIMITS[plan];
+    if (!tierConfig) {
+      return res.status(400).json({ success: false, message: 'Invalid server plan' });
+    }
+
+    const pteroUser = await verifyPteroUser(targetUserId);
+    if (!pteroUser) {
+      return res.status(404).json({ success: false, message: 'Target user not found on the panel' });
+    }
+
+    const allocationId = await findFreeAllocation(1);
+    if (!allocationId) {
+      return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
+    }
+
+    const serverName = `${pteroUser.username}-${plan.toLowerCase()}-${Date.now().toString(36)}`;
+
+    const serverPayload = {
+      name: serverName,
+      user: parseInt(targetUserId),
+      egg: 15,
+      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
+      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
+      environment: {
+        GIT_ADDRESS: '',
+        BRANCH: '',
+        USERNAME: '',
+        ACCESS_TOKEN: '',
+        CMD_RUN: 'npm start',
+        AUTO_UPDATE: '0',
+        NODE_PACKAGES: '',
+        UNNODE_PACKAGES: '',
+        CUSTOM_ENVIRONMENT_VARIABLES: '',
+      },
+      limits: {
+        memory: tierConfig.memory,
+        swap: tierConfig.swap,
+        disk: tierConfig.disk,
+        io: tierConfig.io,
+        cpu: tierConfig.cpu,
+      },
+      feature_limits: {
+        databases: tierConfig.databases,
+        allocations: tierConfig.allocations,
+        backups: tierConfig.backups,
+      },
+      allocation: {
+        default: allocationId,
+      },
+      description: `WolfHost ${plan} Plan - Uploaded by Admin`,
+      start_on_completion: false,
+      external_id: `wolfhost-admin-${targetUserId}-${Date.now()}`,
+    };
+
+    const pteroResponse = await pteroFetch('/servers', {
+      method: 'POST',
+      body: JSON.stringify(serverPayload),
+    });
+
+    const pteroData = await pteroResponse.json();
+
+    if (!pteroResponse.ok) {
+      console.error('Admin upload server error:', JSON.stringify(pteroData));
+      let errorMessage = 'Failed to create server on the panel';
+      if (pteroData.errors && pteroData.errors.length > 0) {
+        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+      }
+      return res.status(pteroResponse.status || 500).json({ success: false, message: errorMessage });
+    }
+
+    const serverAttrs = pteroData.attributes;
+    console.log('Admin uploaded server:', serverAttrs.id, 'for user:', pteroUser.username);
+
+    return res.json({
+      success: true,
+      message: `Server uploaded to ${pteroUser.username} successfully`,
+      server: {
+        id: serverAttrs.id,
+        name: serverAttrs.name,
+        identifier: serverAttrs.identifier,
+      },
+    });
+  } catch (error) {
+    console.error('Admin upload server error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to upload server' });
+  }
+});
+
 async function verifyUserBalance(email, requiredAmount) {
   try {
     let path = `/transaction?perPage=100&currency=KES&status=success`;
