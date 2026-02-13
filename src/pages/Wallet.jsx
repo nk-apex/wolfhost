@@ -507,11 +507,11 @@ const Wallet = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-8">
       <div className="flex flex-wrap justify-between items-end gap-3">
         <div>
-          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2">Wallet</h1>
-          <p className="text-gray-400 font-mono text-xs sm:text-sm">
+          <h1 className="text-lg sm:text-3xl font-bold mb-0.5 sm:mb-2">Wallet</h1>
+          <p className="text-gray-400 font-mono text-[10px] sm:text-sm">
             Manage your funds and transactions
           </p>
         </div>
@@ -524,16 +524,16 @@ const Wallet = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 sm:p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center"
+        className="p-3 sm:p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center"
       >
-        <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-4 sm:mb-6 border border-primary/20">
-          <WalletIcon size={24} className="text-primary sm:hidden" />
+        <div className="w-10 h-10 sm:w-16 sm:h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-3 sm:mb-6 border border-primary/20">
+          <WalletIcon size={20} className="text-primary sm:hidden" />
           <WalletIcon size={32} className="text-primary hidden sm:block" />
         </div>
         
-        <p className="text-xs sm:text-sm text-gray-400 mb-2 font-mono">Available Balance</p>
+        <p className="text-[10px] sm:text-sm text-gray-400 mb-1 sm:mb-2 font-mono">Available Balance</p>
         <motion.p 
-          className="text-2xl sm:text-4xl font-display font-bold text-primary mb-3 sm:mb-4"
+          className="text-xl sm:text-4xl font-display font-bold text-primary mb-2 sm:mb-4"
           key={walletBalance}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
@@ -542,28 +542,28 @@ const Wallet = () => {
           KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
         </motion.p>
 
-        <div className="mb-6 sm:mb-8 max-w-xs mx-auto">
-          <div className="p-3 rounded-lg border border-primary/10 bg-black/20">
-            <p className="text-xs text-gray-500 font-mono mb-1">Total Deposited</p>
-            <p className="text-lg font-mono text-green-400">+KES {totalDeposited.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
+        <div className="mb-4 sm:mb-8 max-w-xs mx-auto">
+          <div className="p-2 sm:p-3 rounded-lg border border-primary/10 bg-black/20">
+            <p className="text-[10px] sm:text-xs text-gray-500 font-mono mb-0.5">Total Deposited</p>
+            <p className="text-sm sm:text-lg font-mono text-green-400">+KES {totalDeposited.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
+        <div className="flex gap-2 sm:gap-3 justify-center">
           <button
-            className="px-4 sm:px-6 py-2.5 sm:py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono text-sm sm:text-base"
+            className="px-3 sm:px-6 py-2 sm:py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors font-mono text-xs sm:text-base"
             onClick={() => setShowDepositModal(true)}
             data-testid="button-deposit"
           >
-            <ArrowDownToLine size={18} />
+            <ArrowDownToLine size={16} />
             Deposit
           </button>
           <button
-            className="px-4 sm:px-6 py-2.5 sm:py-3 bg-black/20 hover:bg-gray-800/50 text-gray-300 border border-gray-700 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono text-sm sm:text-base"
+            className="px-3 sm:px-6 py-2 sm:py-3 bg-black/20 hover:bg-gray-800/50 text-gray-300 border border-gray-700 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors font-mono text-xs sm:text-base"
             onClick={() => setShowWithdrawModal(true)}
             data-testid="button-withdraw"
           >
-            <ArrowUpFromLine size={18} />
+            <ArrowUpFromLine size={16} />
             Withdraw
           </button>
         </div>

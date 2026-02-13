@@ -179,7 +179,7 @@ const Overview = () => {
   ];
 
   return (
-    <div className="space-y-8" data-testid="overview-page">
+    <div className="space-y-4 sm:space-y-8" data-testid="overview-page">
       {showWelcomePopup && user && (
         <WelcomeFreeServerPopup
           user={user}
@@ -204,7 +204,7 @@ const Overview = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-8">
         {statCards.map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -213,19 +213,19 @@ const Overview = () => {
             transition={{ delay: index * 0.1 }}
           >
             <Link to={stat.link} data-testid={`link-stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
-              <div className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm group hover:border-primary/30 transition-colors">
-                <div className="flex justify-between items-start">
+              <div className="p-3 sm:p-5 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm group hover:border-primary/30 transition-colors h-full">
+                <div className="flex justify-between items-start gap-1">
                   <div className="min-w-0 flex-1">
-                    <p className="text-gray-400 text-[10px] sm:text-xs uppercase tracking-wider mb-1">{stat.label}</p>
-                    <h3 className="text-base sm:text-2xl font-display font-bold text-white truncate" data-testid={`text-stat-value-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <p className="text-gray-400 text-[9px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1 truncate">{stat.label}</p>
+                    <h3 className="text-sm sm:text-2xl font-display font-bold text-white truncate" data-testid={`text-stat-value-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
                       {stat.value}
                     </h3>
                   </div>
-                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg ml-2 shrink-0">
-                    <stat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  <div className="p-1 sm:p-2 bg-primary/10 rounded-lg shrink-0">
+                    <stat.icon className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-primary" />
                   </div>
                 </div>
-                <div className="mt-2 sm:mt-4 text-[10px] sm:text-xs text-gray-500 font-mono truncate">{stat.subValue}</div>
+                <div className="mt-1.5 sm:mt-3 text-[9px] sm:text-xs text-gray-500 font-mono truncate">{stat.subValue}</div>
               </div>
             </Link>
           </motion.div>

@@ -278,41 +278,41 @@ const Admin = () => {
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className="flex flex-col sm:flex-row sm:flex-wrap justify-between items-start sm:items-end gap-3 sm:gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-wrap justify-between items-end gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+            <Shield className="w-4 h-4 sm:w-6 sm:h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-1">Admin Dashboard</h1>
-            <p className="text-gray-400 font-mono text-xs sm:text-sm">Manage users, servers, and system</p>
+            <h1 className="text-lg sm:text-3xl font-bold">Admin Dashboard</h1>
+            <p className="text-gray-400 font-mono text-[10px] sm:text-sm">Manage users, servers, and system</p>
           </div>
         </div>
         <button
           onClick={() => { fetchData(); if (activeTab === 'payments') fetchPayments(); }}
-          className="group px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
+          className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
-          <div className="flex items-center text-sm font-mono">
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <div className="flex items-center text-xs sm:text-sm font-mono">
+            <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
             Refresh
           </div>
         </button>
       </div>
 
-      <div className="flex gap-1 sm:gap-2 p-1 rounded-xl border border-primary/10 bg-black/30 backdrop-blur-sm overflow-x-auto">
+      <div className="flex gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-lg sm:rounded-xl border border-primary/10 bg-black/30 backdrop-blur-sm">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-mono text-xs sm:text-sm transition-all flex-1 justify-center whitespace-nowrap min-w-0 ${
+            className={`flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-mono text-[10px] sm:text-sm transition-all flex-1 min-w-0 ${
               activeTab === tab.id
                 ? 'bg-primary/20 text-white border border-primary/30'
                 : 'text-gray-400 hover:text-white hover:bg-primary/5'
             }`}
           >
             <tab.icon size={14} className="shrink-0" />
-            <span className="hidden xs:inline sm:inline">{tab.label}</span>
+            <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -339,7 +339,7 @@ const Admin = () => {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
               {[
                 {
                   icon: Users,
@@ -385,51 +385,51 @@ const Admin = () => {
                   transition={{ delay: index * 0.1 }}
                 >
                   <div
-                    className="p-4 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all"
-                    style={{ boxShadow: `0 0 40px ${stat.glowColor}` }}
+                    className="p-3 sm:p-5 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all h-full"
+                    style={{ boxShadow: `0 0 30px ${stat.glowColor}` }}
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start gap-1">
                       <div className="min-w-0 flex-1">
-                        <p className="text-gray-400 text-[10px] sm:text-xs uppercase tracking-wider mb-1">{stat.label}</p>
-                        <h3 className="text-lg sm:text-2xl font-display font-bold text-white truncate">{stat.value}</h3>
+                        <p className="text-gray-400 text-[9px] sm:text-xs uppercase tracking-wider mb-0.5 sm:mb-1 truncate">{stat.label}</p>
+                        <h3 className="text-sm sm:text-2xl font-display font-bold text-white truncate">{stat.value}</h3>
                       </div>
-                      <div className={`p-1.5 sm:p-2 ${stat.iconBg} rounded-lg shrink-0 ml-2`}>
-                        <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.iconColor}`} />
+                      <div className={`p-1 sm:p-2 ${stat.iconBg} rounded-lg shrink-0`}>
+                        <stat.icon className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${stat.iconColor}`} />
                       </div>
                     </div>
-                    <div className="mt-2 sm:mt-4 text-[10px] sm:text-xs text-gray-500 font-mono truncate">{stat.subValue}</div>
+                    <div className="mt-1.5 sm:mt-3 text-[9px] sm:text-xs text-gray-500 font-mono truncate">{stat.subValue}</div>
                   </div>
                 </motion.div>
               ))}
             </div>
 
             {recentPayments.length > 0 && (
-              <div className="p-4 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-sm sm:text-base flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-primary" />
+              <div className="p-3 sm:p-5 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h3 className="font-bold text-xs sm:text-base flex items-center gap-1.5 sm:gap-2">
+                    <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                     Recent Payments
                   </h3>
                   <button
                     onClick={() => setActiveTab('payments')}
-                    className="text-xs text-primary font-mono hover:underline"
+                    className="text-[10px] sm:text-xs text-primary font-mono hover:underline"
                   >
                     View All
                   </button>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {recentPayments.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-3 p-2.5 sm:p-3 rounded-lg bg-black/20 border border-primary/10">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${p.method === 'M-Pesa' ? 'bg-green-500/10 border border-green-500/20' : 'bg-blue-500/10 border border-blue-500/20'}`}>
-                          {p.method === 'M-Pesa' ? <Phone className="w-3.5 h-3.5 text-green-400" /> : <CreditCard className="w-3.5 h-3.5 text-blue-400" />}
+                    <div key={p.id} className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-black/20 border border-primary/10">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${p.method === 'M-Pesa' ? 'bg-green-500/10 border border-green-500/20' : 'bg-blue-500/10 border border-blue-500/20'}`}>
+                          {p.method === 'M-Pesa' ? <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-400" /> : <CreditCard className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-mono font-semibold text-white truncate">{p.email || p.phone || 'Unknown'}</p>
-                          <p className="text-[10px] text-gray-500 font-mono">{formatDate(p.paidAt)}</p>
+                          <p className="text-[10px] sm:text-sm font-mono font-semibold text-white truncate">{p.email || p.phone || 'Unknown'}</p>
+                          <p className="text-[9px] sm:text-[10px] text-gray-500 font-mono">{formatDate(p.paidAt)}</p>
                         </div>
                       </div>
-                      <span className="text-xs sm:text-sm font-mono font-bold text-green-400 shrink-0">+KES {p.amount.toLocaleString('en-KE')}</span>
+                      <span className="text-[10px] sm:text-sm font-mono font-bold text-green-400 shrink-0">+KES {p.amount.toLocaleString('en-KE')}</span>
                     </div>
                   ))}
                 </div>
@@ -614,18 +614,18 @@ const Admin = () => {
             exit={{ opacity: 0 }}
             className="space-y-4 sm:space-y-6"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-              <div className="p-3 sm:p-5 rounded-xl border border-green-500/20 bg-green-500/5">
-                <p className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider mb-1">Total Revenue</p>
-                <h3 className="text-lg sm:text-2xl font-bold text-green-400 font-mono">KES {paymentsTotalAmount.toLocaleString('en-KE')}</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+              <div className="p-2.5 sm:p-5 rounded-xl border border-green-500/20 bg-green-500/5">
+                <p className="text-[9px] sm:text-xs text-gray-400 uppercase tracking-wider mb-0.5 sm:mb-1">Total Revenue</p>
+                <h3 className="text-xs sm:text-2xl font-bold text-green-400 font-mono truncate">KES {paymentsTotalAmount.toLocaleString('en-KE')}</h3>
               </div>
-              <div className="p-3 sm:p-5 rounded-xl border border-blue-500/20 bg-blue-500/5">
-                <p className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider mb-1">Total Payments</p>
-                <h3 className="text-lg sm:text-2xl font-bold text-blue-400 font-mono">{payments.length}</h3>
+              <div className="p-2.5 sm:p-5 rounded-xl border border-blue-500/20 bg-blue-500/5">
+                <p className="text-[9px] sm:text-xs text-gray-400 uppercase tracking-wider mb-0.5 sm:mb-1">Total Payments</p>
+                <h3 className="text-xs sm:text-2xl font-bold text-blue-400 font-mono">{payments.length}</h3>
               </div>
-              <div className="p-3 sm:p-5 rounded-xl border border-yellow-500/20 bg-yellow-500/5 col-span-2 sm:col-span-1">
-                <p className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider mb-1">Avg Payment</p>
-                <h3 className="text-lg sm:text-2xl font-bold text-yellow-400 font-mono">
+              <div className="p-2.5 sm:p-5 rounded-xl border border-yellow-500/20 bg-yellow-500/5 col-span-2 sm:col-span-1">
+                <p className="text-[9px] sm:text-xs text-gray-400 uppercase tracking-wider mb-0.5 sm:mb-1">Avg Payment</p>
+                <h3 className="text-xs sm:text-2xl font-bold text-yellow-400 font-mono truncate">
                   KES {payments.length > 0 ? Math.round(paymentsTotalAmount / payments.length).toLocaleString('en-KE') : '0'}
                 </h3>
               </div>
