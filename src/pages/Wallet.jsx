@@ -240,6 +240,8 @@ const Wallet = () => {
   const { user, updateUser } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [totalDeposited, setTotalDeposited] = useState(0);
+  const [totalSpent, setTotalSpent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -261,6 +263,8 @@ const Wallet = () => {
       const result = await walletAPI.getBalance();
       if (result.success) {
         setWalletBalance(result.balance);
+        setTotalDeposited(result.totalDeposits || 0);
+        setTotalSpent(result.totalSpending || 0);
       }
     } catch (err) {
       console.error('Error fetching balance:', err);
@@ -531,7 +535,7 @@ const Wallet = () => {
         
         <p className="text-sm text-gray-400 mb-2 font-mono">Available Balance</p>
         <motion.p 
-          className="text-4xl font-display font-bold text-white mb-8"
+          className="text-4xl font-display font-bold text-primary mb-4"
           key={walletBalance}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
@@ -539,6 +543,17 @@ const Wallet = () => {
         >
           KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
         </motion.p>
+
+        <div className="grid grid-cols-2 gap-4 mb-8 max-w-sm mx-auto">
+          <div className="p-3 rounded-lg border border-primary/10 bg-black/20">
+            <p className="text-xs text-gray-500 font-mono mb-1">Total Deposited</p>
+            <p className="text-lg font-mono text-green-400">+KES {totalDeposited.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="p-3 rounded-lg border border-primary/10 bg-black/20">
+            <p className="text-xs text-gray-500 font-mono mb-1">Total Spent</p>
+            <p className="text-lg font-mono text-red-400">-KES {totalSpent.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
+          </div>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button

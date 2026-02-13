@@ -865,10 +865,14 @@ export const walletAPI = {
       const data = await response.json();
 
       const balance = data.success ? data.balance : 0;
+      const totalDeposits = data.success ? (data.totalDeposits || 0) : 0;
+      const totalSpending = data.success ? (data.totalSpending || 0) : 0;
 
       return {
         success: true,
         balance,
+        totalDeposits,
+        totalSpending,
         currency: 'KES',
         formatted: `KES ${balance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       };
