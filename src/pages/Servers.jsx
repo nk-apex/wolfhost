@@ -452,39 +452,39 @@ const Servers = () => {
       <AnimatePresence>
         {showCreateModal && !selectedTier && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
-              className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-t-2xl sm:rounded-xl shadow-2xl"
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
+              className="w-[calc(100%-1.5rem)] max-w-[340px] max-h-[80vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4">
+              <div className="p-3 sm:p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-base font-bold flex items-center gap-2">
+                  <h2 className="text-sm sm:text-base font-bold flex items-center gap-1.5">
                     <Server className="w-4 h-4 text-primary" />
                     Choose Server Tier
                   </h2>
                   <button
                     onClick={() => setShowCreateModal(false)}
-                    className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                    className="p-1 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
                     data-testid="button-close-create-modal"
                   >
-                    <X size={18} />
+                    <X size={16} />
                   </button>
                 </div>
 
                 <div className="flex items-center gap-2 mb-3 p-2 bg-black/40 border border-primary/10 rounded-lg">
-                  <Wallet className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-mono text-gray-400">Balance:</span>
-                  <span className="text-xs font-mono font-bold text-primary">
-                    {balanceLoaded ? `KES ${walletBalance.toFixed(2)}` : 'Loading...'}
+                  <Wallet className="w-3 h-3 text-primary shrink-0" />
+                  <span className="text-[11px] font-mono text-gray-400">Balance:</span>
+                  <span className="text-[11px] font-mono font-bold text-primary">
+                    {balanceLoaded ? `KES ${walletBalance.toFixed(2)}` : '...'}
                   </span>
                   {balanceLoaded && walletBalance < PLAN_PRICES['Limited'] && (
                     <button
@@ -512,7 +512,7 @@ const Servers = () => {
                     return (
                       <motion.button
                         key={tierName}
-                        className={`w-full text-left p-3 rounded-lg border ${borderColor} ${hoverBorder} ${bgGlow} transition-all ${!canAfford ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        className={`w-full text-left p-2.5 rounded-lg border ${borderColor} ${hoverBorder} ${bgGlow} transition-all ${!canAfford ? 'opacity-40 cursor-not-allowed' : ''}`}
                         whileTap={canAfford ? { scale: 0.97 } : {}}
                         disabled={!canAfford}
                         onClick={() => {
@@ -522,22 +522,22 @@ const Servers = () => {
                         }}
                         data-testid={`card-tier-${tierName.toLowerCase()}`}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className={`p-1.5 rounded-lg ${bgGlow} border ${borderColor}`}>
-                            <TierIcon className={`w-4 h-4 ${iconColor}`} />
+                        <div className="flex items-center gap-2.5">
+                          <div className={`p-1.5 rounded-lg ${bgGlow} border ${borderColor} shrink-0`}>
+                            <TierIcon className={`w-3.5 h-3.5 ${iconColor}`} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold text-white">{tierName}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs font-bold text-white">{tierName}</p>
                               {tierName === 'Unlimited' && (
-                                <span className="px-1.5 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-[8px] font-mono text-blue-400 uppercase">Popular</span>
+                                <span className="px-1 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-[7px] font-mono text-blue-400 uppercase leading-none">Popular</span>
                               )}
                             </div>
-                            <p className="text-[10px] text-gray-500 font-mono truncate">{specEntries.map(([k, v]) => `${v} ${k}`).join(' · ')}</p>
+                            <p className="text-[9px] text-gray-500 font-mono truncate">{specEntries.map(([k, v]) => `${v} ${k}`).join(' · ')}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className={`text-sm font-bold ${priceColor}`}>KES {tier.price}</p>
-                            <p className="text-[8px] text-gray-600 font-mono">/month</p>
+                            <p className={`text-xs font-bold ${priceColor}`}>KES {tier.price}</p>
+                            <p className="text-[7px] text-gray-600 font-mono">/month</p>
                           </div>
                         </div>
                       </motion.button>
@@ -546,7 +546,7 @@ const Servers = () => {
                 </div>
 
                 {balanceLoaded && walletBalance < PLAN_PRICES['Limited'] && (
-                  <p className="text-[10px] text-gray-600 font-mono text-center mt-3">Deposit funds to unlock server tiers</p>
+                  <p className="text-[9px] text-gray-600 font-mono text-center mt-2">Deposit funds to unlock server tiers</p>
                 )}
               </div>
             </motion.div>
@@ -557,45 +557,45 @@ const Servers = () => {
       <AnimatePresence>
         {showCreateModal && selectedTier && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
-              className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+              className="w-[calc(100%-1.5rem)] max-w-[340px] max-h-[80vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-primary" />
+              <div className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm sm:text-base font-bold flex items-center gap-1.5">
+                    <Plus className="w-4 h-4 text-primary" />
                     Deploy {selectedTier} Server
                   </h2>
                   <button
                     onClick={() => setShowCreateModal(false)}
-                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                    className="p-1 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
                     data-testid="button-close-name-modal"
                   >
-                    <X size={20} />
+                    <X size={16} />
                   </button>
                 </div>
 
-                <div className={`flex items-center gap-3 mb-4 p-3 rounded-lg border ${
+                <div className={`flex items-center gap-2 mb-3 p-2 rounded-lg border ${
                   selectedTier === 'Limited' ? 'bg-primary/5 border-primary/20' : selectedTier === 'Unlimited' ? 'bg-blue-500/5 border-blue-500/20' : 'bg-purple-500/5 border-purple-500/20'
                 }`}>
-                  {selectedTier === 'Limited' ? <Shield className="w-4 h-4 text-primary" /> : selectedTier === 'Unlimited' ? <Zap className="w-4 h-4 text-blue-400" /> : <Crown className="w-4 h-4 text-purple-400" />}
+                  {selectedTier === 'Limited' ? <Shield className="w-3.5 h-3.5 text-primary" /> : selectedTier === 'Unlimited' ? <Zap className="w-3.5 h-3.5 text-blue-400" /> : <Crown className="w-3.5 h-3.5 text-purple-400" />}
                   <div className="flex-1">
-                    <span className="text-sm font-mono font-bold">{selectedTier} Server</span>
-                    <span className="text-xs text-gray-500 font-mono ml-2">KES {PLAN_PRICES[selectedTier]}/mo</span>
+                    <span className="text-xs font-mono font-bold">{selectedTier} Server</span>
+                    <span className="text-[10px] text-gray-500 font-mono ml-1.5">KES {PLAN_PRICES[selectedTier]}/mo</span>
                   </div>
                   <button
                     onClick={() => setSelectedTier(null)}
-                    className="text-xs text-gray-400 hover:text-white font-mono underline transition-colors"
+                    className="text-[10px] text-gray-400 hover:text-white font-mono underline transition-colors"
                     data-testid="button-change-tier"
                   >
                     Change

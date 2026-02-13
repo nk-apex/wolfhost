@@ -775,40 +775,40 @@ const Admin = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4"
             onClick={() => { if (!uploadServerLoading) setUploadServerTarget(null); }}
           >
             <motion.div
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-primary/20 bg-black/95 backdrop-blur-md"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-[calc(100%-1.5rem)] max-w-[340px] max-h-[80vh] overflow-y-auto rounded-xl border border-primary/20 bg-black/95 backdrop-blur-md"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base font-bold flex items-center gap-2 text-white">
+              <div className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm sm:text-base font-bold flex items-center gap-1.5 text-white">
                     <Upload className="w-4 h-4 text-primary" />
                     Upload Server
                   </h3>
                   <button
                     onClick={() => setUploadServerTarget(null)}
                     disabled={uploadServerLoading}
-                    className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-30"
+                    className="p-1 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-30"
                   >
-                    <X size={18} />
+                    <X size={16} />
                   </button>
                 </div>
 
                 <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-primary font-mono text-xs font-bold">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-primary font-mono text-[10px] font-bold">
                       {uploadServerTarget.username.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-mono font-semibold text-white truncate">{uploadServerTarget.username}</p>
-                    <p className="text-[10px] text-gray-500 font-mono truncate">{uploadServerTarget.email}</p>
+                    <p className="text-[11px] font-mono font-semibold text-white truncate">{uploadServerTarget.username}</p>
+                    <p className="text-[9px] text-gray-500 font-mono truncate">{uploadServerTarget.email}</p>
                   </div>
                 </div>
 
@@ -825,24 +825,24 @@ const Admin = () => {
                     return (
                       <motion.button
                         key={tier.name}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg border ${borderCls} ${bgCls} transition-all disabled:opacity-50`}
+                        className={`w-full flex items-center gap-2.5 p-2.5 rounded-lg border ${borderCls} ${bgCls} transition-all disabled:opacity-50`}
                         whileTap={{ scale: 0.97 }}
                         disabled={uploadServerLoading}
                         onClick={() => {
                           if (!uploadServerLoading) handleUploadServer(uploadServerTarget.id, tier.name);
                         }}
                       >
-                        <div className={`p-1.5 rounded-lg ${bgCls} border ${borderCls.split(' ')[0]}`}>
-                          <tier.icon className={`w-4 h-4 ${iconCls}`} />
+                        <div className={`p-1.5 rounded-lg ${bgCls} border ${borderCls.split(' ')[0]} shrink-0`}>
+                          <tier.icon className={`w-3.5 h-3.5 ${iconCls}`} />
                         </div>
                         <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm font-bold text-white">{tier.name}</p>
-                          <p className="text-[10px] text-gray-500 font-mono truncate">{tier.specs}</p>
+                          <p className="text-xs font-bold text-white">{tier.name}</p>
+                          <p className="text-[9px] text-gray-500 font-mono truncate">{tier.specs}</p>
                         </div>
                         {uploadServerLoading ? (
                           <LoadingSpinner size="sm" />
                         ) : (
-                          <Upload size={14} className={iconCls} />
+                          <Upload size={13} className={iconCls} />
                         )}
                       </motion.button>
                     );
