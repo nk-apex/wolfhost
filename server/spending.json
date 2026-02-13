@@ -33,5 +33,12 @@
     "description": "Server \"korir-welcome-trial\" (Limited plan)",
     "serverId": "15",
     "date": "2026-02-12T12:21:44.789Z"
+  },
+  {
+    "email": "britonkiplangat@0gmail.com",
+    "amount": 50,
+    "description": "Server \"wolf-welcome-trial\" (Limited plan)",
+    "serverId": "17",
+    "date": "2026-02-13T14:11:18.209Z"
   }
 ]

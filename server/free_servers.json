@@ -8,5 +8,16 @@
     "serverName": "admin-free-trial",
     "createdAt": "2026-02-11T14:12:29.945Z",
     "expiresAt": "2026-02-14T14:12:29.506Z"
+  },
+  {
+    "userId": "1",
+    "userEmail": "britonkiplangat@0gmail.com",
+    "ip": "105.231.226.248",
+    "serverId": 17,
+    "identifier": "8f89def7",
+    "serverName": "wolf-welcome-trial",
+    "createdAt": "2026-02-13T14:11:17.676Z",
+    "expiresAt": "2026-02-16T14:11:17.228Z",
+    "type": "welcome"
   }
 ]
