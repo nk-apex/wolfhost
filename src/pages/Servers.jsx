@@ -452,68 +452,69 @@ const Servers = () => {
       <AnimatePresence>
         {showCreateModal && !selectedTier && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
-              className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-black/95 backdrop-blur-sm border border-primary/20 rounded-t-2xl sm:rounded-xl shadow-2xl"
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 sm:p-6">
+              <div className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                    <Server className="w-5 h-5 text-primary" />
+                  <h2 className="text-base font-bold flex items-center gap-2">
+                    <Server className="w-4 h-4 text-primary" />
                     Choose Server Tier
                   </h2>
                   <button
                     onClick={() => setShowCreateModal(false)}
-                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                    className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
                     data-testid="button-close-create-modal"
                   >
-                    <X size={20} />
+                    <X size={18} />
                   </button>
                 </div>
-                <p className="text-sm text-gray-500 font-mono mb-6">Select a plan that fits your needs</p>
 
-                <div className="flex items-center gap-2 mb-6 p-3 bg-black/40 border border-primary/10 rounded-lg">
-                  <Wallet className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-mono text-gray-400">Your balance:</span>
-                  <span className="text-sm font-mono font-bold text-primary">
+                <div className="flex items-center gap-2 mb-3 p-2 bg-black/40 border border-primary/10 rounded-lg">
+                  <Wallet className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-mono text-gray-400">Balance:</span>
+                  <span className="text-xs font-mono font-bold text-primary">
                     {balanceLoaded ? `KES ${walletBalance.toFixed(2)}` : 'Loading...'}
                   </span>
                   {balanceLoaded && walletBalance < PLAN_PRICES['Limited'] && (
                     <button
                       onClick={() => { setShowCreateModal(false); navigate('/wallet'); }}
-                      className="text-xs text-yellow-400 ml-auto font-mono underline hover:text-yellow-300 transition-colors"
+                      className="text-[10px] text-yellow-400 ml-auto font-mono underline hover:text-yellow-300 transition-colors"
                       data-testid="link-topup-from-tiers"
                     >
-                      Top Up Wallet
+                      Top Up
                     </button>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                <div className="space-y-2">
                   {Object.entries(SERVER_TIERS).map(([tierName, tier]) => {
                     const canAfford = balanceLoaded && walletBalance >= tier.price;
                     const TierIcon = tierName === 'Limited' ? Shield : tierName === 'Unlimited' ? Zap : Crown;
-                    const borderColor = tierName === 'Limited' ? 'border-primary/30' : tierName === 'Unlimited' ? 'border-blue-500/30' : 'border-purple-500/30';
-                    const hoverBorder = tierName === 'Limited' ? 'hover:border-primary/60' : tierName === 'Unlimited' ? 'hover:border-blue-500/60' : 'hover:border-purple-500/60';
+                    const borderColor = tierName === 'Limited' ? 'border-primary/20' : tierName === 'Unlimited' ? 'border-blue-500/20' : 'border-purple-500/20';
+                    const hoverBorder = tierName === 'Limited' ? 'hover:border-primary/50' : tierName === 'Unlimited' ? 'hover:border-blue-500/50' : 'hover:border-purple-500/50';
                     const iconColor = tierName === 'Limited' ? 'text-primary' : tierName === 'Unlimited' ? 'text-blue-400' : 'text-purple-400';
                     const bgGlow = tierName === 'Limited' ? 'bg-primary/5' : tierName === 'Unlimited' ? 'bg-blue-500/5' : 'bg-purple-500/5';
-                    const btnBg = tierName === 'Limited' ? 'bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary' : tierName === 'Unlimited' ? 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-400';
+                    const priceColor = tierName === 'Limited' ? 'text-primary' : tierName === 'Unlimited' ? 'text-blue-400' : 'text-purple-400';
+
+                    const specEntries = Object.entries(tier.specs);
 
                     return (
-                      <motion.div
+                      <motion.button
                         key={tierName}
-                        className={`relative flex flex-col p-5 rounded-xl border ${borderColor} ${hoverBorder} ${bgGlow} transition-all cursor-pointer ${!canAfford ? 'opacity-50' : ''}`}
-                        whileHover={canAfford ? { scale: 1.02, y: -4 } : {}}
-                        whileTap={canAfford ? { scale: 0.98 } : {}}
+                        className={`w-full text-left p-3 rounded-lg border ${borderColor} ${hoverBorder} ${bgGlow} transition-all ${!canAfford ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        whileTap={canAfford ? { scale: 0.97 } : {}}
+                        disabled={!canAfford}
                         onClick={() => {
                           if (!canAfford) return;
                           setSelectedTier(tierName);
@@ -521,66 +522,32 @@ const Servers = () => {
                         }}
                         data-testid={`card-tier-${tierName.toLowerCase()}`}
                       >
-                        {tierName === 'Unlimited' && (
-                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded-full text-[10px] font-mono text-blue-400 uppercase tracking-wider">
-                            Popular
+                        <div className="flex items-center gap-3">
+                          <div className={`p-1.5 rounded-lg ${bgGlow} border ${borderColor}`}>
+                            <TierIcon className={`w-4 h-4 ${iconColor}`} />
                           </div>
-                        )}
-
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className={`p-2 rounded-lg ${bgGlow} border ${borderColor}`}>
-                            <TierIcon className={`w-5 h-5 ${iconColor}`} />
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-sm">{tierName}</h3>
-                            <p className="text-xs text-gray-500 font-mono">Server</p>
-                          </div>
-                        </div>
-
-                        <div className="mb-4">
-                          <span className={`text-2xl font-bold ${iconColor}`}>KES {tier.price}</span>
-                          <span className="text-xs text-gray-500 font-mono">/month</span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 mb-4">
-                          {Object.entries(tier.specs).map(([key, val]) => (
-                            <div key={key} className="p-2 rounded-lg bg-black/30 border border-white/5">
-                              <p className="text-[10px] text-gray-600 uppercase font-mono">{key}</p>
-                              <p className="text-xs font-mono font-bold">{val}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-white">{tierName}</p>
+                              {tierName === 'Unlimited' && (
+                                <span className="px-1.5 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-[8px] font-mono text-blue-400 uppercase">Popular</span>
+                              )}
                             </div>
-                          ))}
+                            <p className="text-[10px] text-gray-500 font-mono truncate">{specEntries.map(([k, v]) => `${v} ${k}`).join(' · ')}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className={`text-sm font-bold ${priceColor}`}>KES {tier.price}</p>
+                            <p className="text-[8px] text-gray-600 font-mono">/month</p>
+                          </div>
                         </div>
-
-                        <div className="space-y-2 mb-5 flex-1">
-                          {tier.features.map((feature) => (
-                            <div key={feature} className="flex items-center gap-2">
-                              <Check className={`w-3 h-3 ${iconColor} shrink-0`} />
-                              <span className="text-xs text-gray-400 font-mono">{feature}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <button
-                          className={`w-full px-4 py-2.5 rounded-lg border font-mono text-sm transition-all flex items-center justify-center gap-2 ${canAfford ? btnBg : 'bg-gray-800/50 border-gray-700 text-gray-600 cursor-not-allowed'}`}
-                          disabled={!canAfford}
-                          data-testid={`button-select-tier-${tierName.toLowerCase()}`}
-                        >
-                          {canAfford ? (
-                            <>
-                              Select {tierName}
-                              <ArrowUpRight className="w-3 h-3" />
-                            </>
-                          ) : (
-                            <>
-                              <Wallet className="w-3 h-3" />
-                              Insufficient Balance
-                            </>
-                          )}
-                        </button>
-                      </motion.div>
+                      </motion.button>
                     );
                   })}
                 </div>
+
+                {balanceLoaded && walletBalance < PLAN_PRICES['Limited'] && (
+                  <p className="text-[10px] text-gray-600 font-mono text-center mt-3">Deposit funds to unlock server tiers</p>
+                )}
               </div>
             </motion.div>
           </motion.div>

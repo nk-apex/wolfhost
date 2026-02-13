@@ -775,87 +775,76 @@ const Admin = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
             onClick={() => { if (!uploadServerLoading) setUploadServerTarget(null); }}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-primary/20 bg-black/90 backdrop-blur-md"
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-xl border border-primary/20 bg-black/95 backdrop-blur-md"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-white">
-                    <Upload className="w-5 h-5 text-primary" />
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-bold flex items-center gap-2 text-white">
+                    <Upload className="w-4 h-4 text-primary" />
                     Upload Server
                   </h3>
                   <button
                     onClick={() => setUploadServerTarget(null)}
                     disabled={uploadServerLoading}
-                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-30"
+                    className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-30"
                   >
-                    <X size={20} />
+                    <X size={18} />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-3 mb-5 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-primary font-mono text-sm font-bold">
+                <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-primary font-mono text-xs font-bold">
                       {uploadServerTarget.username.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-mono font-semibold text-white truncate">{uploadServerTarget.username}</p>
-                    <p className="text-xs text-gray-500 font-mono truncate">{uploadServerTarget.email}</p>
+                    <p className="text-xs font-mono font-semibold text-white truncate">{uploadServerTarget.username}</p>
+                    <p className="text-[10px] text-gray-500 font-mono truncate">{uploadServerTarget.email}</p>
                   </div>
                 </div>
 
-                <p className="text-xs sm:text-sm text-gray-400 font-mono mb-4">Select a server tier to upload:</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-2">
                   {[
                     { name: 'Limited', icon: Shield, color: 'primary', specs: '5GB RAM · 10GB Disk · 1 vCPU' },
                     { name: 'Unlimited', icon: Zap, color: 'blue', specs: 'Full RAM · 40GB Disk · 2 vCPU' },
                     { name: 'Admin', icon: Crown, color: 'purple', specs: 'Full RAM · 80GB Disk · 4 vCPU' },
                   ].map((tier) => {
-                    const borderCls = tier.color === 'primary' ? 'border-primary/30 hover:border-primary/60' : tier.color === 'blue' ? 'border-blue-500/30 hover:border-blue-500/60' : 'border-purple-500/30 hover:border-purple-500/60';
+                    const borderCls = tier.color === 'primary' ? 'border-primary/20 hover:border-primary/50' : tier.color === 'blue' ? 'border-blue-500/20 hover:border-blue-500/50' : 'border-purple-500/20 hover:border-purple-500/50';
                     const bgCls = tier.color === 'primary' ? 'bg-primary/5' : tier.color === 'blue' ? 'bg-blue-500/5' : 'bg-purple-500/5';
                     const iconCls = tier.color === 'primary' ? 'text-primary' : tier.color === 'blue' ? 'text-blue-400' : 'text-purple-400';
-                    const btnCls = tier.color === 'primary' ? 'bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary' : tier.color === 'blue' ? 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-400';
 
                     return (
-                      <motion.div
+                      <motion.button
                         key={tier.name}
-                        className={`p-4 rounded-xl border ${borderCls} ${bgCls} transition-all cursor-pointer`}
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg border ${borderCls} ${bgCls} transition-all disabled:opacity-50`}
+                        whileTap={{ scale: 0.97 }}
+                        disabled={uploadServerLoading}
                         onClick={() => {
                           if (!uploadServerLoading) handleUploadServer(uploadServerTarget.id, tier.name);
                         }}
                       >
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className={`p-1.5 rounded-lg ${bgCls} border ${borderCls.split(' ')[0]}`}>
-                            <tier.icon className={`w-4 h-4 ${iconCls}`} />
-                          </div>
-                          <h4 className="font-bold text-sm text-white">{tier.name}</h4>
+                        <div className={`p-1.5 rounded-lg ${bgCls} border ${borderCls.split(' ')[0]}`}>
+                          <tier.icon className={`w-4 h-4 ${iconCls}`} />
                         </div>
-                        <p className="text-[10px] sm:text-xs text-gray-500 font-mono mb-3">{tier.specs}</p>
-                        <button
-                          disabled={uploadServerLoading}
-                          className={`w-full px-3 py-2 rounded-lg border font-mono text-xs transition-all flex items-center justify-center gap-1.5 ${btnCls} disabled:opacity-50`}
-                        >
-                          {uploadServerLoading ? (
-                            <LoadingSpinner size="sm" />
-                          ) : (
-                            <>
-                              <Upload size={12} />
-                              Upload
-                            </>
-                          )}
-                        </button>
-                      </motion.div>
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-sm font-bold text-white">{tier.name}</p>
+                          <p className="text-[10px] text-gray-500 font-mono truncate">{tier.specs}</p>
+                        </div>
+                        {uploadServerLoading ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <Upload size={14} className={iconCls} />
+                        )}
+                      </motion.button>
                     );
                   })}
                 </div>
