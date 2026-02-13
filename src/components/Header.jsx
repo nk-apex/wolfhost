@@ -188,7 +188,7 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
             <AnimatePresence>
               {showNotifications && (
                 <motion.div
-                  className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-700/50 bg-[#0a0a0a]/95 backdrop-blur-md shadow-2xl overflow-hidden"
+                  className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-[320px] rounded-xl border border-gray-700/50 bg-[#0a0a0a]/95 backdrop-blur-md shadow-2xl overflow-hidden"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}

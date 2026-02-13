@@ -723,33 +723,33 @@ const Admin = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4"
             onClick={() => setConfirmAction(null)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="p-4 sm:p-6 max-w-md w-full space-y-4 rounded-xl border border-primary/20 bg-black/80 backdrop-blur-md"
+              className="w-[calc(100%-1.5rem)] max-w-[340px] space-y-3 rounded-xl border border-primary/20 bg-black/95 backdrop-blur-md p-3 sm:p-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center">
-                  <AlertTriangle className="text-red-400" size={20} />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="text-red-400" size={16} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-sm sm:text-base">Confirm Delete</h3>
-                  <p className="text-xs sm:text-sm text-gray-400 font-mono">This action cannot be undone</p>
+                  <h3 className="font-bold text-white text-sm">Confirm Delete</h3>
+                  <p className="text-[10px] text-gray-400 font-mono">This action cannot be undone</p>
                 </div>
               </div>
-              <p className="text-xs sm:text-sm font-mono text-gray-300">
+              <p className="text-xs font-mono text-gray-300">
                 Are you sure you want to delete{' '}
                 <span className="text-red-400 font-bold">{confirmAction.name}</span>?
               </p>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setConfirmAction(null)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-primary/20 text-gray-400 hover:bg-primary/5 transition-colors font-mono text-xs sm:text-sm"
+                  className="flex-1 px-3 py-2 rounded-lg border border-primary/20 text-gray-400 hover:bg-primary/5 transition-colors font-mono text-xs"
                 >
                   Cancel
                 </button>
@@ -759,7 +759,7 @@ const Admin = () => {
                     if (confirmAction.type === 'deleteServer') handleDeleteServer(confirmAction.id);
                   }}
                   disabled={actionLoading}
-                  className="flex-1 px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors font-mono text-xs sm:text-sm disabled:opacity-50"
+                  className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors font-mono text-xs disabled:opacity-50"
                 >
                   {actionLoading ? 'Deleting...' : 'Delete'}
                 </button>
@@ -860,30 +860,30 @@ const Admin = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4"
             onClick={() => setUploadSuccess(null)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm rounded-xl border border-green-500/30 bg-black/90 backdrop-blur-md p-5 sm:p-6 text-center"
+              className="w-[calc(100%-1.5rem)] max-w-[340px] rounded-xl border border-green-500/30 bg-black/95 backdrop-blur-md p-4 text-center"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
-                <CheckCircle className="w-7 h-7 text-green-400" />
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-400" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Server Uploaded</h3>
-              <p className="text-sm text-gray-400 font-mono mb-1">
-                <span className="text-green-400 font-bold">{uploadSuccess.plan}</span> server has been uploaded to
+              <h3 className="text-sm font-bold text-white mb-1.5">Server Uploaded</h3>
+              <p className="text-xs text-gray-400 font-mono mb-0.5">
+                <span className="text-green-400 font-bold">{uploadSuccess.plan}</span> server uploaded to
               </p>
-              <p className="text-sm font-mono font-bold text-white mb-4">{uploadSuccess.username}</p>
+              <p className="text-xs font-mono font-bold text-white mb-3">{uploadSuccess.username}</p>
               {uploadSuccess.serverName && (
-                <p className="text-xs text-gray-500 font-mono mb-4">Server: {uploadSuccess.serverName}</p>
+                <p className="text-[10px] text-gray-500 font-mono mb-3">Server: {uploadSuccess.serverName}</p>
               )}
               <button
                 onClick={() => setUploadSuccess(null)}
-                className="w-full px-4 py-2.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors font-mono text-sm"
+                className="w-full px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors font-mono text-xs"
               >
                 Done
               </button>

@@ -233,33 +233,30 @@ const Servers = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap justify-between items-end gap-4">
+      <div className="flex flex-wrap justify-between items-end gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Server Management</h1>
-          <p className="text-gray-400 font-mono">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2">Server Management</h1>
+          <p className="text-gray-400 font-mono text-xs sm:text-sm">
             Deploy and manage your infrastructure
-            <span className="text-primary ml-4">
-              Total Servers: <span className="text-primary">{servers.length}</span>
-            </span>
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 bg-black/30 border border-primary/20 rounded-lg font-mono text-sm" data-testid="text-wallet-balance-servers">
-            <Wallet className="w-4 h-4 text-primary" />
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-black/30 border border-primary/20 rounded-lg font-mono text-xs sm:text-sm" data-testid="text-wallet-balance-servers">
+            <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
             <span className="text-gray-400">Balance:</span>
             <span className="text-primary">{balanceLoaded ? `KES ${walletBalance.toFixed(2)}` : '...'}</span>
           </div>
           <motion.button
-            className="group px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all flex items-center gap-2"
+            className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all flex items-center gap-2"
             onClick={handleDeployClick}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
             data-testid="button-deploy-server"
           >
-            <div className="flex items-center text-sm font-mono">
-              <Plus className="w-4 h-4 mr-2" />
-              Deploy Server
-              <ArrowUpRight className="w-4 h-4 ml-2 group-hover:rotate-45 transition-transform" />
+            <div className="flex items-center text-xs sm:text-sm font-mono">
+              <Plus className="w-4 h-4 mr-1.5 sm:mr-2" />
+              Deploy
+              <ArrowUpRight className="w-3.5 h-3.5 ml-1.5 group-hover:rotate-45 transition-transform hidden sm:block" />
             </div>
           </motion.button>
         </div>
@@ -284,8 +281,8 @@ const Servers = () => {
         )}
       </AnimatePresence>
 
-      <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
-        <div className="flex flex-col md:flex-row gap-4 items-center">
+      <div className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
           <div className="relative flex-1 w-full">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -317,9 +314,9 @@ const Servers = () => {
       </div>
 
       {filteredServers.length === 0 ? (
-        <div className="p-12 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center">
-          <Server size={48} className="mx-auto text-gray-500 mb-4" />
-          <h3 className="text-lg font-bold mb-2">No servers found</h3>
+        <div className="p-6 sm:p-12 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center">
+          <Server size={36} className="mx-auto text-gray-500 mb-3 sm:mb-4" />
+          <h3 className="text-base sm:text-lg font-bold mb-2">No servers found</h3>
           <p className="text-gray-500 mb-2 font-mono">
             {searchQuery ? 'Try a different search term' : 'Deploy your first server to get started'}
           </p>
@@ -340,7 +337,7 @@ const Servers = () => {
           )}
         </div>
       ) : (
-        <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
+        <div className={`grid gap-3 sm:gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
           {filteredServers.map((server, index) => (
             <motion.div
               key={server.id}
@@ -348,7 +345,7 @@ const Servers = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all group" data-testid={`card-server-${server.id}`}>
+              <div className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all group" data-testid={`card-server-${server.id}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -715,62 +712,62 @@ const Servers = () => {
       <AnimatePresence>
         {showDeleteModal && serverToDelete && (
           <motion.div
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={cancelDelete}
           >
             <motion.div
-              className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-black/90 backdrop-blur-sm border border-red-500/20 rounded-xl shadow-2xl"
+              className="w-[calc(100%-1.5rem)] max-w-[340px] max-h-[80vh] overflow-y-auto bg-black/90 backdrop-blur-sm border border-red-500/20 rounded-xl shadow-2xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-red-400">
-                    <AlertCircle className="w-5 h-5" />
+              <div className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm sm:text-base font-bold flex items-center gap-1.5 text-red-400">
+                    <AlertCircle className="w-4 h-4" />
                     Confirm Deletion
                   </h2>
                   <button
                     onClick={cancelDelete}
-                    className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                    className="p-1 hover:bg-red-500/10 rounded-lg transition-colors text-gray-400 hover:text-white"
                     data-testid="button-close-delete-modal"
                   >
-                    <X size={20} />
+                    <X size={16} />
                   </button>
                 </div>
 
-                <div className="mb-6">
-                  <div className="flex items-center gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-lg mb-4">
-                    <Server className="w-5 h-5 text-red-400" />
-                    <div>
-                      <p className="font-bold text-sm">{serverToDelete.name}</p>
-                      <p className="text-xs text-gray-500 font-mono">{serverToDelete.ip} · {serverToDelete.plan}</p>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 p-2 bg-red-500/5 border border-red-500/10 rounded-lg mb-3">
+                    <Server className="w-4 h-4 text-red-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs truncate">{serverToDelete.name}</p>
+                      <p className="text-[10px] text-gray-500 font-mono">{serverToDelete.ip} · {serverToDelete.plan}</p>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-400">
-                    Are you sure you want to delete this server? This action cannot be undone and all data will be permanently lost.
+                  <p className="text-xs text-gray-400">
+                    Are you sure you want to delete this server? This action cannot be undone.
                   </p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button
                     onClick={cancelDelete}
-                    className="flex-1 px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-sm transition-all"
+                    className="flex-1 px-3 py-2 text-gray-400 hover:text-white hover:bg-white/5 border border-gray-700 rounded-lg font-mono text-xs transition-all"
                     data-testid="button-cancel-delete"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmDelete}
-                    className="flex-1 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-mono text-sm flex items-center justify-center gap-2 transition-all"
+                    className="flex-1 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg font-mono text-xs flex items-center justify-center gap-1.5 transition-all"
                     data-testid="button-confirm-delete"
                   >
-                    <Trash2 size={16} />
-                    Delete Server
+                    <Trash2 size={14} />
+                    Delete
                   </button>
                 </div>
               </div>

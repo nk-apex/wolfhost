@@ -40,7 +40,7 @@ const Layout = () => {
             onClose={() => setIsSidebarOpen(false)} 
           />
           
-          <main className="flex-1 p-4 lg:p-6 min-h-[calc(100vh-4rem)]">
+          <main className="flex-1 p-2 sm:p-4 lg:p-6 min-h-[calc(100vh-4rem)]">
             <Outlet />
           </main>
         </div>

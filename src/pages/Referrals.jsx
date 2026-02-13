@@ -95,10 +95,10 @@ const Referrals = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap justify-between items-end gap-4">
+      <div className="flex flex-wrap justify-between items-end gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Referral Program</h1>
-          <p className="text-gray-400 font-mono">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2">Referral Program</h1>
+          <p className="text-gray-400 font-mono text-xs sm:text-sm">
             Invite friends, earn rewards. 10 referrals = Admin Panel!
           </p>
         </div>
@@ -113,7 +113,7 @@ const Referrals = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6">
         {[
           {
             icon: CheckCircle,
@@ -148,21 +148,22 @@ const Referrals = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
+            className={index === 2 ? 'col-span-2 sm:col-span-1' : ''}
           >
             <div
-              className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all"
+              className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all"
               style={{ boxShadow: `0 0 40px ${stat.glowColor}` }}
             >
               <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
-                  <h3 className="text-2xl font-display font-bold text-white">{stat.value}</h3>
+                <div className="min-w-0 flex-1">
+                  <p className="text-gray-400 text-[10px] sm:text-xs uppercase tracking-wider mb-1">{stat.label}</p>
+                  <h3 className="text-base sm:text-2xl font-display font-bold text-white truncate">{stat.value}</h3>
                 </div>
-                <div className={`p-2 ${stat.iconBg} rounded-lg`}>
-                  <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+                <div className={`p-1.5 sm:p-2 ${stat.iconBg} rounded-lg ml-2 shrink-0`}>
+                  <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.iconColor}`} />
                 </div>
               </div>
-              <div className="mt-4 text-xs text-gray-500 font-mono">{stat.subValue}</div>
+              <div className="mt-2 sm:mt-4 text-[10px] sm:text-xs text-gray-500 font-mono truncate">{stat.subValue}</div>
             </div>
           </motion.div>
         ))}
@@ -172,9 +173,9 @@ const Referrals = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center space-y-3"
+          className="p-4 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center space-y-3"
         >
-          <Award className="mx-auto text-primary" size={48} />
+          <Award className="mx-auto text-primary" size={36} />
           <h2 className="text-xl font-bold text-white">Congratulations!</h2>
           <p className="text-gray-400 font-mono">
             You've reached 10 referrals and have been awarded Admin Panel access!
@@ -192,10 +193,10 @@ const Referrals = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+        className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
       >
-        <h2 className="text-xl font-bold mb-4 flex items-center">
-          <Share2 className="w-5 h-5 mr-2 text-primary" /> Your Referral Link
+        <h2 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 flex items-center">
+          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Your Referral Link
         </h2>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -232,11 +233,11 @@ const Referrals = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+        className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold flex items-center">
-            <Shield className="w-5 h-5 mr-2 text-primary" /> Admin Panel Progress
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-base sm:text-xl font-bold flex items-center">
+            <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Admin Panel Progress
           </h2>
           <span className="font-mono text-sm text-gray-400">{completedCount}/10</span>
         </div>
@@ -276,10 +277,10 @@ const Referrals = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+        className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
       >
-        <h2 className="text-xl font-bold mb-4 flex items-center">
-          <Users className="w-5 h-5 mr-2 text-primary" /> Your Referrals
+        <h2 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 flex items-center">
+          <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Your Referrals
         </h2>
 
         {referrals.length === 0 ? (
@@ -326,15 +327,15 @@ const Referrals = () => {
         )}
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+          className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
         >
-          <h3 className="font-bold mb-4 flex items-center">
-            <Gift className="w-5 h-5 mr-2 text-primary" /> How it Works
+          <h3 className="font-bold mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+            <Gift className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> How it Works
           </h3>
           <ul className="space-y-3 text-sm text-gray-400 font-mono">
             <li className="flex items-start gap-3">
@@ -360,10 +361,10 @@ const Referrals = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
-          className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+          className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
         >
-          <h3 className="font-bold mb-4 flex items-center">
-            <Award className="w-5 h-5 mr-2 text-primary" /> Rewards
+          <h3 className="font-bold mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+            <Award className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Rewards
           </h3>
           <ul className="space-y-3 text-sm font-mono">
             <li className="flex items-center justify-between">

@@ -26,32 +26,32 @@ const paymentMethods = [
 
 const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user, walletBalance = 0, cardWaiting = false, onVerifyCard }) => (
   <motion.div
-    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm"
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
     onClick={onClose}
   >
     <motion.div
-      className="w-full max-w-md bg-black/90 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
+      className="w-[calc(100%-1.5rem)] max-w-[380px] max-h-[85vh] overflow-y-auto bg-black/90 backdrop-blur-sm border border-primary/20 rounded-xl shadow-2xl"
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       exit={{ scale: 0.9, opacity: 0 }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            {type === 'deposit' ? <ArrowDownToLine className="w-5 h-5 text-primary" /> : <ArrowUpFromLine className="w-5 h-5 text-primary" />}
+      <div className="p-3 sm:p-5">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-base sm:text-xl font-bold flex items-center gap-2">
+            {type === 'deposit' ? <ArrowDownToLine className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> : <ArrowUpFromLine className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+            className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-white"
             disabled={processing}
             data-testid="button-close-wallet-modal"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
@@ -508,34 +508,32 @@ const Wallet = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-wrap justify-between items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Wallet</h1>
-          <p className="text-gray-400 font-mono">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2">Wallet</h1>
+          <p className="text-gray-400 font-mono text-xs sm:text-sm">
             Manage your funds and transactions
-            <span className="text-primary ml-4">
-              Balance: <span className="text-primary">KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</span>
-            </span>
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-gray-400">Transactions:</span>
-          <span className="text-primary font-mono text-lg">{transactions.length}</span>
+          <span className="text-xs sm:text-sm font-mono text-gray-400">Transactions:</span>
+          <span className="text-primary font-mono text-sm sm:text-lg">{transactions.length}</span>
         </div>
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center"
+        className="p-4 sm:p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center"
       >
-        <div className="w-16 h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20">
-          <WalletIcon size={32} className="text-primary" />
+        <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-4 sm:mb-6 border border-primary/20">
+          <WalletIcon size={24} className="text-primary sm:hidden" />
+          <WalletIcon size={32} className="text-primary hidden sm:block" />
         </div>
         
-        <p className="text-sm text-gray-400 mb-2 font-mono">Available Balance</p>
+        <p className="text-xs sm:text-sm text-gray-400 mb-2 font-mono">Available Balance</p>
         <motion.p 
-          className="text-4xl font-display font-bold text-primary mb-4"
+          className="text-2xl sm:text-4xl font-display font-bold text-primary mb-3 sm:mb-4"
           key={walletBalance}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
@@ -544,16 +542,16 @@ const Wallet = () => {
           KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
         </motion.p>
 
-        <div className="mb-8 max-w-xs mx-auto">
+        <div className="mb-6 sm:mb-8 max-w-xs mx-auto">
           <div className="p-3 rounded-lg border border-primary/10 bg-black/20">
             <p className="text-xs text-gray-500 font-mono mb-1">Total Deposited</p>
             <p className="text-lg font-mono text-green-400">+KES {totalDeposited.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
           <button
-            className="px-6 py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono"
+            className="px-4 sm:px-6 py-2.5 sm:py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono text-sm sm:text-base"
             onClick={() => setShowDepositModal(true)}
             data-testid="button-deposit"
           >
@@ -561,7 +559,7 @@ const Wallet = () => {
             Deposit
           </button>
           <button
-            className="px-6 py-3 bg-black/20 hover:bg-gray-800/50 text-gray-300 border border-gray-700 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono"
+            className="px-4 sm:px-6 py-2.5 sm:py-3 bg-black/20 hover:bg-gray-800/50 text-gray-300 border border-gray-700 rounded-lg flex items-center justify-center gap-2 transition-colors font-mono text-sm sm:text-base"
             onClick={() => setShowWithdrawModal(true)}
             data-testid="button-withdraw"
           >
@@ -575,16 +573,16 @@ const Wallet = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+        className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
       >
-        <h2 className="text-xl font-bold mb-4 flex items-center">
-          <DollarSign className="w-5 h-5 mr-2 text-primary" /> Quick Deposit
+        <h2 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 flex items-center">
+          <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Quick Deposit
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {[50, 100, 500, 1000].map((amount) => (
             <button
               key={amount}
-              className="px-4 py-3 bg-black/20 hover:bg-primary/10 border border-primary/20 hover:border-primary/30 rounded-lg font-mono text-lg text-gray-300 hover:text-primary transition-colors"
+              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-black/20 hover:bg-primary/10 border border-primary/20 hover:border-primary/30 rounded-lg font-mono text-sm sm:text-lg text-gray-300 hover:text-primary transition-colors"
               onClick={() => {
                 setDepositForm({ ...depositForm, amount: amount.toString() });
                 setShowDepositModal(true);
@@ -601,10 +599,10 @@ const Wallet = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
+        className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm"
       >
-        <h2 className="text-xl font-bold mb-4 flex items-center">
-          <Clock className="w-5 h-5 mr-2 text-primary" /> Transaction History
+        <h2 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 flex items-center">
+          <Clock className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Transaction History
         </h2>
         
         {transactions.length === 0 ? (
@@ -617,13 +615,13 @@ const Wallet = () => {
             {transactions.map((transaction, index) => (
               <motion.div
                 key={transaction.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-black/20"
+                className="flex items-center justify-between gap-3 p-3 sm:p-4 rounded-lg border border-gray-800 bg-black/20"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 + index * 0.05 }}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                  <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${
                     transaction.channel === 'server_purchase'
                       ? 'bg-red-500/10 border border-red-500/20'
                       : transaction.method === 'Card'
@@ -633,20 +631,20 @@ const Wallet = () => {
                         : 'bg-primary/10 border border-primary/20'
                   }`}>
                     {transaction.channel === 'server_purchase' ? (
-                      <Server size={24} className="text-red-400" />
+                      <Server size={18} className="text-red-400" />
                     ) : transaction.method === 'Card' ? (
-                      <CreditCard size={24} className="text-blue-400" />
+                      <CreditCard size={18} className="text-blue-400" />
                     ) : transaction.direction === 'debit' ? (
-                      <ArrowUpFromLine size={24} className="text-red-400" />
+                      <ArrowUpFromLine size={18} className="text-red-400" />
                     ) : (
-                      <ArrowDownToLine size={24} className="text-primary" />
+                      <ArrowDownToLine size={18} className="text-primary" />
                     )}
                   </div>
-                  <div>
-                    <p className="font-mono">
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs sm:text-sm truncate">
                       {transaction.channel === 'server_purchase' ? 'Server Purchase' : transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
                     </p>
-                    <p className="text-sm text-gray-500 font-mono">
+                    <p className="text-[10px] sm:text-sm text-gray-500 font-mono truncate">
                       {transaction.channel === 'server_purchase'
                         ? transaction.description
                         : transaction.method === 'Card' && transaction.last4
@@ -656,13 +654,13 @@ const Wallet = () => {
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <p className={`font-mono text-lg ${
+                <div className="text-right shrink-0">
+                  <p className={`font-mono text-xs sm:text-lg ${
                     transaction.direction === 'debit' ? 'text-red-400' : 'text-primary'
                   }`}>
                     {transaction.direction === 'debit' ? '-' : '+'}KES {Math.abs(transaction.amount).toFixed(2)}
                   </p>
-                  <p className="text-xs text-gray-500 font-mono">{transaction.date ? new Date(transaction.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 font-mono">{transaction.date ? new Date(transaction.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</p>
                 </div>
               </motion.div>
             ))}

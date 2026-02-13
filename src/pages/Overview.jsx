@@ -187,24 +187,24 @@ const Overview = () => {
           onClaimed={() => fetchData()}
         />
       )}
-      <div className="mb-8 flex flex-wrap justify-between items-end gap-4">
+      <div className="mb-6 sm:mb-8 flex flex-wrap justify-between items-end gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2" data-testid="text-welcome-heading">Command Center</h1>
-          <p className="text-gray-400 font-mono" data-testid="text-welcome-message">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2" data-testid="text-welcome-heading">Command Center</h1>
+          <p className="text-gray-400 font-mono text-xs sm:text-sm" data-testid="text-welcome-message">
             Welcome back, {user?.username || 'User'}
           </p>
         </div>
         <Link to="/servers">
-          <button className="group px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all" data-testid="button-deploy-server">
-            <div className="flex items-center text-sm font-mono">
-              <Plus className="w-4 h-4 mr-2" />
+          <button className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all" data-testid="button-deploy-server">
+            <div className="flex items-center text-xs sm:text-sm font-mono">
+              <Plus className="w-4 h-4 mr-1.5 sm:mr-2" />
               Deploy Server
             </div>
           </button>
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
         {statCards.map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -213,30 +213,30 @@ const Overview = () => {
             transition={{ delay: index * 0.1 }}
           >
             <Link to={stat.link} data-testid={`link-stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
-              <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm group hover:border-primary/30 transition-colors">
+              <div className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm group hover:border-primary/30 transition-colors">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">{stat.label}</p>
-                    <h3 className="text-2xl font-display font-bold text-white truncate" data-testid={`text-stat-value-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-gray-400 text-[10px] sm:text-xs uppercase tracking-wider mb-1">{stat.label}</p>
+                    <h3 className="text-base sm:text-2xl font-display font-bold text-white truncate" data-testid={`text-stat-value-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
                       {stat.value}
                     </h3>
                   </div>
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <stat.icon className="w-5 h-5 text-primary" />
+                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg ml-2 shrink-0">
+                    <stat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
                 </div>
-                <div className="mt-4 text-xs text-gray-500 font-mono">{stat.subValue}</div>
+                <div className="mt-2 sm:mt-4 text-[10px] sm:text-xs text-gray-500 font-mono truncate">{stat.subValue}</div>
               </div>
             </Link>
           </motion.div>
         ))}
       </div>
 
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4 flex items-center">
-          <Zap className="w-5 h-5 mr-2 text-primary" /> Quick Actions
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 flex items-center">
+          <Zap className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Quick Actions
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {quickActions.map((action, index) => (
             <motion.div
               key={action.label}
@@ -245,16 +245,16 @@ const Overview = () => {
               transition={{ delay: 0.3 + index * 0.1 }}
             >
               <Link to={action.path} data-testid={`link-action-${action.label.toLowerCase().replace(/\s+/g, '-')}`}>
-                <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                      <action.icon className="w-6 h-6 text-primary" />
+                <div className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all group cursor-pointer">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="p-2 sm:p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                      <action.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-white">{action.label}</h3>
-                      <p className="text-xs text-gray-500 font-mono mt-1">{action.desc}</p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-white text-sm sm:text-base">{action.label}</h3>
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-0.5 sm:mt-1">{action.desc}</p>
                     </div>
-                    <ArrowUpRight className="w-4 h-4 text-primary/50 group-hover:text-primary transition-colors" />
+                    <ArrowUpRight className="w-4 h-4 text-primary/50 group-hover:text-primary transition-colors shrink-0" />
                   </div>
                 </div>
               </Link>
@@ -263,15 +263,15 @@ const Overview = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
-            <h2 className="text-xl font-bold mb-4 flex items-center">
-              <Activity className="w-5 h-5 mr-2 text-primary" /> Recent Transactions
+          <div className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
+            <h2 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 flex items-center">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Recent Transactions
             </h2>
             <div className="space-y-3">
               {transactions.length > 0 ? (
@@ -334,10 +334,10 @@ const Overview = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <div className="p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
-            <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
-              <h2 className="text-xl font-bold flex items-center">
-                <Users className="w-5 h-5 mr-2 text-primary" /> Referral Progress
+          <div className="p-3 sm:p-6 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
+            <div className="flex flex-wrap justify-between items-center mb-4 sm:mb-6 gap-2">
+              <h2 className="text-base sm:text-xl font-bold flex items-center">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Referral Progress
               </h2>
               <Link 
                 to="/referrals" 
@@ -368,9 +368,9 @@ const Overview = () => {
               </p>
             </div>
 
-            <div className="mt-6">
-              <p className="text-sm text-gray-400 mb-2">Your Referral Code:</p>
-              <div className="font-mono text-lg bg-primary/10 border border-primary/20 rounded-lg p-3 text-center tracking-wider" data-testid="text-referral-code">
+            <div className="mt-4 sm:mt-6">
+              <p className="text-xs sm:text-sm text-gray-400 mb-2">Your Referral Code:</p>
+              <div className="font-mono text-sm sm:text-lg bg-primary/10 border border-primary/20 rounded-lg p-2 sm:p-3 text-center tracking-wider break-all" data-testid="text-referral-code">
                 {user?.referralCode || 'N/A'}
               </div>
               <p className="text-xs text-gray-500 font-mono mt-3 text-center">
