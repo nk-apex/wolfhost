@@ -544,14 +544,10 @@ const Wallet = () => {
           KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
         </motion.p>
 
-        <div className="grid grid-cols-2 gap-4 mb-8 max-w-sm mx-auto">
+        <div className="mb-8 max-w-xs mx-auto">
           <div className="p-3 rounded-lg border border-primary/10 bg-black/20">
             <p className="text-xs text-gray-500 font-mono mb-1">Total Deposited</p>
             <p className="text-lg font-mono text-green-400">+KES {totalDeposited.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="p-3 rounded-lg border border-primary/10 bg-black/20">
-            <p className="text-xs text-gray-500 font-mono mb-1">Total Spent</p>
-            <p className="text-lg font-mono text-red-400">-KES {totalSpent.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
 

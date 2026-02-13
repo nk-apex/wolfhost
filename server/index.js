@@ -1503,7 +1503,9 @@ app.get('/api/servers', async (req, res) => {
 
       for (const s of userServers) {
         const sid = s.attributes.id.toString();
-        if (!trackedServerIds.has(sid)) {
+        const serverName = (s.attributes.name || '').toLowerCase();
+        const isFreeOrAdmin = serverName.includes('welcome-trial') || serverName.includes('free-trial') || serverName.includes('admin-upload');
+        if (!trackedServerIds.has(sid) && !isFreeOrAdmin) {
           const mem = s.attributes.limits?.memory || 0;
           const cpu = s.attributes.limits?.cpu || 0;
           let plan = 'Limited';

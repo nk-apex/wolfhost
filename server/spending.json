@@ -5,47 +5,5 @@
     "description": "Server \"wolf\" (Limited plan)",
     "serverId": "5",
     "date": "2026-02-11T10:31:02.857Z"
-  },
-  {
-    "email": "britonkiplangat@0gmail.com",
-    "amount": 100,
-    "description": "Server \"Casper tech\" (Unlimited plan)",
-    "serverId": "1",
-    "date": "2026-02-11T10:43:55.791Z"
-  },
-  {
-    "email": "britonkiplangat@0gmail.com",
-    "amount": 100,
-    "description": "Server \"silentwolf\" (Unlimited plan)",
-    "serverId": "2",
-    "date": "2026-02-11T10:43:55.792Z"
-  },
-  {
-    "email": "wolfsilent906@gmail.com",
-    "amount": 50,
-    "description": "Server \"admin-free-trial\" (Limited plan)",
-    "serverId": "6",
-    "date": "2026-02-11T14:13:16.462Z"
-  },
-  {
-    "email": "korir@gmail.com",
-    "amount": 50,
-    "description": "Server \"korir-welcome-trial\" (Limited plan)",
-    "serverId": "15",
-    "date": "2026-02-12T12:21:44.789Z"
-  },
-  {
-    "email": "britonkiplangat@0gmail.com",
-    "amount": 50,
-    "description": "Server \"wolf-welcome-trial\" (Limited plan)",
-    "serverId": "17",
-    "date": "2026-02-13T14:11:18.209Z"
-  },
-  {
-    "email": "britonkiplangat@0gmail.com",
-    "amount": 50,
-    "description": "Server \"wolf-welcome-trial\" (Limited plan)",
-    "serverId": "18",
-    "date": "2026-02-13T17:31:40.063Z"
   }
 ]
