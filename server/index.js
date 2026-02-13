@@ -1497,26 +1497,6 @@ app.get('/api/servers', async (req, res) => {
     const userServers = pteroData.attributes?.relationships?.servers?.data || [];
     const userEmail = pteroData.attributes?.email || '';
 
-    if (userEmail && userServers.length > 0) {
-      const existingSpending = loadSpending();
-      const trackedServerIds = new Set(existingSpending.filter(r => r.email === userEmail.toLowerCase()).map(r => r.serverId));
-
-      for (const s of userServers) {
-        const sid = s.attributes.id.toString();
-        const serverName = (s.attributes.name || '').toLowerCase();
-        const isFreeOrAdmin = serverName.includes('welcome-trial') || serverName.includes('free-trial') || serverName.includes('admin-upload');
-        if (!trackedServerIds.has(sid) && !isFreeOrAdmin) {
-          const mem = s.attributes.limits?.memory || 0;
-          const cpu = s.attributes.limits?.cpu || 0;
-          let plan = 'Limited';
-          if ((mem === 0 || mem > 100000) && cpu >= 400) plan = 'Admin';
-          else if (mem === 0 || mem > 100000) plan = 'Unlimited';
-          const cost = TIER_PRICES[plan] || 50;
-          recordSpending(userEmail, cost, `Server "${s.attributes.name}" (${plan} plan)`, sid);
-          console.log(`Auto-reconciled spending: KES ${cost} for server ${sid} (${s.attributes.name}), user ${userEmail}`);
-        }
-      }
-    }
 
     const allocCache = {};
 
