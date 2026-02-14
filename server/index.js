@@ -1158,15 +1158,18 @@ app.get('/api/admin/servers', async (req, res) => {
 
       let expiresAt = null;
       let freeServerType = null;
-      if (freeRecord) {
-        expiresAt = freeRecord.expiresAt;
-        freeServerType = freeRecord.type || 'task';
-      } else if (isNamedFreeTrial && attrs.created_at) {
+      let deployedAt = null;
+      if (freeRecord || isNamedFreeTrial) {
         const created = new Date(attrs.created_at);
-        if (!isNaN(created.getTime())) {
+        if (attrs.created_at && !isNaN(created.getTime())) {
+          deployedAt = created.toISOString();
           expiresAt = new Date(created.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
         }
-        freeServerType = serverName.includes('welcome') ? 'welcome' : 'task';
+        if (freeRecord) {
+          freeServerType = freeRecord.type || 'task';
+        } else {
+          freeServerType = serverName.includes('welcome') ? 'welcome' : 'task';
+        }
       }
 
       return {
@@ -1182,6 +1185,7 @@ app.get('/api/admin/servers', async (req, res) => {
         ownerEmail: owner?.email || '',
         limits: attrs.limits,
         createdAt: attrs.created_at,
+        deployedAt,
         expiresAt,
         isFreeServer: isFree,
         freeServerType,
