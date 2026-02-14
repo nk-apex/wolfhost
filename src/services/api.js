@@ -2226,6 +2226,44 @@ export const supportAPI = {
 };
 
 // ======================
+// DEPLOY API
+// ======================
+
+export const deployAPI = {
+  deploy: async (deployData) => {
+    try {
+      const response = await fetch('/api/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deployData),
+        signal: AbortSignal.timeout(60000),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Deploy error:', error);
+      return { success: false, message: 'Failed to deploy server' };
+    }
+  },
+
+  getDeployments: async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const userId = user.panelId || user.id;
+      if (!userId) return { success: true, deployments: [] };
+      const response = await fetch(`/api/deploy/status?userId=${encodeURIComponent(userId)}`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Deploy status error:', error);
+      return { success: false, deployments: [], message: 'Failed to load deployments' };
+    }
+  },
+};
+
+// ======================
 // EXPORT ALL APIs
 // ======================
 
@@ -2241,6 +2279,7 @@ export default {
   billingAPI,
   mpesaAPI,
   supportAPI,
+  deployAPI,
   
   // For backward compatibility
   API_BASE_URL,

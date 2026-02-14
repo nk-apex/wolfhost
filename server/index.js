@@ -2355,6 +2355,182 @@ app.post('/api/notifications/read', (req, res) => {
   }
 });
 
+const DEPLOY_CLAIMS_FILE = path.join(__dirname, 'deploy_claims.json');
+
+function loadDeployClaims() {
+  try {
+    if (fs.existsSync(DEPLOY_CLAIMS_FILE)) {
+      return JSON.parse(fs.readFileSync(DEPLOY_CLAIMS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading deploy claims:', e);
+  }
+  return {};
+}
+
+function saveDeployClaims(data) {
+  try {
+    fs.writeFileSync(DEPLOY_CLAIMS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving deploy claims:', e);
+  }
+}
+
+app.post('/api/deploy', async (req, res) => {
+  try {
+    const { sessionId, userId, userEmail, plan } = req.body;
+
+    if (!sessionId || !userId || !userEmail) {
+      return res.status(400).json({ success: false, message: 'Session ID, user ID, and email are required' });
+    }
+
+    const selectedPlan = plan || 'Limited';
+    const tierConfig = TIER_LIMITS[selectedPlan];
+    if (!tierConfig) {
+      return res.status(400).json({ success: false, message: 'Invalid server plan' });
+    }
+
+    const pteroUser = await verifyPteroUser(userId);
+    if (!pteroUser) {
+      return res.status(403).json({ success: false, message: 'User not found on the panel' });
+    }
+
+    if (pteroUser.email.toLowerCase() !== userEmail.toLowerCase()) {
+      return res.status(403).json({ success: false, message: 'User verification failed' });
+    }
+
+    const requiredAmount = TIER_PRICES[selectedPlan] || 50;
+    const balance = await verifyUserBalance(userEmail, requiredAmount);
+    if (balance < requiredAmount) {
+      return res.status(402).json({
+        success: false,
+        message: `Insufficient balance. You need KES ${requiredAmount} but have KES ${balance.toFixed(2)}. Please top up your wallet first.`,
+      });
+    }
+
+    const allocationId = await findFreeAllocation(1);
+    if (!allocationId) {
+      return res.status(503).json({ success: false, message: 'No available ports. Please try again later or contact support.' });
+    }
+
+    if (typeof sessionId !== 'string' || sessionId.length < 5 || sessionId.length > 10000) {
+      return res.status(400).json({ success: false, message: 'Invalid Session ID format' });
+    }
+
+    const sanitizedSessionId = sessionId.replace(/[;\n\r]/g, '');
+
+    const serverName = `${pteroUser.username}-deploy-${Date.now()}`;
+    const gitRepo = 'https://github.com/7silent-wolf/silentwolf.git';
+
+    console.log('Deploying server:', { serverName, userId, plan: selectedPlan, allocationId });
+
+    const serverPayload = {
+      name: serverName,
+      user: parseInt(userId),
+      egg: 15,
+      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
+      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
+      environment: {
+        GIT_ADDRESS: gitRepo,
+        BRANCH: 'main',
+        USERNAME: '',
+        ACCESS_TOKEN: '',
+        CMD_RUN: 'npm start',
+        AUTO_UPDATE: '1',
+        NODE_PACKAGES: '',
+        UNNODE_PACKAGES: '',
+        CUSTOM_ENVIRONMENT_VARIABLES: `SESSION_ID=${sanitizedSessionId}`,
+      },
+      limits: {
+        memory: tierConfig.memory,
+        swap: tierConfig.swap,
+        disk: tierConfig.disk,
+        io: tierConfig.io,
+        cpu: tierConfig.cpu,
+      },
+      feature_limits: {
+        databases: tierConfig.databases,
+        allocations: tierConfig.allocations,
+        backups: tierConfig.backups,
+      },
+      allocation: { default: allocationId },
+      description: `WolfHost Deploy - ${selectedPlan} Plan - GitHub Auto-Deploy`,
+      start_on_completion: true,
+      external_id: `wolfhost-deploy-${userId}-${Date.now()}`,
+    };
+
+    const pteroResponse = await pteroFetch('/servers', {
+      method: 'POST',
+      body: JSON.stringify(serverPayload),
+    });
+
+    const pteroData = await pteroResponse.json();
+
+    if (!pteroResponse.ok) {
+      console.error('Deploy server error:', JSON.stringify(pteroData));
+      let errorMessage = 'Failed to deploy server';
+      if (pteroData.errors && pteroData.errors.length > 0) {
+        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+      }
+      return res.status(pteroResponse.status || 500).json({ success: false, message: errorMessage });
+    }
+
+    const serverAttrs = pteroData.attributes;
+    console.log('Deploy server created:', serverAttrs.id, serverAttrs.identifier);
+
+    recordSpending(userEmail, requiredAmount, `Deploy Server "${serverName}" (${selectedPlan} plan)`, serverAttrs.id);
+    addNotification(userId, 'server', 'Server Deployed', `Your bot has been deployed successfully from GitHub! Server: ${serverName}`);
+
+    const deployClaims = loadDeployClaims();
+    deployClaims[`${userId}-${serverAttrs.id}`] = {
+      userId,
+      userEmail: userEmail.toLowerCase(),
+      serverId: serverAttrs.id,
+      identifier: serverAttrs.identifier,
+      serverName,
+      plan: selectedPlan,
+      gitRepo,
+      deployedAt: new Date().toISOString(),
+    };
+    saveDeployClaims(deployClaims);
+
+    return res.json({
+      success: true,
+      message: 'Server deployed successfully! Your bot is starting up from GitHub.',
+      server: {
+        id: serverAttrs.id,
+        identifier: serverAttrs.identifier,
+        name: serverAttrs.name,
+        plan: selectedPlan,
+        panelUrl: `${PTERODACTYL_API_URL}/server/${serverAttrs.identifier}`,
+      },
+    });
+  } catch (error) {
+    console.error('Deploy error:', error);
+    return res.status(500).json({ success: false, message: 'Server error during deployment' });
+  }
+});
+
+app.get('/api/deploy/status', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' });
+    }
+
+    const deployClaims = loadDeployClaims();
+    const userDeploys = Object.values(deployClaims).filter(d => d.userId === userId.toString());
+
+    return res.json({
+      success: true,
+      deployments: userDeploys,
+    });
+  } catch (error) {
+    console.error('Deploy status error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch deploy status' });
+  }
+});
+
 const distPath = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath, {
