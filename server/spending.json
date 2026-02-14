@@ -5,5 +5,12 @@
     "description": "Server \"wolf\" (Limited plan)",
     "serverId": "5",
     "date": "2026-02-11T10:31:02.857Z"
+  },
+  {
+    "email": "britonkiplangat@0gmail.com",
+    "amount": 50,
+    "description": "Deploy Server \"wolf-deploy-1771106129058\" (Limited plan)",
+    "serverId": "70",
+    "date": "2026-02-14T21:55:29.442Z"
   }
 ]

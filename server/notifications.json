@@ -1,6 +1,14 @@
 {
   "1": [
     {
+      "id": "1771106129442-3hg1a3",
+      "type": "server",
+      "title": "Server Deployed",
+      "message": "Your bot has been deployed successfully from GitHub! Server: wolf-deploy-1771106129058",
+      "read": true,
+      "createdAt": "2026-02-14T21:55:29.442Z"
+    },
+    {
       "id": "1770991877676-z72qgw",
       "type": "server",
       "title": "Free Trial Server Ready!",

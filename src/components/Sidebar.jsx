@@ -10,7 +10,6 @@ import {
   Shield,
   LogOut,
   X,
-  Rocket,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,7 +19,6 @@ const menuItems = [
   { icon: Users, label: 'Referrals', path: '/referrals' },
   { icon: Receipt, label: 'Billing', path: '/billing' },
   { icon: Wallet, label: 'Wallet', path: '/wallet' },
-  { icon: Rocket, label: 'Deploy', path: '/deploy' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 

@@ -31,8 +31,6 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
 - **Server Auto-Naming:** Servers are automatically named `username-plan-timestamp`.
 - **Payment Flow:** Includes detailed processes for both M-Pesa (STK Push with polling for confirmation) and Card payments (Paystack hosted checkout with verification).
 
-- **Deploy Page:** One-click deploy from GitHub repo (https://github.com/7silent-wolf/silentwolf.git). Users paste a Session ID, select a plan, and click deploy. The server is auto-provisioned on Pterodactyl with the repo cloned, dependencies installed, and bot started automatically. Session ID is passed as an environment variable.
-
 ## External Dependencies
 - **Pterodactyl Panel:** Used for server provisioning, user authentication, and server management.
 - **Paystack:** Integrated for handling all payment transactions, including M-Pesa STK Push and card payments, currency handling (KES), and transaction history.
