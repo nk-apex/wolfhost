@@ -15,7 +15,6 @@ import Billing from "./pages/Billing";
 import Wallet from "./pages/Wallet";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
-import Tasks from "./pages/Tasks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,10 +38,10 @@ const App = () => (
               <Route path="/billing" element={<Billing />} />
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/tasks" element={<Tasks />} />
               <Route path="/admin" element={<Admin />} />
             </Route>
 
+            <Route path="/tasks" element={<Navigate to="/overview" replace />} />
             <Route path="/home" element={<Navigate to="/" replace />} />
             <Route path="/dashboard" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<NotFound />} />

@@ -18,7 +18,7 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
 - **Server Management:** Auto-provisioning of servers on Pterodactyl panel with three tiers (Limited, Unlimited, Admin), server suspension/unsuspension, and deletion capabilities. Users can manage servers directly via Pterodactyl links.
 - **Billing & Wallet:** Real-time transaction data and wallet balance from Paystack API, supporting M-Pesa and card payments. Tracks spending for accurate balance deduction.
 - **Referral System:** Comprehensive referral tracking with a code, referrer-referred relationships, and completion status. Awards admin panels for achieving referral milestones.
-- **Task Reward System:** Users can complete social media tasks to earn free trial servers, with mechanisms to prevent duplicate claims.
+- **Auto Onboarding:** New users are automatically joined to community groups (WhatsApp, Telegram, YouTube) and receive a free 3-day trial server upon registration. Tasks page has been removed; onboarding is fully automated.
 - **Admin Dashboard:** Provides administrators with an overview of users and servers, user management (delete, toggle admin status), server management (suspend, delete), and payment insights including total revenue, payment count, and average payment statistics.
 - **W.O.L.F AI Assistant:** An AI chatbot powered by Grok AI API, providing assistance with server tiers, payments, referrals, and account features.
 - **Welcome Free Server:** New users are offered a 3-day free trial server.

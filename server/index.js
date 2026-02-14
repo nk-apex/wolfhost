@@ -793,7 +793,113 @@ app.post('/api/auth/register', async (req, res) => {
       console.log(`Referral tracking: code=${referralCode}, newUser=${panelUser.id}, recorded=${recorded}`);
     }
 
-    addNotification(panelUser.id, 'welcome', 'Welcome to WolfHost!', 'Your account has been created successfully. Claim your free trial server to get started!');
+    const userId = panelUser.id.toString();
+    const userEmail = panelUser.email;
+
+    const allTasks = loadTasks();
+    if (!allTasks[userId]) allTasks[userId] = {};
+    for (const task of TASK_DEFINITIONS) {
+      if (!allTasks[userId][task.id]) {
+        allTasks[userId][task.id] = new Date().toISOString();
+      }
+    }
+    saveTasks(allTasks);
+    console.log(`Auto-completed all tasks for new user ${userId}`);
+
+    addNotification(panelUser.id, 'welcome', 'Welcome to WolfHost!', 'Your account has been created and you\'ve been automatically joined to our community groups. Your free trial server is being set up!');
+
+    (async () => {
+      try {
+        const welcomeClaims = loadWelcomeClaims();
+        if (!welcomeClaims[userId]) {
+          const allocationId = await findFreeAllocation(1);
+          if (allocationId) {
+            const serverName = `${panelUser.username}-welcome-trial`;
+            const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
+
+            const serverPayload = {
+              name: serverName,
+              user: parseInt(userId),
+              egg: 15,
+              docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
+              startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
+              environment: {
+                GIT_ADDRESS: '',
+                BRANCH: '',
+                USERNAME: '',
+                ACCESS_TOKEN: '',
+                CMD_RUN: 'npm start',
+                AUTO_UPDATE: '0',
+                NODE_PACKAGES: '',
+                UNNODE_PACKAGES: '',
+                CUSTOM_ENVIRONMENT_VARIABLES: '',
+              },
+              limits: {
+                memory: FREE_SERVER_LIMITS.memory,
+                swap: FREE_SERVER_LIMITS.swap,
+                disk: FREE_SERVER_LIMITS.disk,
+                io: FREE_SERVER_LIMITS.io,
+                cpu: FREE_SERVER_LIMITS.cpu,
+              },
+              feature_limits: {
+                databases: FREE_SERVER_LIMITS.databases,
+                allocations: FREE_SERVER_LIMITS.allocations,
+                backups: FREE_SERVER_LIMITS.backups,
+              },
+              allocation: { default: allocationId },
+              description: `WolfHost Welcome Trial - Expires ${new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toLocaleDateString()}`,
+              start_on_completion: false,
+              external_id: `wolfhost-welcome-${userId}-${Date.now()}`,
+            };
+
+            const pteroRes = await pteroFetch('/servers', {
+              method: 'POST',
+              body: JSON.stringify(serverPayload),
+            });
+
+            const pteroServerData = await pteroRes.json();
+
+            if (pteroRes.ok) {
+              const serverAttrs = pteroServerData.attributes;
+              const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
+
+              const freeServerRecord = {
+                userId,
+                userEmail: userEmail.toLowerCase(),
+                ip: clientIp,
+                serverId: serverAttrs.id,
+                identifier: serverAttrs.identifier,
+                serverName: serverAttrs.name,
+                createdAt: new Date().toISOString(),
+                expiresAt,
+                type: 'welcome',
+              };
+
+              const freeServers = loadFreeServers();
+              freeServers.push(freeServerRecord);
+              saveFreeServers(freeServers);
+
+              const updatedClaims = loadWelcomeClaims();
+              updatedClaims[userId] = {
+                claimedAt: new Date().toISOString(),
+                serverId: serverAttrs.id,
+                expiresAt,
+              };
+              saveWelcomeClaims(updatedClaims);
+
+              addNotification(panelUser.id, 'server', 'Free Trial Server Ready!', `Your free 3-day trial server "${serverAttrs.name}" is live! It expires on ${new Date(expiresAt).toLocaleDateString()}.`);
+              console.log(`Auto-created welcome trial server ${serverAttrs.id} for new user ${userId}`);
+            } else {
+              console.error('Auto welcome server create failed:', JSON.stringify(pteroServerData));
+            }
+          } else {
+            console.error('No free allocation available for auto welcome server');
+          }
+        }
+      } catch (e) {
+        console.error('Auto welcome server error:', e);
+      }
+    })();
 
     return res.json({
       success: true,
@@ -1034,6 +1140,8 @@ app.get('/api/admin/servers', async (req, res) => {
       return res.status(500).json({ success: false, message: 'Failed to fetch servers' });
     }
 
+    const freeServers = loadFreeServers();
+
     const servers = (data.data || []).map(s => {
       const attrs = s.attributes;
       const owner = attrs.relationships?.user?.attributes;
@@ -1041,6 +1149,8 @@ app.get('/api/admin/servers', async (req, res) => {
       if (attrs.suspended) status = 'suspended';
       else if (attrs.status === 'installing') status = 'installing';
       else if (attrs.status === 'install_failed') status = 'error';
+
+      const freeRecord = freeServers.find(fs => Number(fs.serverId) === Number(attrs.id));
 
       return {
         id: attrs.id,
@@ -1055,6 +1165,9 @@ app.get('/api/admin/servers', async (req, res) => {
         ownerEmail: owner?.email || '',
         limits: attrs.limits,
         createdAt: attrs.created_at,
+        expiresAt: freeRecord?.expiresAt || null,
+        isFreeServer: !!freeRecord,
+        freeServerType: freeRecord?.type || (freeRecord ? 'task' : null),
       };
     });
 

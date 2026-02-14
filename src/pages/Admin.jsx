@@ -559,6 +559,22 @@ const Admin = () => {
                             {s.limits.memory}MB RAM · {s.limits.disk}MB Disk · {s.limits.cpu}% CPU
                           </p>
                         )}
+                        {s.expiresAt && (
+                          <p className={`text-[10px] sm:text-xs font-mono flex items-center gap-1 mt-0.5 ${
+                            new Date(s.expiresAt) <= new Date() ? 'text-red-400' : 'text-yellow-400'
+                          }`}>
+                            <Clock size={10} className="shrink-0" />
+                            {new Date(s.expiresAt) <= new Date()
+                              ? 'Expired'
+                              : `Expires: ${formatDate(s.expiresAt)}`
+                            }
+                            {s.isFreeServer && (
+                              <span className="ml-1 px-1.5 py-0 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[9px]">
+                                {s.freeServerType === 'welcome' ? 'WELCOME TRIAL' : 'FREE TRIAL'}
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
