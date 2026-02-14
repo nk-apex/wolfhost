@@ -1152,6 +1152,23 @@ app.get('/api/admin/servers', async (req, res) => {
 
       const freeRecord = freeServers.find(fs => Number(fs.serverId) === Number(attrs.id));
 
+      const serverName = (attrs.name || '').toLowerCase();
+      const isNamedFreeTrial = serverName.includes('free-trial') || serverName.includes('welcome-trial');
+      const isFree = !!freeRecord || isNamedFreeTrial;
+
+      let expiresAt = null;
+      let freeServerType = null;
+      if (freeRecord) {
+        expiresAt = freeRecord.expiresAt;
+        freeServerType = freeRecord.type || 'task';
+      } else if (isNamedFreeTrial && attrs.created_at) {
+        const created = new Date(attrs.created_at);
+        if (!isNaN(created.getTime())) {
+          expiresAt = new Date(created.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+        }
+        freeServerType = serverName.includes('welcome') ? 'welcome' : 'task';
+      }
+
       return {
         id: attrs.id,
         identifier: attrs.identifier,
@@ -1165,9 +1182,9 @@ app.get('/api/admin/servers', async (req, res) => {
         ownerEmail: owner?.email || '',
         limits: attrs.limits,
         createdAt: attrs.created_at,
-        expiresAt: freeRecord?.expiresAt || null,
-        isFreeServer: !!freeRecord,
-        freeServerType: freeRecord?.type || (freeRecord ? 'task' : null),
+        expiresAt,
+        isFreeServer: isFree,
+        freeServerType,
       };
     });
 
