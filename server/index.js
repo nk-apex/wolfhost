@@ -4,6 +4,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -227,6 +228,52 @@ function refundSpending(serverId) {
     return true;
   }
   return false;
+}
+
+const USER_CREDENTIALS_FILE = path.join(__dirname, 'user_credentials.json');
+
+function loadUserCredentials() {
+  try {
+    if (fs.existsSync(USER_CREDENTIALS_FILE)) {
+      return JSON.parse(fs.readFileSync(USER_CREDENTIALS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading user credentials:', e);
+  }
+  return {};
+}
+
+function saveUserCredentials(data) {
+  try {
+    fs.writeFileSync(USER_CREDENTIALS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving user credentials:', e);
+  }
+}
+
+function hashPassword(password, salt) {
+  if (!salt) salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return { hash, salt };
+}
+
+function verifyPassword(password, storedHash, storedSalt) {
+  const { hash } = hashPassword(password, storedSalt);
+  return hash === storedHash;
+}
+
+function storeUserPassword(email, password) {
+  const creds = loadUserCredentials();
+  const { hash, salt } = hashPassword(password);
+  creds[email.toLowerCase()] = { hash, salt, updatedAt: new Date().toISOString() };
+  saveUserCredentials(creds);
+}
+
+function checkUserPassword(email, password) {
+  const creds = loadUserCredentials();
+  const entry = creds[email.toLowerCase()];
+  if (!entry) return null;
+  return verifyPassword(password, entry.hash, entry.salt);
 }
 
 const PAYSTACK_API_URL = 'https://api.paystack.co';
@@ -710,73 +757,49 @@ app.post('/api/auth/login', async (req, res) => {
     const panelUser = users[0].attributes;
     const loginEmail = panelUser.email;
 
-    const loginPageRes = await fetch(`${PTERODACTYL_API_URL}/auth/login`, {
-      method: 'GET',
-      headers: { 'Accept': 'text/html' },
-      redirect: 'manual',
-    });
-    const loginPageBody = await loginPageRes.text();
-    const cookies = loginPageRes.headers.getSetCookie?.() || loginPageRes.headers.raw?.()?.['set-cookie'] || [];
-    const cookieString = (Array.isArray(cookies) ? cookies : [cookies]).map(c => c.split(';')[0]).join('; ');
+    const passwordCheck = checkUserPassword(loginEmail, password);
 
-    const csrfMatch = loginPageBody.match(/name="_token"\s+value="([^"]+)"/);
-    const xsrfCookie = cookieString.match(/XSRF-TOKEN=([^;]+)/);
+    if (passwordCheck === null) {
+      console.log('No stored password for user, attempting panel password sync:', loginEmail);
 
-    let passwordVerified = false;
-
-    if (csrfMatch) {
-      const csrfToken = csrfMatch[1];
-      const formData = new URLSearchParams();
-      formData.append('_token', csrfToken);
-      formData.append('user', loginEmail);
-      formData.append('password', password);
-
-      const authRes = await fetch(`${PTERODACTYL_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cookie': cookieString,
-          'Accept': 'text/html',
-          'Referer': `${PTERODACTYL_API_URL}/auth/login`,
-        },
-        body: formData.toString(),
-        redirect: 'manual',
-      });
-
-      const authStatus = authRes.status;
-      const authLocation = authRes.headers.get('location') || '';
-
-      if (authStatus === 302 && !authLocation.includes('/auth/login')) {
-        passwordVerified = true;
-      }
-    }
-
-    if (!passwordVerified && xsrfCookie) {
-      const xsrfToken = decodeURIComponent(xsrfCookie[1]);
-
-      const authRes = await fetch(`${PTERODACTYL_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Cookie': cookieString,
-          'X-XSRF-TOKEN': xsrfToken,
-          'Referer': `${PTERODACTYL_API_URL}/auth/login`,
-        },
-        body: JSON.stringify({ user: loginEmail, password }),
-        redirect: 'manual',
-      });
-
-      const authStatus = authRes.status;
-      if (authStatus === 200 || authStatus === 302) {
-        const authLocation = authRes.headers.get('location') || '';
-        if (authStatus === 200 || !authLocation.includes('/auth/login')) {
-          passwordVerified = true;
+      let panelSyncSuccess = false;
+      try {
+        const syncRes = await fetch(`${PTERODACTYL_API_URL}/api/application/users/${panelUser.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${PTERODACTYL_API_KEY}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            email: panelUser.email,
+            username: panelUser.username,
+            first_name: panelUser.first_name,
+            last_name: panelUser.last_name,
+            password: password,
+          }),
+        });
+        if (syncRes.ok) {
+          panelSyncSuccess = true;
+          storeUserPassword(loginEmail, password);
+          console.log('Password synced and stored for:', loginEmail);
+        } else {
+          const syncData = await syncRes.json();
+          console.error('Panel password sync failed:', JSON.stringify(syncData));
+          if (password.length < 8) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters for panel accounts.' });
+          }
+          return res.status(500).json({ success: false, message: 'Failed to sync account. Please try again or contact support.' });
         }
+      } catch (syncErr) {
+        console.error('Panel sync error:', syncErr.message);
+        return res.status(500).json({ success: false, message: 'Failed to verify account with panel. Please try again.' });
       }
-    }
 
-    if (!passwordVerified) {
+      if (!panelSyncSuccess) {
+        return res.status(500).json({ success: false, message: 'Account sync failed. Please try again.' });
+      }
+    } else if (passwordCheck === false) {
       console.log('Password verification failed for:', loginEmail);
       return res.status(401).json({ success: false, message: 'Invalid password. Please try again.' });
     }
@@ -861,6 +884,9 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const panelUser = pteroData.attributes;
+
+    storeUserPassword(panelUser.email, password);
+    console.log('Stored password hash for new user:', panelUser.email);
 
     if (referralCode) {
       const recorded = recordReferral(referralCode, panelUser.id, panelUser.email, panelUser.username);
