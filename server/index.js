@@ -708,6 +708,80 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const panelUser = users[0].attributes;
+    const loginEmail = panelUser.email;
+
+    const loginPageRes = await fetch(`${PTERODACTYL_API_URL}/auth/login`, {
+      method: 'GET',
+      headers: { 'Accept': 'text/html' },
+      redirect: 'manual',
+    });
+    const loginPageBody = await loginPageRes.text();
+    const cookies = loginPageRes.headers.getSetCookie?.() || loginPageRes.headers.raw?.()?.['set-cookie'] || [];
+    const cookieString = (Array.isArray(cookies) ? cookies : [cookies]).map(c => c.split(';')[0]).join('; ');
+
+    const csrfMatch = loginPageBody.match(/name="_token"\s+value="([^"]+)"/);
+    const xsrfCookie = cookieString.match(/XSRF-TOKEN=([^;]+)/);
+
+    let passwordVerified = false;
+
+    if (csrfMatch) {
+      const csrfToken = csrfMatch[1];
+      const formData = new URLSearchParams();
+      formData.append('_token', csrfToken);
+      formData.append('user', loginEmail);
+      formData.append('password', password);
+
+      const authRes = await fetch(`${PTERODACTYL_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': cookieString,
+          'Accept': 'text/html',
+          'Referer': `${PTERODACTYL_API_URL}/auth/login`,
+        },
+        body: formData.toString(),
+        redirect: 'manual',
+      });
+
+      const authStatus = authRes.status;
+      const authLocation = authRes.headers.get('location') || '';
+
+      if (authStatus === 302 && !authLocation.includes('/auth/login')) {
+        passwordVerified = true;
+      }
+    }
+
+    if (!passwordVerified && xsrfCookie) {
+      const xsrfToken = decodeURIComponent(xsrfCookie[1]);
+
+      const authRes = await fetch(`${PTERODACTYL_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cookie': cookieString,
+          'X-XSRF-TOKEN': xsrfToken,
+          'Referer': `${PTERODACTYL_API_URL}/auth/login`,
+        },
+        body: JSON.stringify({ user: loginEmail, password }),
+        redirect: 'manual',
+      });
+
+      const authStatus = authRes.status;
+      if (authStatus === 200 || authStatus === 302) {
+        const authLocation = authRes.headers.get('location') || '';
+        if (authStatus === 200 || !authLocation.includes('/auth/login')) {
+          passwordVerified = true;
+        }
+      }
+    }
+
+    if (!passwordVerified) {
+      console.log('Password verification failed for:', loginEmail);
+      return res.status(401).json({ success: false, message: 'Invalid password. Please try again.' });
+    }
+
+    console.log('Password verified successfully for:', loginEmail);
 
     return res.json({
       success: true,
