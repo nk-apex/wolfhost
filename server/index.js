@@ -1135,25 +1135,35 @@ app.get('/api/admin/users', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    const response = await pteroFetch('/users?per_page=100&include=servers');
-    const data = await response.json();
+    let allUsers = [];
+    let currentPage = 1;
+    let totalPages = 1;
 
-    if (!response.ok) {
-      return res.status(500).json({ success: false, message: 'Failed to fetch users' });
+    while (currentPage <= totalPages) {
+      const response = await pteroFetch(`/users?per_page=100&page=${currentPage}&include=servers`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        return res.status(500).json({ success: false, message: 'Failed to fetch users' });
+      }
+
+      const pageUsers = (data.data || []).map(u => ({
+        id: u.attributes.id,
+        email: u.attributes.email,
+        username: u.attributes.username,
+        firstName: u.attributes.first_name,
+        lastName: u.attributes.last_name,
+        isAdmin: u.attributes.root_admin,
+        createdAt: u.attributes.created_at,
+        serverCount: u.attributes.relationships?.servers?.data?.length || 0,
+      }));
+
+      allUsers = allUsers.concat(pageUsers);
+      totalPages = data.meta?.pagination?.total_pages || 1;
+      currentPage++;
     }
 
-    const users = (data.data || []).map(u => ({
-      id: u.attributes.id,
-      email: u.attributes.email,
-      username: u.attributes.username,
-      firstName: u.attributes.first_name,
-      lastName: u.attributes.last_name,
-      isAdmin: u.attributes.root_admin,
-      createdAt: u.attributes.created_at,
-      serverCount: u.attributes.relationships?.servers?.data?.length || 0,
-    }));
-
-    return res.json({ success: true, users, total: data.meta?.pagination?.total || users.length });
+    return res.json({ success: true, users: allUsers, total: allUsers.length });
   } catch (error) {
     console.error('Admin users error:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch users' });
