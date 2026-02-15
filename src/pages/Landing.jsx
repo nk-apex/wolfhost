@@ -72,7 +72,7 @@ export default function Landing() {
       </nav>
 
       <div className="relative pt-32 pb-20 sm:pt-40 sm:pb-24 z-10">
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
+        <div className="relative max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 text-center z-10">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -123,10 +123,97 @@ export default function Landing() {
           </motion.div>
 
           <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
+            className="mt-12 w-full"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full">
+              {[
+                {
+                  name: 'Limited',
+                  price: 50,
+                  icon: Zap,
+                  desc: 'Perfect for getting started',
+                  specs: ['5GB RAM', '10GB Storage', '1 vCPU', '10 Slots', 'Basic DDoS Protection', 'Community Support'],
+                  highlight: false,
+                },
+                {
+                  name: 'Unlimited',
+                  price: 100,
+                  icon: Shield,
+                  desc: 'Best value for growing projects',
+                  specs: ['Unlimited RAM', '40GB Storage', '2 vCPU', 'Unlimited Slots', 'Advanced DDoS Protection', 'Priority Support'],
+                  highlight: true,
+                },
+                {
+                  name: 'Admin',
+                  price: 250,
+                  icon: Crown,
+                  desc: 'Full power and control',
+                  specs: ['Unlimited RAM', '80GB Storage', '4 vCPU', 'Unlimited Slots', 'Full DDoS Protection', '24/7 Support'],
+                  highlight: false,
+                },
+              ].map((plan, i) => (
+                <motion.div
+                  key={plan.name}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.9 + i * 0.12 }}
+                  whileHover={{ y: -4 }}
+                  className="group"
+                >
+                  <div className={`p-4 sm:p-5 rounded-xl border bg-black/40 backdrop-blur-sm transition-all h-full relative overflow-hidden flex flex-col text-left ${plan.highlight ? 'border-primary/50 shadow-[0_0_20px_rgba(var(--primary)/0.12)]' : 'border-primary/20 hover:border-primary/40'}`}>
+                    {plan.highlight && (
+                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
+                    )}
+                    {plan.highlight && (
+                      <div className="absolute top-2 right-2 bg-primary/20 text-primary text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-full border border-primary/30">
+                        POPULAR
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="p-2 bg-primary/10 rounded-lg border border-primary/10 group-hover:scale-110 transition-transform duration-300">
+                        <plan.icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-display font-bold text-white">{plan.name}</h3>
+                        <p className="text-[10px] sm:text-xs text-gray-500 font-mono">{plan.desc}</p>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <span className="text-2xl sm:text-3xl font-display font-bold text-primary">KES {plan.price}</span>
+                      <span className="text-xs text-gray-500 font-mono ml-1">/server</span>
+                    </div>
+                    <div className="space-y-1.5 sm:space-y-2 flex-1">
+                      {plan.specs.map((spec) => (
+                        <div key={spec} className="flex items-center gap-2">
+                          <Check className="w-3.5 h-3.5 text-primary/70 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm font-mono text-gray-400">{spec}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Link to="/register" className="mt-4">
+                      <motion.button
+                        className={`w-full py-2.5 rounded-lg font-display font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${plan.highlight ? 'bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30' : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 hover:border-primary/30'}`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Get Started
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </motion.button>
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto"
+            transition={{ delay: 1.3 }}
+            className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 max-w-3xl mx-auto"
           >
             {stats.map((stat, index) => (
               <motion.div
@@ -205,99 +292,6 @@ export default function Landing() {
                     <span className="text-sm font-mono">Learn more</span>
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="py-20 bg-background/50 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-display font-bold mb-4 text-white">
-              Server Plans
-            </h2>
-            <p className="text-gray-400 max-w-2xl mx-auto text-lg">
-              Choose the perfect plan for your project. All plans include DDoS protection and instant deployment.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            {[
-              {
-                name: 'Limited',
-                price: 50,
-                icon: Zap,
-                desc: 'Perfect for getting started',
-                specs: ['5GB RAM', '10GB Storage', '1 vCPU', '10 Slots', 'Basic DDoS Protection', 'Community Support'],
-                highlight: false,
-              },
-              {
-                name: 'Unlimited',
-                price: 100,
-                icon: Shield,
-                desc: 'Best value for growing projects',
-                specs: ['Unlimited RAM', '40GB Storage', '2 vCPU', 'Unlimited Slots', 'Advanced DDoS Protection', 'Priority Support'],
-                highlight: true,
-              },
-              {
-                name: 'Admin',
-                price: 250,
-                icon: Crown,
-                desc: 'Full power and control',
-                specs: ['Unlimited RAM', '80GB Storage', '4 vCPU', 'Unlimited Slots', 'Full DDoS Protection', '24/7 Support'],
-                highlight: false,
-              },
-            ].map((plan, i) => (
-              <motion.div
-                key={plan.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.15 }}
-                whileHover={{ y: -5 }}
-                className="group"
-              >
-                <div className={`p-6 sm:p-8 rounded-xl border bg-black/30 backdrop-blur-sm transition-all h-full relative overflow-hidden flex flex-col ${plan.highlight ? 'border-primary/50 shadow-[0_0_25px_rgba(var(--primary)/0.15)]' : 'border-primary/20 hover:border-primary/40'}`}>
-                  {plan.highlight && (
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
-                  )}
-                  {plan.highlight && (
-                    <div className="absolute top-3 right-3 bg-primary/20 text-primary text-xs font-mono px-3 py-1 rounded-full border border-primary/30">
-                      POPULAR
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-primary/10 rounded-lg border border-primary/10 group-hover:scale-110 transition-transform duration-300">
-                      <plan.icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-display font-bold text-white">{plan.name}</h3>
-                      <p className="text-xs text-gray-500 font-mono">{plan.desc}</p>
-                    </div>
-                  </div>
-                  <div className="mb-6">
-                    <span className="text-3xl sm:text-4xl font-display font-bold text-primary">KES {plan.price}</span>
-                    <span className="text-sm text-gray-500 font-mono ml-1">/server</span>
-                  </div>
-                  <div className="space-y-3 flex-1">
-                    {plan.specs.map((spec) => (
-                      <div key={spec} className="flex items-center gap-2.5">
-                        <Check className="w-4 h-4 text-primary/70 flex-shrink-0" />
-                        <span className="text-sm font-mono text-gray-400">{spec}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <Link to="/register" className="mt-6">
-                    <motion.button
-                      className={`w-full py-3 rounded-lg font-display font-bold text-sm flex items-center justify-center gap-2 transition-all ${plan.highlight ? 'bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30' : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 hover:border-primary/30'}`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      Get Started
-                      <ArrowRight className="w-4 h-4" />
-                    </motion.button>
-                  </Link>
                 </div>
               </motion.div>
             ))}
