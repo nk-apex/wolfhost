@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Server, 
@@ -25,6 +25,7 @@ import WelcomeFreeServerPopup from '../components/WelcomeFreeServerPopup';
 
 const Overview = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [balance, setBalance] = useState(0);
   const [totalDeposits, setTotalDeposits] = useState(0);
   const [depositCount, setDepositCount] = useState(0);
@@ -282,38 +283,58 @@ const Overview = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 + index * 0.1 }}
             >
-              <Link to="/servers">
-                <div className={`p-4 sm:p-5 rounded-xl border bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all group cursor-pointer relative overflow-hidden ${plan.highlight ? 'border-primary/40 shadow-[0_0_15px_rgba(var(--primary)/0.1)]' : 'border-primary/20'}`}>
-                  {plan.highlight && (
-                    <div className="absolute top-0 right-0 bg-primary/20 text-primary text-[9px] sm:text-xs font-mono px-2 py-0.5 rounded-bl-lg border-l border-b border-primary/30">
-                      POPULAR
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
-                      <plan.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                    </div>
-                    <h3 className="font-display font-bold text-white text-sm sm:text-base">{plan.name}</h3>
+              <div
+                onClick={() => {
+                  if (balance < plan.price) {
+                    navigate('/billing', { state: { requiredAmount: plan.price, planName: plan.name } });
+                  } else {
+                    navigate('/servers');
+                  }
+                }}
+                className={`p-4 sm:p-5 rounded-xl border bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all group cursor-pointer relative overflow-hidden ${plan.highlight ? 'border-primary/40 shadow-[0_0_15px_rgba(var(--primary)/0.1)]' : 'border-primary/20'}`}
+              >
+                {plan.highlight && (
+                  <div className="absolute top-0 right-0 bg-primary/20 text-primary text-[9px] sm:text-xs font-mono px-2 py-0.5 rounded-bl-lg border-l border-b border-primary/30">
+                    POPULAR
                   </div>
-                  <div className="mb-3">
-                    <span className="text-xl sm:text-2xl font-display font-bold text-primary">KES {plan.price}</span>
-                    <span className="text-xs text-gray-500 font-mono ml-1">/server</span>
+                )}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                    <plan.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
-                  <div className="space-y-1.5">
-                    {plan.specs.map((spec) => (
-                      <div key={spec} className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-primary/70 flex-shrink-0" />
-                        <span className="text-xs font-mono text-gray-400">{spec}</span>
-                      </div>
-                    ))}
+                  <h3 className="font-display font-bold text-white text-sm sm:text-base">{plan.name}</h3>
+                </div>
+                <div className="mb-3">
+                  <span className="text-xl sm:text-2xl font-display font-bold text-primary">KES {plan.price}</span>
+                  <span className="text-xs text-gray-500 font-mono ml-1">/server</span>
+                </div>
+                {balance < plan.price && (
+                  <div className="mb-2 px-2 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/20">
+                    <span className="text-[10px] sm:text-xs font-mono text-yellow-400">Top up KES {plan.price - balance} to deploy</span>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-primary/10">
-                    <div className="flex items-center justify-center gap-1 text-xs font-mono text-primary/70 group-hover:text-primary transition-colors">
-                      Deploy Now <ArrowUpRight className="w-3 h-3" />
+                )}
+                <div className="space-y-1.5">
+                  {plan.specs.map((spec) => (
+                    <div key={spec} className="flex items-center gap-2">
+                      <Check className="w-3 h-3 text-primary/70 flex-shrink-0" />
+                      <span className="text-xs font-mono text-gray-400">{spec}</span>
                     </div>
+                  ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-primary/10">
+                  <div className="flex items-center justify-center gap-1 text-xs font-mono group-hover:text-primary transition-colors">
+                    {balance < plan.price ? (
+                      <span className="text-yellow-400 group-hover:text-yellow-300 flex items-center gap-1">
+                        <Wallet className="w-3 h-3" /> Top Up & Deploy
+                      </span>
+                    ) : (
+                      <span className="text-primary/70 flex items-center gap-1">
+                        Deploy Now <ArrowUpRight className="w-3 h-3" />
+                      </span>
+                    )}
                   </div>
                 </div>
-              </Link>
+              </div>
             </motion.div>
           ))}
         </div>
