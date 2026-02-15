@@ -727,7 +727,7 @@ export const serverAPI = {
       types: [
         { id: 'Limited', name: 'Limited', cpu: 1, memory: 5, storage: 10, price: 50, description: '5GB RAM, Nest 5' },
         { id: 'Unlimited', name: 'Unlimited', cpu: 2, memory: 0, storage: 40, price: 100, description: 'Full RAM access, Nest 5' },
-        { id: 'Admin', name: 'Admin', cpu: 4, memory: 0, storage: 80, price: 200, description: 'Admin panel, unlimited' },
+        { id: 'Admin', name: 'Admin', cpu: 4, memory: 0, storage: 80, price: 250, description: 'Admin panel, unlimited' },
       ],
     };
   },

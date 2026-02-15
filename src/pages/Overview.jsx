@@ -14,7 +14,10 @@ import {
   ArrowDownToLine,
   CheckCircle,
   Clock,
-  XCircle
+  XCircle,
+  Shield,
+  Crown,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -255,6 +258,59 @@ const Overview = () => {
                       <p className="text-[10px] sm:text-xs text-gray-500 font-mono mt-0.5 sm:mt-1">{action.desc}</p>
                     </div>
                     <ArrowUpRight className="w-4 h-4 text-primary/50 group-hover:text-primary transition-colors shrink-0" />
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 flex items-center">
+          <Server className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Server Plans
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          {[
+            { name: 'Limited', price: 50, icon: Zap, color: 'primary', specs: ['5GB RAM', '10GB Storage', '1 vCPU', '10 Slots'], highlight: false },
+            { name: 'Unlimited', price: 100, icon: Shield, color: 'blue', specs: ['Unlimited RAM', '40GB Storage', '2 vCPU', 'Unlimited Slots'], highlight: true },
+            { name: 'Admin', price: 250, icon: Crown, color: 'purple', specs: ['Unlimited RAM', '80GB Storage', '4 vCPU', 'Admin Panel'], highlight: false },
+          ].map((plan, index) => (
+            <motion.div
+              key={plan.name}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + index * 0.1 }}
+            >
+              <Link to="/servers">
+                <div className={`p-4 sm:p-5 rounded-xl border bg-black/30 backdrop-blur-sm hover:border-primary/40 transition-all group cursor-pointer relative overflow-hidden ${plan.highlight ? 'border-primary/40 shadow-[0_0_15px_rgba(var(--primary)/0.1)]' : 'border-primary/20'}`}>
+                  {plan.highlight && (
+                    <div className="absolute top-0 right-0 bg-primary/20 text-primary text-[9px] sm:text-xs font-mono px-2 py-0.5 rounded-bl-lg border-l border-b border-primary/30">
+                      POPULAR
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                      <plan.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                    </div>
+                    <h3 className="font-display font-bold text-white text-sm sm:text-base">{plan.name}</h3>
+                  </div>
+                  <div className="mb-3">
+                    <span className="text-xl sm:text-2xl font-display font-bold text-primary">KES {plan.price}</span>
+                    <span className="text-xs text-gray-500 font-mono ml-1">/server</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {plan.specs.map((spec) => (
+                      <div key={spec} className="flex items-center gap-2">
+                        <Check className="w-3 h-3 text-primary/70 flex-shrink-0" />
+                        <span className="text-xs font-mono text-gray-400">{spec}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-primary/10">
+                    <div className="flex items-center justify-center gap-1 text-xs font-mono text-primary/70 group-hover:text-primary transition-colors">
+                      Deploy Now <ArrowUpRight className="w-3 h-3" />
+                    </div>
                   </div>
                 </div>
               </Link>

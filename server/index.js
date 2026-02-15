@@ -1413,7 +1413,7 @@ async function findFreeAllocation(nodeId = 1) {
   return free ? free.attributes.id : null;
 }
 
-const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 200 };
+const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 250 };
 
 app.post('/api/admin/upload-server', async (req, res) => {
   try {
@@ -2279,7 +2279,7 @@ app.post('/api/wolf/chat', async (req, res) => {
     const systemContext = `You are W.O.L.F (Wise Operational Learning Function), the AI assistant for WolfHost - a game server hosting platform. You help users navigate the platform and answer questions about:
 - Creating and managing game servers (Minecraft, etc.)
 - Wallet top-ups via M-Pesa or Card payments (minimum 50 KSH)
-- Server tiers: Limited (50 KSH), Unlimited (100 KSH), Admin (200 KSH)
+- Server tiers: Limited (50 KSH), Unlimited (100 KSH), Admin (250 KSH)
 - Billing and transaction history
 - Referral program (refer 10 friends who buy servers to earn Admin Panel access)
 - Account settings

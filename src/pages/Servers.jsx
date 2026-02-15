@@ -40,7 +40,7 @@ const SERVER_TIERS = {
     features: ['Full RAM Access', 'Nest 5 (Wolfhost)', 'Advanced DDoS Protection', 'Priority Support'],
   },
   Admin: {
-    price: 200,
+    price: 250,
     color: 'purple',
     specs: { cpu: '4 vCPU', ram: 'Unlimited', storage: '80GB', slots: 'Unlimited' },
     features: ['Full RAM Access', 'Admin Panel Access', 'Full DDoS Protection', '24/7 Support'],
