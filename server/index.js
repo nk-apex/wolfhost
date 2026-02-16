@@ -281,6 +281,7 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 const PTERODACTYL_API_URL = 'https://panel.xwolf.space';
 const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
+const SUPER_ADMIN_ID = process.env.SUPER_ADMIN_ID;
 
 if (!PAYSTACK_SECRET_KEY) {
   console.error('PAYSTACK_SECRET_KEY is not set');
@@ -685,8 +686,8 @@ app.get('/api/transactions/totals', async (req, res) => {
 app.get('/api/admin/payments', async (req, res) => {
   try {
     const { perPage = 50, page = 1, userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (!userId || !(await verifyAdmin(userId)) || !isSuperAdmin(userId)) {
+      return res.status(403).json({ success: false, message: 'Super admin access required' });
     }
 
     const { transactions: allTxns } = await fetchUserTransactions(null, parseInt(perPage), parseInt(page), 'success');
@@ -817,6 +818,7 @@ app.post('/api/auth/login', async (req, res) => {
         lastName: panelUser.last_name,
         panelId: panelUser.id,
         isAdmin: panelUser.root_admin || false,
+        isSuperAdmin: isSuperAdmin(panelUser.id),
       },
     });
   } catch (error) {
@@ -1012,6 +1014,7 @@ app.post('/api/auth/register', async (req, res) => {
         lastName: panelUser.last_name,
         panelId: panelUser.id,
         isAdmin: panelUser.root_admin || false,
+        isSuperAdmin: isSuperAdmin(panelUser.id),
       },
     });
   } catch (error) {
@@ -1098,6 +1101,10 @@ async function verifyAdmin(userId) {
   } catch (e) {
     return false;
   }
+}
+
+function isSuperAdmin(userId) {
+  return SUPER_ADMIN_ID && userId?.toString() === SUPER_ADMIN_ID.toString();
 }
 
 app.get('/api/admin/overview', async (req, res) => {

@@ -103,6 +103,7 @@ export const authAPI = {
         twoFactorEnabled: false,
         panelId: data.user.panelId,
         isAdmin: data.user.isAdmin || false,
+        isSuperAdmin: data.user.isSuperAdmin || false,
         lastLogin: new Date().toISOString(),
       };
 
@@ -179,6 +180,7 @@ export const authAPI = {
         twoFactorEnabled: false,
         panelId: data.user.panelId,
         isAdmin: data.user.isAdmin || false,
+        isSuperAdmin: data.user.isSuperAdmin || false,
       };
 
       if (typeof window !== 'undefined') {

@@ -82,7 +82,9 @@ const Admin = () => {
       return;
     }
     fetchData();
-    fetchPayments();
+    if (user?.isSuperAdmin) {
+      fetchPayments();
+    }
   }, [user, navigate]);
 
   const fetchData = async () => {
@@ -129,7 +131,7 @@ const Admin = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'payments' && payments.length === 0 && !paymentsLoading) {
+    if (activeTab === 'payments' && payments.length === 0 && !paymentsLoading && user?.isSuperAdmin) {
       fetchPayments();
     }
   }, [activeTab]);
@@ -274,7 +276,7 @@ const Admin = () => {
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'servers', label: 'Servers', icon: Server },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
+    ...(user?.isSuperAdmin ? [{ id: 'payments', label: 'Payments', icon: CreditCard }] : []),
   ];
 
   return (
@@ -290,7 +292,7 @@ const Admin = () => {
           </div>
         </div>
         <button
-          onClick={() => { fetchData(); if (activeTab === 'payments') fetchPayments(); }}
+          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isSuperAdmin) fetchPayments(); }}
           className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
           <div className="flex items-center text-xs sm:text-sm font-mono">
@@ -339,7 +341,7 @@ const Admin = () => {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className={`grid grid-cols-2 ${user?.isSuperAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-2 sm:gap-4`}>
               {[
                 {
                   icon: Users,
@@ -368,7 +370,7 @@ const Admin = () => {
                   iconBg: 'bg-purple-500/10',
                   glowColor: 'rgba(168,85,247,0.15)',
                 },
-                {
+                ...(user?.isSuperAdmin ? [{
                   icon: DollarSign,
                   label: 'Total Revenue',
                   value: `KES ${paymentsTotalAmount.toLocaleString('en-KE')}`,
@@ -376,7 +378,7 @@ const Admin = () => {
                   iconColor: 'text-yellow-400',
                   iconBg: 'bg-yellow-500/10',
                   glowColor: 'rgba(234,179,8,0.15)',
-                },
+                }] : []),
               ].map((stat, index) => (
                 <motion.div
                   key={stat.label}
@@ -403,7 +405,7 @@ const Admin = () => {
               ))}
             </div>
 
-            {recentPayments.length > 0 && (
+            {user?.isSuperAdmin && recentPayments.length > 0 && (
               <div className="p-3 sm:p-5 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <h3 className="font-bold text-xs sm:text-base flex items-center gap-1.5 sm:gap-2">
