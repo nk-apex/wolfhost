@@ -281,7 +281,7 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 const PTERODACTYL_API_URL = 'https://panel.xwolf.space';
 const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
-const SUPER_ADMIN_ID = process.env.SUPER_ADMIN_ID;
+const SUPER_ADMIN_USERNAME = 'wolf';
 
 if (!PAYSTACK_SECRET_KEY) {
   console.error('PAYSTACK_SECRET_KEY is not set');
@@ -686,7 +686,8 @@ app.get('/api/transactions/totals', async (req, res) => {
 app.get('/api/admin/payments', async (req, res) => {
   try {
     const { perPage = 50, page = 1, userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId)) || !isSuperAdmin(userId)) {
+    await resolveSuperAdminId();
+    if (!userId || !(await verifyAdmin(userId)) || !isSuperAdminById(userId)) {
       return res.status(403).json({ success: false, message: 'Super admin access required' });
     }
 
@@ -818,7 +819,7 @@ app.post('/api/auth/login', async (req, res) => {
         lastName: panelUser.last_name,
         panelId: panelUser.id,
         isAdmin: panelUser.root_admin || false,
-        isSuperAdmin: isSuperAdmin(panelUser.id),
+        isSuperAdmin: isSuperAdminByUsername(panelUser.username),
       },
     });
   } catch (error) {
@@ -1014,7 +1015,7 @@ app.post('/api/auth/register', async (req, res) => {
         lastName: panelUser.last_name,
         panelId: panelUser.id,
         isAdmin: panelUser.root_admin || false,
-        isSuperAdmin: isSuperAdmin(panelUser.id),
+        isSuperAdmin: isSuperAdminByUsername(panelUser.username),
       },
     });
   } catch (error) {
@@ -1103,8 +1104,32 @@ async function verifyAdmin(userId) {
   }
 }
 
-function isSuperAdmin(userId) {
-  return SUPER_ADMIN_ID && userId?.toString() === SUPER_ADMIN_ID.toString();
+function isSuperAdminById(userId) {
+  return userId?.toString() === _superAdminIdCache?.toString();
+}
+
+let _superAdminIdCache = null;
+
+async function resolveSuperAdminId() {
+  if (_superAdminIdCache) return _superAdminIdCache;
+  try {
+    const res = await pteroFetch(`/users?filter[username]=${SUPER_ADMIN_USERNAME}`);
+    if (res.ok) {
+      const data = await res.json();
+      const found = (data.data || []).find(u => u.attributes.username === SUPER_ADMIN_USERNAME);
+      if (found) {
+        _superAdminIdCache = found.attributes.id;
+        return _superAdminIdCache;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to resolve super admin ID:', e);
+  }
+  return null;
+}
+
+function isSuperAdminByUsername(username) {
+  return username?.toLowerCase() === SUPER_ADMIN_USERNAME.toLowerCase();
 }
 
 app.get('/api/admin/overview', async (req, res) => {

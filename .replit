@@ -50,4 +50,3 @@ externalPort = 3002
 
 [userenv.shared]
 VITE_PAYSTACK_PUBLIC_KEY = "pk_live_088049698ee943a439abd25e20173c85503afa02"
-SUPER_ADMIN_ID = "ptlc_wIysOAX9JMB"
