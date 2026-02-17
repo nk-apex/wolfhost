@@ -403,6 +403,7 @@ import {
   Plus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
 import { walletAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PaymentModal from '../components/paymentmodal';
@@ -410,6 +411,8 @@ import VerifyPayment from '../components/VerifyPayment';
 
 const Billing = () => {
   const { user } = useAuth();
+  const countryConfig = getCountryByCode(user?.countryCode || 'KE');
+  const userCurrency = countryConfig.currency;
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -521,7 +524,7 @@ const Billing = () => {
           <p className="text-gray-400 font-mono">
             Manage your payments and transaction history
             <span className="text-primary ml-4">
-              Balance: <span className="text-primary font-mono">KES {balance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</span>
+              Balance: <span className="text-primary font-mono">{formatCurrency(convertFromKES(balance, userCurrency), userCurrency)}</span>
             </span>
           </p>
         </div>
@@ -545,7 +548,7 @@ const Billing = () => {
                   Current Balance
                 </p>
                 <h3 className="text-3xl font-display font-bold text-white">
-                  KES {balance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                  {formatCurrency(convertFromKES(balance, userCurrency), userCurrency)}
                 </h3>
               </div>
               <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
@@ -595,7 +598,7 @@ const Billing = () => {
                   Total Deposited
                 </p>
                 <h3 className="text-3xl font-display font-bold text-white">
-                  KES {transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                  {formatCurrency(convertFromKES(transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0), userCurrency), userCurrency)}
                 </h3>
               </div>
               <div className="p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors">
@@ -711,7 +714,7 @@ const Billing = () => {
                       {txn.date ? new Date(txn.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
                     </td>
                     <td className={`p-3 font-mono text-sm ${txn.direction === 'debit' ? 'text-red-400' : 'text-primary'}`}>
-                      {txn.direction === 'debit' ? '-' : '+'}KES {Math.abs(txn.amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                      {txn.direction === 'debit' ? '-' : '+'}{formatCurrency(convertFromKES(Math.abs(txn.amount), userCurrency), userCurrency)}
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded text-xs font-mono ${

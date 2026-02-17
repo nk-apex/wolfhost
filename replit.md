@@ -6,9 +6,11 @@ WolfHost is a hosting panel frontend application with a neon green cyberpunk the
 ## User Preferences
 - Neon green cyberpunk aesthetic
 - Multiple theme support (default, dark-tech, glassmorphic, light-mode, midnight, cyberpunk)
-- KES (Kenyan Shilling) as primary currency
-- M-Pesa as primary payment method
-- Minimum deposit: 50 KSH
+- Multi-currency support: currency displayed per user's selected country (KES, GHS, XOF, ZAR, NGN, UGX, etc.)
+- Country selection during sign-up; all pages display amounts in user's local currency
+- Internal wallet balance stored in KES, converted to local currency for display
+- M-Pesa as primary payment method for Kenya; Mobile Money for Ghana/CI
+- Minimum deposit: 50 KSH equivalent
 
 ## System Architecture
 The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. Styling is managed with Tailwind CSS and shadcn/ui components, featuring a custom neon green theme. Routing is handled by react-router-dom v6, and state management utilizes @tanstack/react-query and React Context for authentication. Headings use the Orbitron font, while body text uses JetBrains Mono.

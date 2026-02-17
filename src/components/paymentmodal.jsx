@@ -4,10 +4,14 @@ import { X, Smartphone, Wallet, Phone, AlertCircle, CheckCircle, CreditCard, Mai
 import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
 import { walletAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
 import LoadingSpinner from './LoadingSpinner';
 
 const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
   const { user, updateUser } = useAuth();
+  const countryConfig = getCountryByCode(user?.countryCode || 'KE');
+  const userCurrency = countryConfig.currency;
+  const fmt = (amount) => formatCurrency(convertFromKES(amount, userCurrency), userCurrency);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState(user?.email || '');
   const [loading, setLoading] = useState(false);
@@ -38,7 +42,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
     const amount = invoice ? invoice.amount : customAmount;
 
     if (amount < MIN_AMOUNT) {
-      setError(`Minimum deposit is KES ${MIN_AMOUNT}`);
+      setError(`Minimum deposit is ${fmt(MIN_AMOUNT)}`);
       return;
     }
 
@@ -89,7 +93,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
     const amount = invoice ? invoice.amount : customAmount;
 
     if (amount < MIN_AMOUNT) {
-      setError(`Minimum deposit is KES ${MIN_AMOUNT}`);
+      setError(`Minimum deposit is ${fmt(MIN_AMOUNT)}`);
       return;
     }
 
@@ -279,12 +283,12 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                             : 'border-gray-700 hover:border-primary/50 hover:bg-primary/5'
                         }`}
                       >
-                        KES {amt.toLocaleString()}
+                        {fmt(amt)}
                       </button>
                     ))}
                   </div>
                   <div className="relative">
-                    <span className="absolute left-3 top-3 text-gray-500 font-mono">KES</span>
+                    <span className="absolute left-3 top-3 text-gray-500 font-mono">{countryConfig.currencySymbol}</span>
                     <input
                       type="number"
                       min={MIN_AMOUNT}
@@ -303,7 +307,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                   </div>
                   {customAmount < MIN_AMOUNT && customAmount > 0 && (
                     <p className="text-xs text-red-400 mt-2 font-mono">
-                      Minimum deposit is KES {MIN_AMOUNT}
+                      Minimum deposit is {fmt(MIN_AMOUNT)}
                     </p>
                   )}
                 </div>
@@ -437,7 +441,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                   ) : (
                     <>
                       {paymentMethod === 'mpesa' ? <Smartphone size={18} /> : <CreditCard size={18} />}
-                      Pay KES {(invoice?.amount || customAmount).toLocaleString()}
+                      Pay {fmt(invoice?.amount || customAmount)}
                     </>
                   )}
                 </button>
@@ -477,7 +481,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                 <p className="text-gray-300 mb-2 font-mono text-sm">{mpesaStatus}</p>
                 <p className="text-sm text-gray-400">
                   Amount: <span className={`font-bold text-lg ${paymentMethod === 'mpesa' ? 'text-green-400' : 'text-blue-400'}`}>
-                    KES {(invoice?.amount || customAmount).toLocaleString()}
+                    {fmt(invoice?.amount || customAmount)}
                   </span>
                 </p>
                 {paymentMethod === 'mpesa' && (
@@ -547,7 +551,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
               <div className="bg-black/50 rounded-lg p-4 mb-6">
                 <p className="text-sm text-gray-400">
                   Amount: <span className="font-bold text-blue-400 text-lg">
-                    KES {(invoice?.amount || customAmount).toLocaleString()}
+                    {fmt(invoice?.amount || customAmount)}
                   </span>
                 </p>
                 {paymentRef && (
@@ -615,7 +619,7 @@ const PaymentModal = ({ isOpen, onClose, invoice, onPaymentSuccess }) => {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-gray-400">Amount:</span>
                   <span className={`font-bold text-lg ${paymentMethod === 'mpesa' ? 'text-green-400' : 'text-blue-400'}`}>
-                    KES {(invoice?.amount || customAmount).toLocaleString()}
+                    {fmt(invoice?.amount || customAmount)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center mb-2">

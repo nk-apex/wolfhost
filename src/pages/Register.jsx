@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, UserPlus, AlertCircle, CheckCircle, Zap } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, AlertCircle, CheckCircle, Zap, Globe, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { COUNTRIES } from '../lib/currencyConfig';
 import NeonBackground from '../components/NeonBackground';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { register } = useAuth();
+  const { register, setCountry } = useAuth();
 
   const searchParams = new URLSearchParams(location.search);
   const referralCode = searchParams.get('ref') || '';
@@ -18,8 +19,10 @@ const Register = () => {
     email: '',
     username: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    country: 'KE'
   });
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -78,6 +81,7 @@ const Register = () => {
       });
       
       if (result.success) {
+        setCountry(formData.country);
         setSuccess('Registration successful! Redirecting to dashboard...');
         setTimeout(() => navigate('/overview'), 1500);
       } else {
@@ -211,6 +215,49 @@ const Register = () => {
                 placeholder="Repeat your password"
                 disabled={loading}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-mono text-gray-400 mb-2">
+                <Globe size={14} className="inline mr-1.5 -mt-0.5" />
+                Your Country
+              </label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-black/40 border border-gray-700 text-white focus:outline-none focus:border-primary/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{COUNTRIES[formData.country]?.flag}</span>
+                    <span>{COUNTRIES[formData.country]?.name}</span>
+                    <span className="text-gray-500 text-xs">({COUNTRIES[formData.country]?.currency})</span>
+                  </div>
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${showCountryDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                {showCountryDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowCountryDropdown(false)} />
+                    <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-48 overflow-y-auto rounded-lg border border-primary/20 bg-black/95 backdrop-blur-sm shadow-xl">
+                      {Object.entries(COUNTRIES).map(([code, config]) => (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, country: code });
+                            setShowCountryDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 flex items-center gap-2 hover:bg-primary/10 transition-colors text-sm ${formData.country === code ? 'bg-primary/10 text-primary' : 'text-gray-300'}`}
+                        >
+                          <span>{config.flag}</span>
+                          <span className="flex-1">{config.name}</span>
+                          <span className="text-xs text-gray-500">{config.currency}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {referralCode && (

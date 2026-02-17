@@ -202,7 +202,7 @@ export default function Landing() {
                       </div>
                     </div>
                     <div className="mb-3">
-                      <span className="text-2xl sm:text-3xl font-display font-bold text-primary">KES {plan.price}</span>
+                      <span className="text-2xl sm:text-3xl font-display font-bold text-primary">{formatCurrency(convertFromKES(plan.price, userCurrency), userCurrency)}</span>
                       <span className="text-xs text-gray-500 font-mono ml-1">/server</span>
                     </div>
                     <div className="space-y-1.5 sm:space-y-2 flex-1">

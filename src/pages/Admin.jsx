@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'sonner';
 
@@ -36,6 +37,8 @@ const PANEL_URL = 'https://panel.xwolf.space';
 const Admin = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const countryConfig = getCountryByCode(user?.countryCode || 'KE');
+  const userCurrency = countryConfig.currency;
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({ totalUsers: 0, totalServers: 0, totalNodes: 0 });
   const [users, setUsers] = useState([]);
@@ -373,7 +376,7 @@ const Admin = () => {
                 ...(user?.isSuperAdmin ? [{
                   icon: DollarSign,
                   label: 'Total Revenue',
-                  value: `KES ${paymentsTotalAmount.toLocaleString('en-KE')}`,
+                  value: formatCurrency(convertFromKES(paymentsTotalAmount, userCurrency), userCurrency),
                   subValue: `${payments.length} payments`,
                   iconColor: 'text-yellow-400',
                   iconBg: 'bg-yellow-500/10',
@@ -431,7 +434,7 @@ const Admin = () => {
                           <p className="text-[9px] sm:text-[10px] text-gray-500 font-mono">{formatDate(p.paidAt)}</p>
                         </div>
                       </div>
-                      <span className="text-[10px] sm:text-sm font-mono font-bold text-green-400 shrink-0">+KES {p.amount.toLocaleString('en-KE')}</span>
+                      <span className="text-[10px] sm:text-sm font-mono font-bold text-green-400 shrink-0">+{formatCurrency(convertFromKES(p.amount, userCurrency), userCurrency)}</span>
                     </div>
                   ))}
                 </div>
@@ -647,7 +650,7 @@ const Admin = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
               <div className="p-2.5 sm:p-5 rounded-xl border border-green-500/20 bg-green-500/5">
                 <p className="text-[9px] sm:text-xs text-gray-400 uppercase tracking-wider mb-0.5 sm:mb-1">Total Revenue</p>
-                <h3 className="text-xs sm:text-2xl font-bold text-green-400 font-mono truncate">KES {paymentsTotalAmount.toLocaleString('en-KE')}</h3>
+                <h3 className="text-xs sm:text-2xl font-bold text-green-400 font-mono truncate">{formatCurrency(convertFromKES(paymentsTotalAmount, userCurrency), userCurrency)}</h3>
               </div>
               <div className="p-2.5 sm:p-5 rounded-xl border border-blue-500/20 bg-blue-500/5">
                 <p className="text-[9px] sm:text-xs text-gray-400 uppercase tracking-wider mb-0.5 sm:mb-1">Total Payments</p>
@@ -656,7 +659,7 @@ const Admin = () => {
               <div className="p-2.5 sm:p-5 rounded-xl border border-yellow-500/20 bg-yellow-500/5 col-span-2 sm:col-span-1">
                 <p className="text-[9px] sm:text-xs text-gray-400 uppercase tracking-wider mb-0.5 sm:mb-1">Avg Payment</p>
                 <h3 className="text-xs sm:text-2xl font-bold text-yellow-400 font-mono truncate">
-                  KES {payments.length > 0 ? Math.round(paymentsTotalAmount / payments.length).toLocaleString('en-KE') : '0'}
+                  {payments.length > 0 ? formatCurrency(convertFromKES(Math.round(paymentsTotalAmount / payments.length), userCurrency), userCurrency) : formatCurrency(0, userCurrency)}
                 </h3>
               </div>
             </div>
@@ -732,7 +735,7 @@ const Admin = () => {
                           </div>
                           <div className="text-right shrink-0">
                             <span className="text-sm sm:text-base font-mono font-bold text-green-400">
-                              +KES {p.amount.toLocaleString('en-KE')}
+                              +{formatCurrency(convertFromKES(p.amount, userCurrency), userCurrency)}
                             </span>
                             <p className="text-[10px] text-gray-500 font-mono">{p.currency}</p>
                           </div>

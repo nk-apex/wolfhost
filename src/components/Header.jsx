@@ -17,6 +17,7 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
 import { walletAPI } from '../services/api';
 
 const notifIcons = {
@@ -165,7 +166,7 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
             >
               <Wallet size={14} className="text-gray-400" />
               <span className="font-mono text-sm text-gray-200">
-                KES {headerBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                {formatCurrency(convertFromKES(headerBalance, getCountryByCode(user?.countryCode || 'KE').currency), getCountryByCode(user?.countryCode || 'KE').currency)}
               </span>
             </motion.div>
           </Link>

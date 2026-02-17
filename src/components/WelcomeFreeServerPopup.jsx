@@ -159,7 +159,7 @@ const WelcomeFreeServerPopup = ({ user, onClose, onClaimed }) => {
                   <Wallet className="w-5 h-5 text-yellow-400 flex-shrink-0" />
                   <div>
                     <p className="text-white text-sm font-semibold">Want a lasting server?</p>
-                    <p className="text-gray-500 text-xs font-mono">Top up your wallet starting from KES 50 to deploy a permanent server.</p>
+                    <p className="text-gray-500 text-xs font-mono">Top up your wallet to deploy a permanent server.</p>
                   </div>
                 </div>
               </div>

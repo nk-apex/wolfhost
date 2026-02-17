@@ -20,12 +20,15 @@ import {
   Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
 import WelcomeFreeServerPopup from '../components/WelcomeFreeServerPopup';
 
 const Overview = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const countryConfig = getCountryByCode(user?.countryCode || 'KE');
+  const userCurrency = countryConfig.currency;
   const [balance, setBalance] = useState(0);
   const [totalDeposits, setTotalDeposits] = useState(0);
   const [depositCount, setDepositCount] = useState(0);
@@ -153,7 +156,7 @@ const Overview = () => {
     { 
       icon: Wallet, 
       label: 'Wallet Balance', 
-      value: `KES ${balance.toLocaleString()}`,
+      value: formatCurrency(convertFromKES(balance, userCurrency), userCurrency),
       subValue: 'Available for deployment',
       color: 'rgba(0,255,0,0.15)',
       link: '/wallet'
@@ -161,7 +164,7 @@ const Overview = () => {
     { 
       icon: CreditCard, 
       label: 'Total Deposits', 
-      value: `KES ${totalDeposits.toLocaleString()}`,
+      value: formatCurrency(convertFromKES(totalDeposits, userCurrency), userCurrency),
       subValue: `${depositCount} transaction${depositCount !== 1 ? 's' : ''}`,
       color: 'rgba(0,255,0,0.15)',
       link: '/wallet'
@@ -305,12 +308,12 @@ const Overview = () => {
                   <h3 className="font-display font-bold text-white text-sm sm:text-base">{plan.name}</h3>
                 </div>
                 <div className="mb-3">
-                  <span className="text-xl sm:text-2xl font-display font-bold text-primary">KES {plan.price}</span>
+                  <span className="text-xl sm:text-2xl font-display font-bold text-primary">{formatCurrency(convertFromKES(plan.price, userCurrency), userCurrency)}</span>
                   <span className="text-xs text-gray-500 font-mono ml-1">/server</span>
                 </div>
                 {balance < plan.price && (
                   <div className="mb-2 px-2 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/20">
-                    <span className="text-[10px] sm:text-xs font-mono text-yellow-400">Top up KES {plan.price - balance} to deploy</span>
+                    <span className="text-[10px] sm:text-xs font-mono text-yellow-400">Top up {formatCurrency(convertFromKES(plan.price - balance, userCurrency), userCurrency)} to deploy</span>
                   </div>
                 )}
                 <div className="space-y-1.5">
@@ -376,7 +379,7 @@ const Overview = () => {
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
                           <span className={txn.direction === 'debit' ? 'text-red-400' : 'text-green-400'}>
-                            {txn.direction === 'debit' ? '-' : '+'}KES {txn.amount?.toLocaleString()}
+                            {txn.direction === 'debit' ? '-' : '+'}{formatCurrency(convertFromKES(txn.amount, userCurrency), userCurrency)}
                           </span>
                           {' '}- {formatTimeAgo(txn.paidAt || txn.createdAt)}
                         </p>
