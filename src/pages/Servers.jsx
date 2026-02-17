@@ -24,6 +24,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { serverAPI, walletAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const SERVER_TIERS = {
@@ -53,6 +55,9 @@ const PLAN_PRICES = Object.fromEntries(
 
 const Servers = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const countryConfig = getCountryByCode(user?.countryCode || 'KE');
+  const userCurrency = countryConfig.currency;
   const [servers, setServers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid');
@@ -113,7 +118,7 @@ const Servers = () => {
     }
     const minRequired = PLAN_PRICES['Limited'];
     if (walletBalance < minRequired) {
-      showMessage('error', `Insufficient balance (KES ${walletBalance.toFixed(2)}). Minimum KES ${minRequired} required. Redirecting to wallet...`);
+      showMessage('error', `Insufficient balance (${formatCurrency(convertFromKES(walletBalance, userCurrency), userCurrency)}). Minimum ${formatCurrency(convertFromKES(minRequired, userCurrency), userCurrency)} required. Redirecting to wallet...`);
       setTimeout(() => navigate('/wallet'), 2000);
       return;
     }
@@ -185,7 +190,7 @@ const Servers = () => {
 
     const planCost = PLAN_PRICES[newServer.plan] || 50;
     if (!balanceLoaded || walletBalance < planCost) {
-      showMessage('error', `Insufficient balance for ${newServer.plan} plan. You need KES ${planCost} but have KES ${walletBalance.toFixed(2)}. Redirecting to wallet...`);
+      showMessage('error', `Insufficient balance for ${newServer.plan} plan. You need ${formatCurrency(convertFromKES(planCost, userCurrency), userCurrency)} but have ${formatCurrency(convertFromKES(walletBalance, userCurrency), userCurrency)}. Redirecting to wallet...`);
       setShowCreateModal(false);
       setTimeout(() => navigate('/wallet'), 2000);
       return;
@@ -244,7 +249,7 @@ const Servers = () => {
           <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-black/30 border border-primary/20 rounded-lg font-mono text-xs sm:text-sm" data-testid="text-wallet-balance-servers">
             <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
             <span className="text-gray-400">Balance:</span>
-            <span className="text-primary">{balanceLoaded ? `KES ${walletBalance.toFixed(2)}` : '...'}</span>
+            <span className="text-primary">{balanceLoaded ? formatCurrency(convertFromKES(walletBalance, userCurrency), userCurrency) : '...'}</span>
           </div>
           <motion.button
             className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all flex items-center gap-2"
@@ -323,7 +328,7 @@ const Servers = () => {
           {!searchQuery && (
             <>
               <p className="text-gray-600 mb-6 font-mono text-xs">
-                Minimum balance required: KES {PLAN_PRICES['Limited']}
+                Minimum balance required: {formatCurrency(convertFromKES(PLAN_PRICES['Limited'], userCurrency), userCurrency)}
               </p>
               <button
                 className="px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all inline-flex items-center gap-2 font-mono text-sm"
@@ -481,7 +486,7 @@ const Servers = () => {
                   <Wallet className="w-3 h-3 text-primary shrink-0" />
                   <span className="text-[11px] font-mono text-gray-400">Balance:</span>
                   <span className="text-[11px] font-mono font-bold text-primary">
-                    {balanceLoaded ? `KES ${walletBalance.toFixed(2)}` : '...'}
+                    {balanceLoaded ? formatCurrency(convertFromKES(walletBalance, userCurrency), userCurrency) : '...'}
                   </span>
                   {balanceLoaded && walletBalance < PLAN_PRICES['Limited'] && (
                     <button
@@ -533,7 +538,7 @@ const Servers = () => {
                             <p className="text-[9px] text-gray-500 font-mono truncate">{specEntries.map(([k, v]) => `${v} ${k}`).join(' · ')}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className={`text-xs font-bold ${priceColor}`}>KES {tier.price}</p>
+                            <p className={`text-xs font-bold ${priceColor}`}>{formatCurrency(convertFromKES(tier.price, userCurrency), userCurrency)}</p>
                             <p className="text-[7px] text-gray-600 font-mono">/month</p>
                           </div>
                         </div>
@@ -588,7 +593,7 @@ const Servers = () => {
                   {selectedTier === 'Limited' ? <Shield className="w-3.5 h-3.5 text-primary" /> : selectedTier === 'Unlimited' ? <Zap className="w-3.5 h-3.5 text-blue-400" /> : <Crown className="w-3.5 h-3.5 text-purple-400" />}
                   <div className="flex-1">
                     <span className="text-xs font-mono font-bold">{selectedTier} Server</span>
-                    <span className="text-[10px] text-gray-500 font-mono ml-1.5">KES {PLAN_PRICES[selectedTier]}/mo</span>
+                    <span className="text-[10px] text-gray-500 font-mono ml-1.5">{formatCurrency(convertFromKES(PLAN_PRICES[selectedTier], userCurrency), userCurrency)}/mo</span>
                   </div>
                   <button
                     onClick={() => setSelectedTier(null)}
@@ -633,7 +638,7 @@ const Servers = () => {
                       data-testid="button-confirm-deploy"
                     >
                       {creating ? <LoadingSpinner size="sm" /> : <Plus size={16} />}
-                      {creating ? 'Deploying...' : `Deploy (KES ${PLAN_PRICES[selectedTier]})`}
+                      {creating ? 'Deploying...' : `Deploy (${formatCurrency(convertFromKES(PLAN_PRICES[selectedTier], userCurrency), userCurrency)})`}
                     </button>
                   </div>
                 </form>

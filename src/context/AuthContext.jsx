@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI } from '../services/api';
+import { getCountryByCode, DEFAULT_COUNTRY } from '../lib/currencyConfig';
 
 const AuthContext = createContext(null);
 
@@ -16,7 +17,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const result = await authAPI.getUser();
       if (result.success) {
-        setUser(result.user);
+        const savedCountry = localStorage.getItem('user_country') || DEFAULT_COUNTRY;
+        setUser({ ...result.user, countryCode: savedCountry, country: savedCountry });
       }
     } catch (err) {
       console.error('Auth check failed:', err);
@@ -79,6 +81,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const setCountry = (countryCode) => {
+    localStorage.setItem('user_country', countryCode);
+    const updatedUser = { ...user, countryCode, country: countryCode };
+    setUser(updatedUser);
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('current_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        parsed.countryCode = countryCode;
+        parsed.country = countryCode;
+        localStorage.setItem('current_user', JSON.stringify(parsed));
+      }
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -87,6 +104,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
+    setCountry,
     isAuthenticated: !!user
   };
 

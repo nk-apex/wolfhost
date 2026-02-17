@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Zap, Shield, Cpu, CreditCard, ArrowRight, ChevronRight, MessageCircle, Users, Phone, Crown, Check, Server } from "lucide-react";
 import NeonBackground from "../components/NeonBackground";
 import WolfChat from "../components/WolfChat";
+import { COUNTRIES, getCountryList, getCountryByCode, formatCurrency, convertFromKES, DEFAULT_COUNTRY } from '../lib/currencyConfig';
 
 export default function Landing() {
+  const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY);
+  const countryConfig = getCountryByCode(selectedCountry);
+  const userCurrency = countryConfig.currency;
   const features = [
     {
       title: "Hyper-Speed Servers",
@@ -128,6 +133,21 @@ export default function Landing() {
             transition={{ delay: 0.8, duration: 0.8 }}
             className="mt-12 w-full"
           >
+            <div className="flex flex-col items-center mb-6">
+              <label className="text-xs text-gray-500 font-mono mb-1.5 tracking-wider uppercase">Select your region</label>
+              <select
+                value={selectedCountry}
+                onChange={(e) => setSelectedCountry(e.target.value)}
+                className="bg-black/60 border border-primary/30 text-primary font-mono text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 cursor-pointer appearance-none"
+                style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%2300ff00\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: '32px' }}
+              >
+                {getCountryList().map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.flag} {country.name} — {country.currencyName} ({country.currencySymbol})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full">
               {[
                 {

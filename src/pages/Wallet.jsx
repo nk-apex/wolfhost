@@ -17,14 +17,18 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { walletAPI } from '../services/api';
 import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
+import { getCountryByCode, formatCurrency, getMinDeposit, supportsMpesa, convertFromKES, convertToKES } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-const paymentMethods = [
-  { id: 'M-Pesa', name: 'M-Pesa', color: 'rgba(76, 175, 80, 0.2)' },
-  { id: 'Card', name: 'Card', color: 'rgba(59, 130, 246, 0.2)' },
-];
+const getPaymentMethodsList = (countryCode) => {
+  const methods = [{ id: 'Card', name: 'Card', color: 'rgba(59, 130, 246, 0.2)' }];
+  if (supportsMpesa(countryCode)) {
+    methods.unshift({ id: 'M-Pesa', name: 'M-Pesa', color: 'rgba(76, 175, 80, 0.2)' });
+  }
+  return methods;
+};
 
-const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user, walletBalance = 0, cardWaiting = false, onVerifyCard }) => (
+const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processing, stkStatus, user, walletBalance = 0, cardWaiting = false, onVerifyCard, userCurrency, countryConfig, paymentMethods }) => (
   <motion.div
     className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm"
     initial={{ opacity: 0 }}
@@ -84,21 +88,21 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-2 font-mono">
-              Amount (KES) - Min 50
+              Amount ({countryConfig.currencySymbol}) - Min {formatCurrency(getMinDeposit(userCurrency), userCurrency)}
             </label>
             <input
               type="number"
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
               className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-              placeholder="Enter amount (min 50)"
-              min="50"
+              placeholder={`Enter amount (min ${getMinDeposit(userCurrency)})`}
+              min={getMinDeposit(userCurrency)}
               disabled={processing}
               data-testid="input-wallet-amount"
             />
             {type === 'withdraw' && (
               <p className="text-xs text-gray-500 font-mono mt-1">
-                Available: KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                Available: {formatCurrency(convertFromKES(walletBalance, userCurrency), userCurrency)}
               </p>
             )}
           </div>
@@ -115,7 +119,7 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-                  placeholder="254712345678"
+                  placeholder={countryConfig.phonePlaceholder}
                   disabled={processing}
                   data-testid="input-wallet-phone"
                 />
@@ -238,6 +242,11 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
 
 const Wallet = () => {
   const { user, updateUser } = useAuth();
+  const countryConfig = getCountryByCode(user?.countryCode || 'KE');
+  const userCurrency = countryConfig.currency;
+  const paymentMethods = getPaymentMethodsList(user?.countryCode);
+  const defaultMethod = supportsMpesa(user?.countryCode) ? 'M-Pesa' : 'Card';
+
   const [transactions, setTransactions] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
   const [totalDeposited, setTotalDeposited] = useState(0);
@@ -248,8 +257,8 @@ const Wallet = () => {
   const [processing, setProcessing] = useState(false);
   const [stkStatus, setStkStatus] = useState({ show: false, status: '', message: '' });
 
-  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: 'M-Pesa' });
-  const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: 'M-Pesa' });
+  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: defaultMethod });
+  const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: defaultMethod });
   const [cardWaiting, setCardWaiting] = useState(false);
   const [cardRef, setCardRef] = useState('');
 
@@ -293,10 +302,13 @@ const Wallet = () => {
       return;
     }
 
-    if (amount < 50) {
-      setStkStatus({ show: true, status: 'error', message: 'Minimum deposit is KES 50' });
+    const minDeposit = getMinDeposit(userCurrency);
+    if (amount < minDeposit) {
+      setStkStatus({ show: true, status: 'error', message: `Minimum deposit is ${formatCurrency(minDeposit, userCurrency)}` });
       return;
     }
+
+    const amountInKES = convertToKES(amount, userCurrency);
 
     if (depositForm.method === 'M-Pesa') {
       if (!depositForm.phone) {
@@ -307,13 +319,13 @@ const Wallet = () => {
         setStkStatus({ show: true, status: 'error', message: 'Invalid phone number. Use format: 254712345678' });
         return;
       }
-      await handleMpesaDeposit(amount);
+      await handleMpesaDeposit(amountInKES);
     } else if (depositForm.method === 'Card') {
       if (!depositForm.email || !depositForm.email.includes('@')) {
         setStkStatus({ show: true, status: 'error', message: 'Please enter a valid email address' });
         return;
       }
-      await handleCardDeposit(amount);
+      await handleCardDeposit(amountInKES);
     }
   };
 
@@ -351,7 +363,7 @@ const Wallet = () => {
 
           if (result.success && result.data?.status === 'success') {
             const paidAmount = result.data.amount / 100;
-            setStkStatus({ show: true, status: 'success', message: `Successfully deposited KES ${paidAmount.toLocaleString()}!` });
+            setStkStatus({ show: true, status: 'success', message: `Successfully deposited ${formatCurrency(convertFromKES(paidAmount, userCurrency), userCurrency)}!` });
 
             try {
               await walletAPI.recordMpesaPayment(paidAmount, depositForm.phone, reference);
@@ -369,7 +381,7 @@ const Wallet = () => {
             setTimeout(() => {
               setShowDepositModal(false);
               setStkStatus({ show: false, status: '', message: '' });
-              setDepositForm({ amount: '', phone: '', email: '', method: 'M-Pesa' });
+              setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod });
             }, 2500);
           } else if (result.data?.status === 'failed') {
             setStkStatus({ show: true, status: 'error', message: 'Payment was declined or cancelled.' });
@@ -429,7 +441,7 @@ const Wallet = () => {
 
       if (result.success) {
         const paidAmount = result.data.amount / 100;
-        setStkStatus({ show: true, status: 'success', message: `Successfully deposited KES ${paidAmount.toLocaleString()} via card!` });
+        setStkStatus({ show: true, status: 'success', message: `Successfully deposited ${formatCurrency(convertFromKES(paidAmount, userCurrency), userCurrency)} via card!` });
 
         try {
           await walletAPI.recordMpesaPayment(paidAmount, depositForm.email, cardRef, 'Card deposit via Paystack');
@@ -449,7 +461,7 @@ const Wallet = () => {
         setTimeout(() => {
           setShowDepositModal(false);
           setStkStatus({ show: false, status: '', message: '' });
-          setDepositForm({ amount: '', phone: '', email: '', method: 'M-Pesa' });
+          setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod });
         }, 2500);
       } else {
         setStkStatus({ show: true, status: 'error', message: 'Payment not completed yet. Complete payment in the checkout tab, then try verifying again.' });
@@ -468,7 +480,8 @@ const Wallet = () => {
       return;
     }
 
-    if (parseFloat(withdrawForm.amount) > walletBalance) {
+    const withdrawAmountKES = convertToKES(parseFloat(withdrawForm.amount), userCurrency);
+    if (withdrawAmountKES > walletBalance) {
       setStkStatus({ show: true, status: 'error', message: 'Insufficient balance' });
       return;
     }
@@ -477,16 +490,16 @@ const Wallet = () => {
     setStkStatus({ show: true, status: 'pending', message: 'Processing withdrawal...' });
 
     try {
-      const result = await walletAPI.withdraw(withdrawForm.amount, withdrawForm.method, withdrawForm.phone);
+      const result = await walletAPI.withdraw(withdrawAmountKES, withdrawForm.method, withdrawForm.phone);
       
       if (result.success) {
-        setStkStatus({ show: true, status: 'success', message: `Successfully withdrew KES ${withdrawForm.amount}!` });
+        setStkStatus({ show: true, status: 'success', message: `Successfully withdrew ${formatCurrency(parseFloat(withdrawForm.amount), userCurrency)}!` });
         await updateUser({ wallet: result.newBalance });
         fetchTransactions();
         setTimeout(() => {
           setShowWithdrawModal(false);
           setStkStatus({ show: false, status: '', message: '' });
-          setWithdrawForm({ amount: '', phone: '', method: 'M-Pesa' });
+          setWithdrawForm({ amount: '', phone: '', method: defaultMethod });
         }, 2000);
       } else {
         setStkStatus({ show: true, status: 'error', message: result.error });
@@ -533,19 +546,23 @@ const Wallet = () => {
         
         <p className="text-[10px] sm:text-sm text-gray-400 mb-1 sm:mb-2 font-mono">Available Balance</p>
         <motion.p 
-          className="text-xl sm:text-4xl font-display font-bold text-primary mb-2 sm:mb-4"
+          className="text-xl sm:text-4xl font-display font-bold text-primary mb-1 sm:mb-2"
           key={walletBalance}
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 300 }}
         >
-          KES {walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+          {formatCurrency(convertFromKES(walletBalance, userCurrency), userCurrency)}
         </motion.p>
+        {userCurrency !== 'KES' && (
+          <p className="text-[10px] sm:text-xs text-gray-500 font-mono mb-2 sm:mb-4">Estimated in {countryConfig.currencyName}</p>
+        )}
+        {userCurrency === 'KES' && <div className="mb-2 sm:mb-4" />}
 
         <div className="mb-4 sm:mb-8 max-w-xs mx-auto">
           <div className="p-2 sm:p-3 rounded-lg border border-primary/10 bg-black/20">
             <p className="text-[10px] sm:text-xs text-gray-500 font-mono mb-0.5">Total Deposited</p>
-            <p className="text-sm sm:text-lg font-mono text-green-400">+KES {totalDeposited.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</p>
+            <p className="text-sm sm:text-lg font-mono text-green-400">+{formatCurrency(convertFromKES(totalDeposited, userCurrency), userCurrency)}</p>
           </div>
         </div>
 
@@ -579,19 +596,22 @@ const Wallet = () => {
           <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" /> Quick Deposit
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          {[50, 100, 500, 1000].map((amount) => (
-            <button
-              key={amount}
-              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-black/20 hover:bg-primary/10 border border-primary/20 hover:border-primary/30 rounded-lg font-mono text-sm sm:text-lg text-gray-300 hover:text-primary transition-colors"
-              onClick={() => {
-                setDepositForm({ ...depositForm, amount: amount.toString() });
-                setShowDepositModal(true);
-              }}
-              data-testid={`button-quick-deposit-${amount}`}
-            >
-              KES {amount}
-            </button>
-          ))}
+          {[50, 100, 500, 1000].map((kesAmount) => {
+            const displayAmount = convertFromKES(kesAmount, userCurrency);
+            return (
+              <button
+                key={kesAmount}
+                className="px-3 sm:px-4 py-2.5 sm:py-3 bg-black/20 hover:bg-primary/10 border border-primary/20 hover:border-primary/30 rounded-lg font-mono text-sm sm:text-lg text-gray-300 hover:text-primary transition-colors"
+                onClick={() => {
+                  setDepositForm({ ...depositForm, amount: displayAmount.toString() });
+                  setShowDepositModal(true);
+                }}
+                data-testid={`button-quick-deposit-${kesAmount}`}
+              >
+                {formatCurrency(displayAmount, userCurrency)}
+              </button>
+            );
+          })}
         </div>
       </motion.div>
 
@@ -658,7 +678,7 @@ const Wallet = () => {
                   <p className={`font-mono text-xs sm:text-lg ${
                     transaction.direction === 'debit' ? 'text-red-400' : 'text-primary'
                   }`}>
-                    {transaction.direction === 'debit' ? '-' : '+'}KES {Math.abs(transaction.amount).toFixed(2)}
+                    {transaction.direction === 'debit' ? '-' : '+'}{formatCurrency(convertFromKES(Math.abs(transaction.amount), userCurrency), userCurrency)}
                   </p>
                   <p className="text-[10px] sm:text-xs text-gray-500 font-mono">{transaction.date ? new Date(transaction.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</p>
                 </div>
@@ -683,6 +703,9 @@ const Wallet = () => {
             walletBalance={walletBalance}
             cardWaiting={cardWaiting}
             onVerifyCard={verifyCardDeposit}
+            userCurrency={userCurrency}
+            countryConfig={countryConfig}
+            paymentMethods={paymentMethods}
           />
         )}
       </AnimatePresence>
@@ -700,6 +723,9 @@ const Wallet = () => {
             stkStatus={stkStatus}
             user={user}
             walletBalance={walletBalance}
+            userCurrency={userCurrency}
+            countryConfig={countryConfig}
+            paymentMethods={paymentMethods}
           />
         )}
       </AnimatePresence>
