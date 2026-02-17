@@ -32,6 +32,16 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
 - **UI/UX:** Consistent dark glass panel design elements, responsive layouts for various screen sizes, and a cyberpunk aesthetic.
 - **Server Auto-Naming:** Servers are automatically named `username-plan-timestamp`.
 - **Payment Flow:** Includes detailed processes for M-Pesa (Kenya STK Push with polling), Ghana Mobile Money (MTN, Vodafone Cash, AirtelTigo via Paystack charge API), Cote d'Ivoire Mobile Money (MTN, Wave), and Card payments (Paystack hosted checkout with verification). Country-aware phone formatting and validation.
+- **Security Hardening (Feb 2026):** Enterprise-grade security stack applied:
+  - **Helmet:** Security headers with CSP (Paystack/fonts whitelisted), HSTS in production, X-Frame-Options, referrer policy
+  - **CORS:** Restricted to localhost and Replit domains (not wide-open)
+  - **Rate Limiting:** 6 tiers — global (300/15min), auth (10/15min), payment (15/15min), admin (60/15min), chat (10/min), server creation (5/hr)
+  - **Input Validation:** express-validator on login, register, payment charges, server creation, chat messages
+  - **Centralized Error Handler:** Catches JSON parse errors, oversized requests, unhandled errors; hides stack traces in production
+  - **Security Logging:** Failed logins, rate limit hits, admin access denials, admin actions, payment attempts, validation failures logged to server/security.log
+  - **Request Size Limits:** JSON/URL-encoded bodies capped at 1MB
+  - **Request Tracking:** Unique request ID + client IP on every request
+  - **Known Limitation:** Auth is frontend localStorage-based; userId is client-trusted. Changing auth model is a separate task.
 
 ## External Dependencies
 - **Pterodactyl Panel:** Used for server provisioning, user authentication, and server management.

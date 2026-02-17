@@ -5,13 +5,179 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { body, query, param, validationResult } from 'express-validator';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+app.disable('x-powered-by');
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.paystack.co"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://api.paystack.co", "https://apiskeith.vercel.app", "wss:", "ws:"],
+      frameSrc: ["'self'", "https://js.paystack.co"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  hsts: IS_PRODUCTION ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+}));
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    const allowed = [
+      /^https?:\/\/localhost(:\d+)?$/,
+      /^https?:\/\/.*\.repl\.co$/,
+      /^https?:\/\/.*\.replit\.dev$/,
+      /^https?:\/\/.*\.replit\.app$/,
+      /^https?:\/\/.*\.repl\.dev$/,
+      /^https?:\/\/.*\.wss\.replit\.dev$/,
+    ];
+    if (allowed.some(re => re.test(origin))) return callback(null, true);
+    callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  maxAge: 86400,
+}));
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+const SECURITY_LOG_FILE = path.join(__dirname, 'security.log');
+
+function securityLog(level, event, details = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    event,
+    ...details,
+  };
+  const line = JSON.stringify(entry) + '\n';
+  try {
+    fs.appendFileSync(SECURITY_LOG_FILE, line);
+  } catch (e) {}
+  if (level === 'WARN' || level === 'ALERT') {
+    console.warn(`[SECURITY:${level}] ${event}`, JSON.stringify(details));
+  }
+}
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+}
+
+app.use((req, res, next) => {
+  req._clientIp = getClientIp(req);
+  req._requestId = crypto.randomUUID();
+  next();
+});
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+  keyGenerator: (req) => req._clientIp || getClientIp(req),
+  handler: (req, res, next, options) => {
+    securityLog('WARN', 'GLOBAL_RATE_LIMIT', { ip: req._clientIp, path: req.path });
+    res.status(429).json(options.message);
+  },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
+  keyGenerator: (req) => req._clientIp || getClientIp(req),
+  handler: (req, res, next, options) => {
+    securityLog('ALERT', 'AUTH_RATE_LIMIT', { ip: req._clientIp, path: req.path, body_email: req.body?.email });
+    res.status(429).json(options.message);
+  },
+});
+
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many payment requests. Please slow down.' },
+  keyGenerator: (req) => req._clientIp || getClientIp(req),
+  handler: (req, res, next, options) => {
+    securityLog('ALERT', 'PAYMENT_RATE_LIMIT', { ip: req._clientIp, path: req.path });
+    res.status(429).json(options.message);
+  },
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many admin requests.' },
+  keyGenerator: (req) => req._clientIp || getClientIp(req),
+  handler: (req, res, next, options) => {
+    securityLog('ALERT', 'ADMIN_RATE_LIMIT', { ip: req._clientIp, path: req.path });
+    res.status(429).json(options.message);
+  },
+});
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many messages. Please wait a moment.' },
+  keyGenerator: (req) => req._clientIp || getClientIp(req),
+});
+
+const serverCreateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many server creation requests. Please wait.' },
+  keyGenerator: (req) => req._clientIp || getClientIp(req),
+  handler: (req, res, next, options) => {
+    securityLog('WARN', 'SERVER_CREATE_RATE_LIMIT', { ip: req._clientIp, userId: req.body?.userId });
+    res.status(429).json(options.message);
+  },
+});
+
+app.use('/api/', globalLimiter);
+
+function handleValidationErrors(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    securityLog('WARN', 'VALIDATION_FAILED', { ip: req._clientIp, path: req.path, errors: errors.array().map(e => e.msg) });
+    return res.status(400).json({ success: false, message: errors.array()[0].msg });
+  }
+  next();
+}
+
+function sanitizeString(val) {
+  if (typeof val !== 'string') return val;
+  return val.replace(/[<>]/g, '').trim();
+}
 
 const TASKS_FILE = path.join(__dirname, 'tasks.json');
 const FREE_SERVERS_FILE = path.join(__dirname, 'free_servers.json');
@@ -355,9 +521,16 @@ async function fetchUserTransactions(email, perPage = 100, page = 1, status = nu
   return { transactions: data.data || [], meta: data.meta || {} };
 }
 
-app.post('/api/mpesa/charge', async (req, res) => {
+app.post('/api/mpesa/charge', paymentLimiter, [
+  body('phone').isString().trim().notEmpty().withMessage('Phone number is required')
+    .matches(/^[0-9+\-\s()]+$/).withMessage('Invalid phone number format'),
+  body('amount').isNumeric().withMessage('Amount must be a number')
+    .custom(v => Number(v) >= 50).withMessage('Minimum deposit is 50 KSH'),
+  body('userEmail').optional().isEmail().normalizeEmail(),
+], handleValidationErrors, async (req, res) => {
   try {
     const { phone, amount, metadata, userEmail } = req.body;
+    securityLog('INFO', 'MPESA_CHARGE_ATTEMPT', { ip: req._clientIp, phone: phone?.slice(-4), amount, email: userEmail });
 
     if (!phone || !amount) {
       return res.status(400).json({ success: false, message: 'Phone and amount are required' });
@@ -461,7 +634,11 @@ app.get('/api/mpesa/verify/:reference', async (req, res) => {
   }
 });
 
-app.post('/api/card/initialize', async (req, res) => {
+app.post('/api/card/initialize', paymentLimiter, [
+  body('amount').isNumeric().withMessage('Amount must be a number')
+    .custom(v => Number(v) >= 50).withMessage('Minimum deposit is 50 KSH'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+], handleValidationErrors, async (req, res) => {
   try {
     const { email, amount, metadata, callbackUrl } = req.body;
 
@@ -550,7 +727,7 @@ app.get('/api/card/verify/:reference', async (req, res) => {
   }
 });
 
-app.post('/api/mpesa/submit-otp', async (req, res) => {
+app.post('/api/mpesa/submit-otp', paymentLimiter, async (req, res) => {
   try {
     const { otp, reference } = req.body;
 
@@ -576,7 +753,14 @@ app.post('/api/mpesa/submit-otp', async (req, res) => {
   }
 });
 
-app.post('/api/mobile-money/charge', async (req, res) => {
+app.post('/api/mobile-money/charge', paymentLimiter, [
+  body('phone').isString().trim().notEmpty().withMessage('Phone number is required')
+    .matches(/^[0-9+\-\s()]+$/).withMessage('Invalid phone number format'),
+  body('amount').isNumeric().withMessage('Amount must be a number')
+    .custom(v => Number(v) >= 50).withMessage('Minimum deposit is 50 KSH'),
+  body('provider').isString().trim().notEmpty().withMessage('Provider is required'),
+  body('userEmail').optional().isEmail().normalizeEmail(),
+], handleValidationErrors, async (req, res) => {
   try {
     const { phone, amount, countryCode, provider, metadata, userEmail } = req.body;
 
@@ -810,7 +994,7 @@ app.get('/api/transactions/totals', async (req, res) => {
   }
 });
 
-app.get('/api/admin/payments', async (req, res) => {
+app.get('/api/admin/payments', adminLimiter, async (req, res) => {
   try {
     const { perPage = 50, page = 1, userId } = req.query;
     await resolveSuperAdminId();
@@ -849,7 +1033,12 @@ app.get('/api/admin/payments', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, [
+  body('email').isString().trim().notEmpty().withMessage('Email or username is required')
+    .isLength({ max: 255 }).withMessage('Input too long'),
+  body('password').isString().notEmpty().withMessage('Password is required')
+    .isLength({ min: 1, max: 128 }).withMessage('Password too long'),
+], handleValidationErrors, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -929,11 +1118,13 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Account sync failed. Please try again.' });
       }
     } else if (passwordCheck === false) {
+      securityLog('WARN', 'LOGIN_FAILED', { ip: req._clientIp, email: loginEmail, reason: 'wrong_password' });
       console.log('Password verification failed for:', loginEmail);
       return res.status(401).json({ success: false, message: 'Invalid password. Please try again.' });
     }
 
     console.log('Password verified successfully for:', loginEmail);
+    securityLog('INFO', 'LOGIN_SUCCESS', { ip: req._clientIp, email: loginEmail, userId: panelUser.id });
 
     return res.json({
       success: true,
@@ -950,12 +1141,21 @@ app.post('/api/auth/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error:', error.message);
     return res.status(500).json({ success: false, message: 'Server error during login' });
   }
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required')
+    .isLength({ max: 255 }).withMessage('Email too long'),
+  body('username').isString().trim().notEmpty().withMessage('Username is required')
+    .isLength({ min: 3, max: 32 }).withMessage('Username must be 3-32 characters')
+    .matches(/^[a-zA-Z0-9_.-]+$/).withMessage('Username can only contain letters, numbers, underscores, dots, and hyphens'),
+  body('password').isString().notEmpty().withMessage('Password is required')
+    .isLength({ min: 6, max: 128 }).withMessage('Password must be 6-128 characters'),
+  body('referralCode').optional().isString().trim().isLength({ max: 32 }),
+], handleValidationErrors, async (req, res) => {
   try {
     const { email, username, password, referralCode } = req.body;
 
@@ -1259,7 +1459,7 @@ function isSuperAdminByUsername(username) {
   return username?.toLowerCase() === SUPER_ADMIN_USERNAME.toLowerCase();
 }
 
-app.get('/api/admin/overview', async (req, res) => {
+app.get('/api/admin/overview', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
@@ -1287,7 +1487,7 @@ app.get('/api/admin/overview', async (req, res) => {
   }
 });
 
-app.get('/api/admin/users', async (req, res) => {
+app.get('/api/admin/users', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
@@ -1329,15 +1529,17 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
-app.patch('/api/admin/users/:id/admin', async (req, res) => {
+app.patch('/api/admin/users/:id/admin', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
+      securityLog('ALERT', 'ADMIN_ACCESS_DENIED', { ip: req._clientIp, path: req.path, claimedUserId: userId });
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
     const targetId = req.params.id;
     const { isAdmin } = req.body;
+    securityLog('INFO', 'ADMIN_TOGGLE', { ip: req._clientIp, adminUserId: userId, targetId, isAdmin });
 
     const userRes = await pteroFetch(`/users/${targetId}`);
     const userData = await userRes.json();
@@ -1369,12 +1571,14 @@ app.patch('/api/admin/users/:id/admin', async (req, res) => {
   }
 });
 
-app.delete('/api/admin/users/:id', async (req, res) => {
+app.delete('/api/admin/users/:id', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
+      securityLog('ALERT', 'ADMIN_ACCESS_DENIED', { ip: req._clientIp, path: req.path, claimedUserId: userId });
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
+    securityLog('WARN', 'ADMIN_DELETE_USER', { ip: req._clientIp, adminUserId: userId, targetId: req.params.id });
 
     const targetId = req.params.id;
 
@@ -1395,7 +1599,7 @@ app.delete('/api/admin/users/:id', async (req, res) => {
   }
 });
 
-app.get('/api/admin/servers', async (req, res) => {
+app.get('/api/admin/servers', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
@@ -1468,7 +1672,7 @@ app.get('/api/admin/servers', async (req, res) => {
   }
 });
 
-app.patch('/api/admin/servers/:id/suspend', async (req, res) => {
+app.patch('/api/admin/servers/:id/suspend', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
@@ -1488,7 +1692,7 @@ app.patch('/api/admin/servers/:id/suspend', async (req, res) => {
   }
 });
 
-app.patch('/api/admin/servers/:id/unsuspend', async (req, res) => {
+app.patch('/api/admin/servers/:id/unsuspend', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
@@ -1508,7 +1712,7 @@ app.patch('/api/admin/servers/:id/unsuspend', async (req, res) => {
   }
 });
 
-app.delete('/api/admin/servers/:id', async (req, res) => {
+app.delete('/api/admin/servers/:id', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || !(await verifyAdmin(userId))) {
@@ -1528,7 +1732,7 @@ app.delete('/api/admin/servers/:id', async (req, res) => {
   }
 });
 
-app.post('/api/admin/cleanup-expired', async (req, res) => {
+app.post('/api/admin/cleanup-expired', adminLimiter, async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId || !(await verifyAdmin(userId))) {
@@ -1687,7 +1891,7 @@ async function findFreeAllocation(nodeId = null) {
 
 const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 250 };
 
-app.post('/api/admin/upload-server', async (req, res) => {
+app.post('/api/admin/upload-server', adminLimiter, async (req, res) => {
   try {
     const { adminUserId, targetUserId, plan } = req.body;
 
@@ -1830,9 +2034,17 @@ async function verifyPteroUser(userId) {
   }
 }
 
-app.post('/api/servers/create', async (req, res) => {
+app.post('/api/servers/create', serverCreateLimiter, [
+  body('name').isString().trim().notEmpty().withMessage('Server name is required')
+    .isLength({ max: 100 }).withMessage('Server name too long')
+    .matches(/^[a-zA-Z0-9_\-. ]+$/).withMessage('Server name contains invalid characters'),
+  body('plan').isString().trim().isIn(['Limited', 'Unlimited', 'Admin']).withMessage('Invalid server plan'),
+  body('userId').notEmpty().withMessage('User ID is required'),
+  body('userEmail').isEmail().normalizeEmail().withMessage('Valid email is required'),
+], handleValidationErrors, async (req, res) => {
   try {
     const { name, plan, userId, userEmail } = req.body;
+    securityLog('INFO', 'SERVER_CREATE_ATTEMPT', { ip: req._clientIp, userId, plan, email: userEmail });
 
     if (!name || !plan || !userId || !userEmail) {
       return res.status(400).json({ success: false, message: 'Server name, plan, user ID, and email are required' });
@@ -2563,7 +2775,10 @@ async function cleanupExpiredFreeServers() {
 setInterval(cleanupExpiredFreeServers, 5 * 60 * 1000);
 setTimeout(cleanupExpiredFreeServers, 15000);
 
-app.post('/api/wolf/chat', async (req, res) => {
+app.post('/api/wolf/chat', chatLimiter, [
+  body('message').isString().trim().notEmpty().withMessage('Message is required')
+    .isLength({ max: 2000 }).withMessage('Message too long'),
+], handleValidationErrors, async (req, res) => {
   try {
     const { message } = req.body;
     if (!message || !message.trim()) {
@@ -2670,7 +2885,41 @@ if (fs.existsSync(distPath)) {
   });
 }
 
+app.use((err, req, res, next) => {
+  const requestId = req._requestId || 'unknown';
+  const ip = req._clientIp || getClientIp(req);
+
+  if (err.type === 'entity.parse.failed') {
+    securityLog('WARN', 'MALFORMED_JSON', { ip, path: req.path });
+    return res.status(400).json({ success: false, message: 'Invalid request body' });
+  }
+
+  if (err.type === 'entity.too.large') {
+    securityLog('WARN', 'REQUEST_TOO_LARGE', { ip, path: req.path });
+    return res.status(413).json({ success: false, message: 'Request too large' });
+  }
+
+  console.error(`[ERROR:${requestId}] ${req.method} ${req.path}:`, err.message);
+  securityLog('ALERT', 'UNHANDLED_ERROR', { ip, path: req.path, method: req.method, requestId, error: err.message });
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: IS_PRODUCTION ? 'An internal error occurred' : err.message || 'An internal error occurred',
+  });
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED_REJECTION]', reason?.message || reason);
+  securityLog('ALERT', 'UNHANDLED_REJECTION', { error: reason?.message || String(reason) });
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT_EXCEPTION]', err.message);
+  securityLog('ALERT', 'UNCAUGHT_EXCEPTION', { error: err.message });
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`WolfHost server running on port ${PORT}`);
+  console.log(`Security: helmet=ON, cors=RESTRICTED, rate-limiting=ON, input-validation=ON`);
 });
