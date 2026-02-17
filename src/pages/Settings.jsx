@@ -545,10 +545,12 @@ import {
   Paintbrush
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { COUNTRIES, getCountryByCode } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Settings = () => {
-  const { user } = useAuth();
+  const { user, setCountry } = useAuth();
+  const currentCountry = getCountryByCode(user?.countryCode || 'KE');
   const [activeTab, setActiveTab] = useState('account');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -894,6 +896,45 @@ const Settings = () => {
                 {loading ? <LoadingSpinner size="sm" /> : 'Save Changes'}
               </motion.button>
             </form>
+
+            <div className="mt-6 pt-6 border-t border-primary/10">
+              <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
+                <span className="text-xl">{currentCountry.flag}</span> Display Currency
+              </h3>
+              <p className="text-sm text-gray-400 font-mono mb-4">
+                Choose your country to display all prices in your local currency
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Object.entries(COUNTRIES)
+                  .filter(([code]) => code !== 'OTHER')
+                  .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                  .map(([code, country]) => (
+                    <motion.button
+                      key={code}
+                      onClick={() => {
+                        setCountry(code);
+                        showMessage('success', `Currency changed to ${country.currency} (${country.currencyName})`);
+                      }}
+                      className={`p-3 rounded-lg border text-left transition-all flex items-center gap-3 ${
+                        (user?.countryCode || 'KE') === code
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                          : 'border-primary/20 hover:border-primary/40 hover:bg-primary/5'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <span className="text-2xl">{country.flag}</span>
+                      <div className="min-w-0">
+                        <div className="font-mono text-sm font-medium truncate">{country.name}</div>
+                        <div className="text-xs text-gray-400 font-mono">{country.currencySymbol} ({country.currency})</div>
+                      </div>
+                      {(user?.countryCode || 'KE') === code && (
+                        <CheckCircle size={16} className="text-primary ml-auto flex-shrink-0" />
+                      )}
+                    </motion.button>
+                  ))}
+              </div>
+            </div>
           </div>
         );
 
