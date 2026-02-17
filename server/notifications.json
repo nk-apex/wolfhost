@@ -23,7 +23,7 @@
       "type": "welcome",
       "title": "Welcome to WolfHost!",
       "message": "Your account has been created and you've been automatically joined to our community groups. Your free trial server is being set up!",
-      "read": false,
+      "read": true,
       "createdAt": "2026-02-17T10:47:00.091Z"
     }
   ]
