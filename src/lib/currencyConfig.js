@@ -9,6 +9,9 @@ export const COUNTRIES = {
     phonePlaceholder: '0713046497',
     phoneLength: 12,
     paymentMethods: ['mpesa', 'card'],
+    mobileMoneyProviders: [
+      { id: 'mpesa', name: 'M-Pesa', provider: 'mpesa' },
+    ],
     paystackCurrency: 'KES',
     locale: 'en-KE',
   },
@@ -21,7 +24,8 @@ export const COUNTRIES = {
     phonePrefix: '+234',
     phonePlaceholder: '08012345678',
     phoneLength: 13,
-    paymentMethods: ['card'],
+    paymentMethods: ['card', 'bank_transfer'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-NG',
   },
@@ -34,8 +38,13 @@ export const COUNTRIES = {
     phonePrefix: '+233',
     phonePlaceholder: '0241234567',
     phoneLength: 12,
-    paymentMethods: ['card'],
-    paystackCurrency: 'KES',
+    paymentMethods: ['mobile_money', 'card'],
+    mobileMoneyProviders: [
+      { id: 'mtn', name: 'MTN Mobile Money', provider: 'mtn' },
+      { id: 'vod', name: 'Vodafone Cash', provider: 'vod' },
+      { id: 'tgo', name: 'AirtelTigo Money', provider: 'tgo' },
+    ],
+    paystackCurrency: 'GHS',
     locale: 'en-GH',
   },
   ZA: {
@@ -48,8 +57,26 @@ export const COUNTRIES = {
     phonePlaceholder: '0821234567',
     phoneLength: 11,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-ZA',
+  },
+  CI: {
+    name: "Cote d'Ivoire",
+    currency: 'XOF',
+    currencySymbol: 'CFA',
+    currencyName: 'CFA Franc',
+    flag: '🇨🇮',
+    phonePrefix: '+225',
+    phonePlaceholder: '0701234567',
+    phoneLength: 12,
+    paymentMethods: ['mobile_money', 'card'],
+    mobileMoneyProviders: [
+      { id: 'mtn', name: 'MTN Mobile Money', provider: 'mtn' },
+      { id: 'wave', name: 'Wave', provider: 'wave' },
+    ],
+    paystackCurrency: 'XOF',
+    locale: 'fr-CI',
   },
   UG: {
     name: 'Uganda',
@@ -61,6 +88,7 @@ export const COUNTRIES = {
     phonePlaceholder: '0771234567',
     phoneLength: 12,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-UG',
   },
@@ -74,6 +102,7 @@ export const COUNTRIES = {
     phonePlaceholder: '0712345678',
     phoneLength: 12,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-TZ',
   },
@@ -87,6 +116,7 @@ export const COUNTRIES = {
     phonePlaceholder: '0771234567',
     phoneLength: 12,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-ZW',
   },
@@ -100,6 +130,7 @@ export const COUNTRIES = {
     phonePlaceholder: '9876543210',
     phoneLength: 12,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-IN',
   },
@@ -113,6 +144,7 @@ export const COUNTRIES = {
     phonePlaceholder: '0781234567',
     phoneLength: 12,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-RW',
   },
@@ -126,6 +158,7 @@ export const COUNTRIES = {
     phonePlaceholder: '0911234567',
     phoneLength: 12,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-ET',
   },
@@ -139,6 +172,7 @@ export const COUNTRIES = {
     phonePlaceholder: '',
     phoneLength: 0,
     paymentMethods: ['card'],
+    mobileMoneyProviders: [],
     paystackCurrency: 'KES',
     locale: 'en-US',
   },
@@ -156,6 +190,7 @@ export const FX_RATES_TO_KES = {
   RWF: 0.094,
   ETB: 1.02,
   ZWG: 3.60,
+  XOF: 0.21,
 };
 
 export const DEFAULT_COUNTRY = 'KE';
@@ -209,6 +244,25 @@ export function getPaymentMethods(countryCode) {
 
 export function supportsMpesa(countryCode) {
   return countryCode === 'KE';
+}
+
+export function supportsMobileMoney(countryCode) {
+  const country = COUNTRIES[countryCode];
+  if (!country) return false;
+  return country.mobileMoneyProviders && country.mobileMoneyProviders.length > 0;
+}
+
+export function getMobileMoneyProviders(countryCode) {
+  const country = COUNTRIES[countryCode];
+  if (!country) return [];
+  return country.mobileMoneyProviders || [];
+}
+
+export function getMobileMoneyLabel(countryCode) {
+  if (countryCode === 'KE') return 'M-Pesa';
+  if (countryCode === 'GH') return 'Mobile Money';
+  if (countryCode === 'CI') return 'Mobile Money';
+  return 'Mobile Money';
 }
 
 export function getCountryList() {

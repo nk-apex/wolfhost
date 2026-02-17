@@ -17,13 +17,16 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { walletAPI } from '../services/api';
 import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
-import { getCountryByCode, formatCurrency, getMinDeposit, supportsMpesa, convertFromKES, convertToKES } from '../lib/currencyConfig';
+import { getCountryByCode, formatCurrency, getMinDeposit, supportsMpesa, supportsMobileMoney, getMobileMoneyProviders, getMobileMoneyLabel, convertFromKES, convertToKES } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const getPaymentMethodsList = (countryCode) => {
   const methods = [{ id: 'Card', name: 'Card', color: 'rgba(59, 130, 246, 0.2)' }];
   if (supportsMpesa(countryCode)) {
     methods.unshift({ id: 'M-Pesa', name: 'M-Pesa', color: 'rgba(76, 175, 80, 0.2)' });
+  } else if (supportsMobileMoney(countryCode)) {
+    const label = getMobileMoneyLabel(countryCode);
+    methods.unshift({ id: 'MobileMoney', name: label, color: 'rgba(255, 193, 7, 0.2)' });
   }
   return methods;
 };
@@ -107,26 +110,52 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
             )}
           </div>
 
-          {form.method === 'M-Pesa' && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-2 font-mono">
-                Phone Number
-              </label>
-              <div className="relative">
-                <Smartphone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
-                  placeholder={countryConfig.phonePlaceholder}
-                  disabled={processing}
-                  data-testid="input-wallet-phone"
-                />
+          {(form.method === 'M-Pesa' || form.method === 'MobileMoney') && (
+            <div className="space-y-3">
+              {form.method === 'MobileMoney' && countryConfig.mobileMoneyProviders && countryConfig.mobileMoneyProviders.length > 1 && (
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2 font-mono">
+                    Provider
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {countryConfig.mobileMoneyProviders.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, mobileProvider: p.provider })}
+                        disabled={processing}
+                        className={`p-2 rounded-lg border text-center text-xs font-mono transition-all ${
+                          form.mobileProvider === p.provider
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-primary/20 hover:border-primary/40 text-gray-400 hover:text-gray-300'
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2 font-mono">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Smartphone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
+                    placeholder={countryConfig.phonePlaceholder}
+                    disabled={processing}
+                    data-testid="input-wallet-phone"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 font-mono mt-1">
+                  {countryConfig.phonePrefix} format (e.g. {countryConfig.phonePlaceholder})
+                </p>
               </div>
-              <p className="text-xs text-gray-500 font-mono mt-1">
-                Enter number in 254 format (e.g. 254712345678)
-              </p>
             </div>
           )}
 
@@ -257,8 +286,9 @@ const Wallet = () => {
   const [processing, setProcessing] = useState(false);
   const [stkStatus, setStkStatus] = useState({ show: false, status: '', message: '' });
 
-  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: defaultMethod });
-  const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: defaultMethod });
+  const defaultProvider = getMobileMoneyProviders(user?.countryCode)?.[0]?.provider || '';
+  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider });
+  const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: defaultMethod, mobileProvider: defaultProvider });
   const [cardWaiting, setCardWaiting] = useState(false);
   const [cardRef, setCardRef] = useState('');
 
@@ -315,11 +345,25 @@ const Wallet = () => {
         setStkStatus({ show: true, status: 'error', message: 'Please enter your phone number' });
         return;
       }
-      if (!validatePhoneNumber(depositForm.phone)) {
-        setStkStatus({ show: true, status: 'error', message: 'Invalid phone number. Use format: 254712345678' });
+      if (!validatePhoneNumber(depositForm.phone, user?.countryCode || 'KE')) {
+        setStkStatus({ show: true, status: 'error', message: `Invalid phone number. Use format: ${countryConfig.phonePlaceholder}` });
         return;
       }
       await handleMpesaDeposit(amountInKES);
+    } else if (depositForm.method === 'MobileMoney') {
+      if (!depositForm.phone) {
+        setStkStatus({ show: true, status: 'error', message: 'Please enter your phone number' });
+        return;
+      }
+      if (!validatePhoneNumber(depositForm.phone, user?.countryCode)) {
+        setStkStatus({ show: true, status: 'error', message: `Invalid phone number. Use format: ${countryConfig.phonePlaceholder}` });
+        return;
+      }
+      if (!depositForm.mobileProvider) {
+        setStkStatus({ show: true, status: 'error', message: 'Please select a mobile money provider' });
+        return;
+      }
+      await handleMobileMoneyDeposit(amountInKES);
     } else if (depositForm.method === 'Card') {
       if (!depositForm.email || !depositForm.email.includes('@')) {
         setStkStatus({ show: true, status: 'error', message: 'Please enter a valid email address' });
@@ -381,13 +425,93 @@ const Wallet = () => {
             setTimeout(() => {
               setShowDepositModal(false);
               setStkStatus({ show: false, status: '', message: '' });
-              setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod });
+              setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod, mobileProvider: defaultProvider });
             }, 2500);
           } else if (result.data?.status === 'failed') {
             setStkStatus({ show: true, status: 'error', message: 'Payment was declined or cancelled.' });
             setProcessing(false);
           } else {
             setStkStatus({ show: true, status: 'pending', message: `Waiting for M-Pesa confirmation... (${attempts}s)` });
+            setTimeout(poll, 1000);
+          }
+        } catch (err) {
+          setTimeout(poll, 2000);
+        }
+      };
+
+      setTimeout(poll, 3000);
+    } catch (err) {
+      setStkStatus({ show: true, status: 'error', message: err.message || 'Payment failed. Please try again.' });
+      setProcessing(false);
+    }
+  };
+
+  const handleMobileMoneyDeposit = async (amountInKES) => {
+    setProcessing(true);
+    const providerLabel = getMobileMoneyProviders(user?.countryCode)?.find(p => p.provider === depositForm.mobileProvider)?.name || 'Mobile Money';
+    setStkStatus({ show: true, status: 'pending', message: `Sending ${providerLabel} payment request to your phone...` });
+
+    try {
+      const formattedPhone = formatPhoneNumber(depositForm.phone, user?.countryCode);
+      const localCurrencyAmount = convertFromKES(amountInKES, countryConfig.paystackCurrency || userCurrency);
+      const response = await paystackAPI.initializeMobileMoneyPayment(
+        formattedPhone,
+        localCurrencyAmount,
+        user?.countryCode,
+        depositForm.mobileProvider,
+        { type: 'wallet_topup', phone_number: formattedPhone, amountInKES: amountInKES }
+      );
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to initiate mobile money payment');
+      }
+
+      setStkStatus({ show: true, status: 'pending', message: `${providerLabel} request sent! Authorize the payment on your phone...` });
+
+      const reference = response.reference || response.data?.reference;
+      let attempts = 0;
+      const maxAttempts = 60;
+
+      const poll = async () => {
+        if (attempts >= maxAttempts) {
+          setStkStatus({ show: true, status: 'error', message: 'Payment timed out. Check your phone messages.' });
+          setProcessing(false);
+          return;
+        }
+        attempts++;
+
+        try {
+          const result = await paystackAPI.verifyMobileMoneyPayment(reference, user?.id);
+
+          if (result.success && result.data?.status === 'success') {
+            const paidAmount = result.data.amount / 100;
+            const paidCurrency = result.data.currency || countryConfig.paystackCurrency;
+            const paidInKES = convertToKES(paidAmount, paidCurrency);
+            setStkStatus({ show: true, status: 'success', message: `Successfully deposited ${formatCurrency(convertFromKES(paidInKES, userCurrency), userCurrency)} via ${providerLabel}!` });
+
+            try {
+              await walletAPI.recordMpesaPayment(paidInKES, depositForm.phone, reference);
+              const balanceResult = await walletAPI.getBalance();
+              if (balanceResult.success) {
+                await updateUser({ wallet: balanceResult.balance });
+              }
+            } catch (walletErr) {
+              console.error('Wallet update error:', walletErr);
+            }
+
+            fetchTransactions();
+            fetchBalance();
+            setProcessing(false);
+            setTimeout(() => {
+              setShowDepositModal(false);
+              setStkStatus({ show: false, status: '', message: '' });
+              setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod, mobileProvider: defaultProvider });
+            }, 2500);
+          } else if (result.data?.status === 'failed') {
+            setStkStatus({ show: true, status: 'error', message: 'Payment was declined or cancelled.' });
+            setProcessing(false);
+          } else {
+            setStkStatus({ show: true, status: 'pending', message: `Waiting for ${providerLabel} confirmation... (${attempts}s)` });
             setTimeout(poll, 1000);
           }
         } catch (err) {
@@ -461,7 +585,7 @@ const Wallet = () => {
         setTimeout(() => {
           setShowDepositModal(false);
           setStkStatus({ show: false, status: '', message: '' });
-          setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod });
+          setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod, mobileProvider: defaultProvider });
         }, 2500);
       } else {
         setStkStatus({ show: true, status: 'error', message: 'Payment not completed yet. Complete payment in the checkout tab, then try verifying again.' });

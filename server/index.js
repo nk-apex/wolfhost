@@ -576,6 +576,121 @@ app.post('/api/mpesa/submit-otp', async (req, res) => {
   }
 });
 
+app.post('/api/mobile-money/charge', async (req, res) => {
+  try {
+    const { phone, amount, countryCode, provider, metadata, userEmail } = req.body;
+
+    if (!phone || !amount || !countryCode || !provider) {
+      return res.status(400).json({ success: false, message: 'Phone, amount, country, and provider are required' });
+    }
+
+    if (amount < 50) {
+      return res.status(400).json({ success: false, message: 'Minimum deposit is 50 KSH' });
+    }
+
+    const PHONE_CONFIGS = {
+      GH: { prefix: '233', length: 12, currency: 'GHS' },
+      CI: { prefix: '225', length: 12, currency: 'XOF' },
+    };
+
+    const phoneConfig = PHONE_CONFIGS[countryCode];
+    if (!phoneConfig) {
+      return res.status(400).json({ success: false, message: `Mobile money is not supported for country: ${countryCode}` });
+    }
+
+    let formattedPhone = phone.toString().replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = phoneConfig.prefix + formattedPhone.substring(1);
+    } else if (formattedPhone.startsWith('+' + phoneConfig.prefix)) {
+      formattedPhone = formattedPhone.substring(1);
+    } else if (!formattedPhone.startsWith(phoneConfig.prefix)) {
+      formattedPhone = phoneConfig.prefix + formattedPhone;
+    }
+
+    const amountInCents = Math.round(amount * 100);
+    const paystackPhone = '+' + formattedPhone;
+    const chargeEmail = userEmail || `${formattedPhone}@mobilemoney.${countryCode.toLowerCase()}`;
+
+    const chargeCurrency = phoneConfig.currency;
+    console.log('Sending Mobile Money to Paystack:', { phone: paystackPhone, amount: amountInCents, provider, countryCode, currency: chargeCurrency, email: chargeEmail });
+
+    const response = await paystackFetch('/charge', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: chargeEmail,
+        amount: amountInCents,
+        currency: chargeCurrency,
+        mobile_money: {
+          phone: paystackPhone,
+          provider: provider,
+        },
+        metadata: {
+          ...metadata,
+          payment_type: 'mobile_money',
+          phone_number: formattedPhone,
+          user_email: chargeEmail,
+          country: countryCode,
+          provider: provider,
+        },
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Paystack mobile money response:', JSON.stringify(data));
+
+    if (!response.ok || !data.status) {
+      const errorMessage = data.message || 'Failed to initiate mobile money payment';
+      return res.status(response.status || 400).json({ success: false, message: errorMessage });
+    }
+
+    return res.json({
+      success: true,
+      data: data.data,
+      message: data.message || 'Mobile money payment initiated. Check your phone to authorize.',
+      reference: data.data.reference,
+    });
+  } catch (error) {
+    console.error('Mobile money charge error:', error);
+    return res.status(500).json({ success: false, message: 'Server error initiating mobile money payment' });
+  }
+});
+
+app.get('/api/mobile-money/verify/:reference', async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference is required' });
+    }
+
+    const response = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: data.message || 'Verification failed',
+      });
+    }
+
+    const isSuccess = data.status === true && data.data?.status === 'success';
+    if (isSuccess && req.query.userId) {
+      const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      const provider = data.data?.metadata?.provider || 'Mobile Money';
+      addNotification(req.query.userId, 'payment', 'Mobile Money Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via ${provider}.`);
+    }
+
+    return res.json({
+      success: data.status === true,
+      data: data.data,
+      message: data.message,
+    });
+  } catch (error) {
+    console.error('Mobile money verification error:', error);
+    return res.status(500).json({ success: false, message: 'Server error verifying payment' });
+  }
+});
+
 app.get('/api/transactions', async (req, res) => {
   try {
     const { perPage = 50, page = 1, status, email } = req.query;
@@ -599,11 +714,23 @@ app.get('/api/transactions', async (req, res) => {
       phone: txn.metadata?.phone_number || txn.authorization?.mobile_money_number || '',
       type: txn.metadata?.type || 'wallet_topup',
       description: txn.channel === 'mobile_money'
-        ? 'M-Pesa deposit'
+        ? (txn.metadata?.provider === 'mpesa' ? 'M-Pesa deposit' : 
+           txn.metadata?.provider === 'mtn' ? 'MTN Mobile Money deposit' :
+           txn.metadata?.provider === 'vod' ? 'Vodafone Cash deposit' :
+           txn.metadata?.provider === 'tgo' ? 'AirtelTigo Money deposit' :
+           txn.metadata?.provider === 'wave' ? 'Wave deposit' :
+           'Mobile Money deposit')
         : txn.channel === 'card'
         ? 'Card payment'
         : txn.channel || 'Payment',
-      method: txn.channel === 'mobile_money' ? 'M-Pesa' : txn.channel === 'card' ? 'Card' : txn.channel || 'Unknown',
+      method: txn.channel === 'mobile_money' 
+        ? (txn.metadata?.country === 'KE' ? 'M-Pesa' : 
+           txn.metadata?.provider === 'mtn' ? 'MTN MoMo' :
+           txn.metadata?.provider === 'vod' ? 'Vodafone Cash' :
+           txn.metadata?.provider === 'tgo' ? 'AirtelTigo' :
+           txn.metadata?.provider === 'wave' ? 'Wave' :
+           'Mobile Money')
+        : txn.channel === 'card' ? 'Card' : txn.channel || 'Unknown',
       cardType: txn.authorization?.card_type || '',
       last4: txn.authorization?.last4 || '',
       email: txn.customer?.email || '',

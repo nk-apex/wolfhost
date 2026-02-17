@@ -16,7 +16,7 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
 **Core Features:**
 - **User Authentication & Management:** Integration with Pterodactyl panel for user registration, login, and admin verification.
 - **Server Management:** Auto-provisioning of servers on Pterodactyl panel with three tiers (Limited, Unlimited, Admin), server suspension/unsuspension, and deletion capabilities. Users can manage servers directly via Pterodactyl links.
-- **Billing & Wallet:** Real-time transaction data and wallet balance from Paystack API, supporting M-Pesa and card payments. Tracks spending for accurate balance deduction.
+- **Billing & Wallet:** Real-time transaction data and wallet balance from Paystack API, supporting M-Pesa (Kenya), MTN/Vodafone/AirtelTigo Mobile Money (Ghana), MTN/Wave Mobile Money (Cote d'Ivoire), and card payments for all countries. Multi-currency support with FX conversion to KES base currency.
 - **Referral System:** Comprehensive referral tracking with a code, referrer-referred relationships, and completion status. Awards admin panels for achieving referral milestones.
 - **Auto Onboarding:** New users are automatically joined to community groups (WhatsApp, Telegram, YouTube) and receive a free 3-day trial server upon registration. Tasks page has been removed; onboarding is fully automated.
 - **Admin Dashboard:** Provides administrators with an overview of users and servers, user management (delete, toggle admin status), server management (suspend, delete), and payment insights including total revenue, payment count, and average payment statistics.
@@ -29,7 +29,7 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
 - **Styling:** Tailwind CSS with a custom neon green theme, enhanced by shadcn/ui components.
 - **UI/UX:** Consistent dark glass panel design elements, responsive layouts for various screen sizes, and a cyberpunk aesthetic.
 - **Server Auto-Naming:** Servers are automatically named `username-plan-timestamp`.
-- **Payment Flow:** Includes detailed processes for both M-Pesa (STK Push with polling for confirmation) and Card payments (Paystack hosted checkout with verification).
+- **Payment Flow:** Includes detailed processes for M-Pesa (Kenya STK Push with polling), Ghana Mobile Money (MTN, Vodafone Cash, AirtelTigo via Paystack charge API), Cote d'Ivoire Mobile Money (MTN, Wave), and Card payments (Paystack hosted checkout with verification). Country-aware phone formatting and validation.
 
 ## External Dependencies
 - **Pterodactyl Panel:** Used for server provisioning, user authentication, and server management.
