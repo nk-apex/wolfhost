@@ -17,8 +17,9 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { walletAPI } from '../services/api';
 import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
-import { getCountryByCode, formatCurrency, getMinDeposit, supportsMpesa, supportsMobileMoney, getMobileMoneyProviders, getMobileMoneyLabel, convertFromKES, convertToKES } from '../lib/currencyConfig';
+import { COUNTRIES, getCountryByCode, formatCurrency, getMinDeposit, supportsMpesa, supportsMobileMoney, getMobileMoneyProviders, getMobileMoneyLabel, convertFromKES, convertToKES } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { Globe, ChevronDown } from 'lucide-react';
 
 const getPaymentMethodsList = (countryCode) => {
   const methods = [{ id: 'Card', name: 'Card', color: 'rgba(59, 130, 246, 0.2)' }];
@@ -270,11 +271,12 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
 );
 
 const Wallet = () => {
-  const { user, updateUser } = useAuth();
-  const countryConfig = getCountryByCode(user?.countryCode || 'KE');
+  const { user, updateUser, setCountry } = useAuth();
+  const selectedCountry = user?.countryCode || 'KE';
+  const countryConfig = getCountryByCode(selectedCountry);
   const userCurrency = countryConfig.currency;
-  const paymentMethods = getPaymentMethodsList(user?.countryCode);
-  const defaultMethod = supportsMpesa(user?.countryCode) ? 'M-Pesa' : 'Card';
+  const paymentMethods = getPaymentMethodsList(selectedCountry);
+  const defaultMethod = supportsMpesa(selectedCountry) ? 'M-Pesa' : supportsMobileMoney(selectedCountry) ? 'MobileMoney' : 'Card';
 
   const [transactions, setTransactions] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
@@ -285,12 +287,23 @@ const Wallet = () => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [stkStatus, setStkStatus] = useState({ show: false, status: '', message: '' });
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
-  const defaultProvider = getMobileMoneyProviders(user?.countryCode)?.[0]?.provider || '';
+  const defaultProvider = getMobileMoneyProviders(selectedCountry)?.[0]?.provider || '';
   const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: defaultMethod, mobileProvider: defaultProvider });
   const [cardWaiting, setCardWaiting] = useState(false);
   const [cardRef, setCardRef] = useState('');
+
+  const handleCountryChange = (code) => {
+    setCountry(code);
+    setShowCountryDropdown(false);
+    const newConfig = getCountryByCode(code);
+    const newDefaultMethod = supportsMpesa(code) ? 'M-Pesa' : supportsMobileMoney(code) ? 'MobileMoney' : 'Card';
+    const newDefaultProvider = getMobileMoneyProviders(code)?.[0]?.provider || '';
+    setDepositForm(prev => ({ ...prev, method: newDefaultMethod, mobileProvider: newDefaultProvider, phone: '' }));
+    setWithdrawForm(prev => ({ ...prev, method: newDefaultMethod, mobileProvider: newDefaultProvider, phone: '' }));
+  };
 
   useEffect(() => {
     fetchTransactions();
@@ -661,6 +674,52 @@ const Wallet = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="relative"
+      >
+        <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <Globe size={16} className="text-primary" />
+            <span className="text-xs sm:text-sm font-mono text-gray-400">Your Region</span>
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/20 bg-black/40 hover:border-primary/40 transition-colors font-mono text-sm"
+            >
+              <span>{countryConfig.flag}</span>
+              <span className="text-gray-200">{countryConfig.name}</span>
+              <span className="text-gray-500 text-xs">({userCurrency})</span>
+              <ChevronDown size={14} className={`text-gray-400 transition-transform ${showCountryDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showCountryDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowCountryDropdown(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-56 max-h-64 overflow-y-auto rounded-lg border border-primary/20 bg-black/95 backdrop-blur-sm shadow-xl">
+                  {Object.entries(COUNTRIES).map(([code, config]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => handleCountryChange(code)}
+                      className={`w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-primary/10 transition-colors font-mono text-sm ${selectedCountry === code ? 'bg-primary/10 text-primary' : 'text-gray-300'}`}
+                    >
+                      <span>{config.flag}</span>
+                      <span className="flex-1">{config.name}</span>
+                      <span className="text-xs text-gray-500">{config.currency}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
         className="p-3 sm:p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center"
       >
         <div className="w-10 h-10 sm:w-16 sm:h-16 mx-auto rounded-xl bg-primary/10 flex items-center justify-center mb-3 sm:mb-6 border border-primary/20">
