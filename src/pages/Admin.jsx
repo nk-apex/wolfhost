@@ -53,6 +53,7 @@ const Admin = () => {
   const [uploadServerTarget, setUploadServerTarget] = useState(null);
   const [uploadServerLoading, setUploadServerLoading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
 
   const handleUploadServer = async (targetUserId, plan) => {
     const targetUsername = uploadServerTarget?.username || 'User';
@@ -217,6 +218,36 @@ const Admin = () => {
     } finally {
       setActionLoading(null);
       setConfirmAction(null);
+    }
+  };
+
+  const handleCleanupExpired = async () => {
+    setCleanupLoading(true);
+    try {
+      const res = await fetch('/api/admin/cleanup-expired', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.deleted === 0) {
+          toast.info('No expired servers found');
+        } else {
+          toast.success(`Deleted ${data.deleted} expired server${data.deleted !== 1 ? 's' : ''}${data.failed > 0 ? ` (${data.failed} failed)` : ''}`);
+          setServers(prev => prev.filter(s => {
+            if (!s.isFreeServer) return true;
+            if (!s.expiresAt) return true;
+            return new Date(s.expiresAt) > new Date();
+          }));
+        }
+      } else {
+        toast.error(data.message || 'Cleanup failed');
+      }
+    } catch {
+      toast.error('Failed to cleanup expired servers');
+    } finally {
+      setCleanupLoading(false);
     }
   };
 
@@ -529,7 +560,26 @@ const Admin = () => {
             exit={{ opacity: 0 }}
             className="space-y-3"
           >
-            <p className="text-xs text-gray-500 font-mono">{filteredServers.length} servers</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500 font-mono">{filteredServers.length} servers</p>
+              <button
+                onClick={handleCleanupExpired}
+                disabled={cleanupLoading}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors text-xs font-mono disabled:opacity-50"
+              >
+                {cleanupLoading ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    Cleaning up...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={13} />
+                    Delete All Expired
+                  </>
+                )}
+              </button>
+            </div>
             {filteredServers.length === 0 ? (
               <div className="p-8 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm text-center">
                 <p className="text-gray-400 font-mono">No servers found</p>

@@ -1528,6 +1528,73 @@ app.delete('/api/admin/servers/:id', async (req, res) => {
   }
 });
 
+app.post('/api/admin/cleanup-expired', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId || !(await verifyAdmin(userId))) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    const freeServers = loadFreeServers();
+    const now = new Date();
+    const expired = freeServers.filter(s => new Date(s.expiresAt) <= now);
+
+    if (expired.length === 0) {
+      return res.json({ success: true, message: 'No expired servers found', deleted: 0, total: freeServers.length });
+    }
+
+    console.log(`[Admin Cleanup] Admin ${userId} triggered cleanup of ${expired.length} expired servers`);
+    let deletedCount = 0;
+    const failures = [];
+
+    for (const server of expired) {
+      try {
+        await pteroFetch(`/servers/${server.serverId}/suspend`, { method: 'POST' });
+
+        const deleteRes = await pteroFetch(`/servers/${server.serverId}`, { method: 'DELETE' });
+        if (deleteRes.status === 204 || deleteRes.ok || deleteRes.status === 404) {
+          deletedCount++;
+          console.log(`[Admin Cleanup] Deleted expired server ${server.serverId} (user ${server.userId})`);
+          addNotification(
+            server.userId,
+            'server',
+            'Free Trial Expired',
+            'Your free trial server has expired and been removed. Upgrade to a paid plan to keep your server running!'
+          );
+        } else {
+          failures.push({ serverId: server.serverId, reason: `Delete failed with status ${deleteRes.status}` });
+        }
+      } catch (e) {
+        failures.push({ serverId: server.serverId, reason: e.message });
+      }
+    }
+
+    const remaining = freeServers.filter(s => new Date(s.expiresAt) > now);
+    const alsoRemoveDeleted = remaining;
+    const failedIds = failures.map(f => f.serverId);
+    const finalList = freeServers.filter(s => {
+      if (new Date(s.expiresAt) > now) return true;
+      if (failedIds.includes(s.serverId)) return true;
+      return false;
+    });
+    saveFreeServers(finalList);
+
+    console.log(`[Admin Cleanup] Complete. Deleted ${deletedCount}/${expired.length}, ${finalList.length} remaining`);
+
+    return res.json({
+      success: true,
+      message: `Deleted ${deletedCount} expired server${deletedCount !== 1 ? 's' : ''}`,
+      deleted: deletedCount,
+      failed: failures.length,
+      remaining: finalList.length,
+      failures: failures.length > 0 ? failures : undefined
+    });
+  } catch (error) {
+    console.error('[Admin Cleanup] Error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to cleanup expired servers' });
+  }
+});
+
 const TIER_LIMITS = {
   Limited: {
     memory: 5120,
