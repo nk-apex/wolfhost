@@ -1042,7 +1042,7 @@ app.post('/api/auth/register', async (req, res) => {
       try {
         const welcomeClaims = loadWelcomeClaims();
         if (!welcomeClaims[userId]) {
-          const allocationId = await findFreeAllocation(1);
+          const allocationId = await findFreeAllocation();
           if (allocationId) {
             const serverName = `${panelUser.username}-welcome-trial`;
             const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
@@ -1574,12 +1574,48 @@ async function pteroFetch(path, options = {}) {
   return response;
 }
 
-async function findFreeAllocation(nodeId = 1) {
-  const response = await pteroFetch(`/nodes/${nodeId}/allocations?per_page=100`);
-  const data = await response.json();
-  if (!response.ok || !data.data) return null;
-  const free = data.data.find(a => !a.attributes.assigned);
-  return free ? free.attributes.id : null;
+async function findFreeAllocation(nodeId = null) {
+  try {
+    const nodeIds = [];
+    if (nodeId) {
+      nodeIds.push(nodeId);
+    } else {
+      const nodesRes = await pteroFetch('/nodes?per_page=100');
+      const nodesData = await nodesRes.json();
+      if (nodesRes.ok && nodesData.data) {
+        nodesData.data.forEach(n => nodeIds.push(n.attributes.id));
+      }
+      if (nodeIds.length === 0) nodeIds.push(1);
+    }
+
+    for (const nid of nodeIds) {
+      let page = 1;
+      let lastPage = 1;
+      while (page <= lastPage) {
+        const response = await pteroFetch(`/nodes/${nid}/allocations?per_page=100&page=${page}`);
+        const data = await response.json();
+        if (!response.ok || !data.data) break;
+
+        const free = data.data.find(a => !a.attributes.assigned);
+        if (free) {
+          console.log(`Found free allocation ${free.attributes.id} on node ${nid} (port ${free.attributes.port})`);
+          return free.attributes.id;
+        }
+
+        if (data.meta && data.meta.pagination) {
+          lastPage = data.meta.pagination.total_pages || 1;
+        }
+        page++;
+      }
+      console.log(`No free allocations found on node ${nid}`);
+    }
+
+    console.error('No free allocations found on any node');
+    return null;
+  } catch (err) {
+    console.error('Error finding free allocation:', err.message);
+    return null;
+  }
 }
 
 const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 250 };
@@ -1606,7 +1642,7 @@ app.post('/api/admin/upload-server', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Target user not found on the panel' });
     }
 
-    const allocationId = await findFreeAllocation(1);
+    const allocationId = await findFreeAllocation();
     if (!allocationId) {
       return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
     }
@@ -1758,7 +1794,7 @@ app.post('/api/servers/create', async (req, res) => {
       });
     }
 
-    const allocationId = await findFreeAllocation(1);
+    const allocationId = await findFreeAllocation();
     if (!allocationId) {
       return res.status(503).json({ success: false, message: 'No available ports. Please try again later or contact support.' });
     }
@@ -2156,7 +2192,7 @@ app.post('/api/tasks/claim-server', async (req, res) => {
       return res.status(403).json({ success: false, message: 'User not found on the panel' });
     }
 
-    const allocationId = await findFreeAllocation(1);
+    const allocationId = await findFreeAllocation();
     if (!allocationId) {
       return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
     }
@@ -2272,7 +2308,7 @@ app.post('/api/free-server/claim-welcome', async (req, res) => {
       return res.status(403).json({ success: false, message: 'User verification failed' });
     }
 
-    const allocationId = await findFreeAllocation(1);
+    const allocationId = await findFreeAllocation();
     if (!allocationId) {
       return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
     }
