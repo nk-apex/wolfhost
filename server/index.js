@@ -2448,31 +2448,53 @@ async function cleanupExpiredFreeServers() {
 
     if (expired.length === 0) return;
 
-    console.log(`Cleaning up ${expired.length} expired free servers...`);
+    console.log(`[Cleanup] Found ${expired.length} expired free servers to remove...`);
+    const successfullyRemoved = [];
 
     for (const server of expired) {
       try {
+        const suspendRes = await pteroFetch(`/servers/${server.serverId}/suspend`, { method: 'POST' });
+        if (suspendRes.status === 204 || suspendRes.ok) {
+          console.log(`[Cleanup] Suspended expired server ${server.serverId}`);
+        } else {
+          console.log(`[Cleanup] Suspend returned status ${suspendRes.status} for server ${server.serverId} (may already be suspended)`);
+        }
+
         const deleteRes = await pteroFetch(`/servers/${server.serverId}`, { method: 'DELETE' });
         if (deleteRes.status === 204 || deleteRes.ok) {
-          console.log(`Deleted expired free server ${server.serverId} (user ${server.userId})`);
+          console.log(`[Cleanup] Deleted expired free server ${server.serverId} (user ${server.userId})`);
+          successfullyRemoved.push(server.serverId);
+          addNotification(
+            server.userId,
+            'server',
+            'Free Trial Expired',
+            `Your free trial server has expired and been removed. Upgrade to a paid plan to keep your server running!`
+          );
+        } else if (deleteRes.status === 404) {
+          console.log(`[Cleanup] Server ${server.serverId} already deleted from panel, removing from tracking`);
+          successfullyRemoved.push(server.serverId);
         } else {
-          console.error(`Failed to delete expired server ${server.serverId}: status ${deleteRes.status}`);
+          console.error(`[Cleanup] Failed to delete expired server ${server.serverId}: status ${deleteRes.status}`);
         }
       } catch (e) {
-        console.error(`Error deleting expired server ${server.serverId}:`, e.message);
+        console.error(`[Cleanup] Error processing expired server ${server.serverId}:`, e.message);
       }
     }
 
-    const remaining = freeServers.filter(s => new Date(s.expiresAt) > now);
+    const remaining = freeServers.filter(s => {
+      if (successfullyRemoved.includes(s.serverId)) return false;
+      if (new Date(s.expiresAt) > now) return true;
+      return true;
+    });
     saveFreeServers(remaining);
-    console.log(`Cleanup complete. ${remaining.length} free servers remaining.`);
+    console.log(`[Cleanup] Complete. Removed ${successfullyRemoved.length}, ${remaining.length} servers remaining.`);
   } catch (e) {
-    console.error('Free server cleanup error:', e);
+    console.error('[Cleanup] Free server cleanup error:', e);
   }
 }
 
-setInterval(cleanupExpiredFreeServers, 60 * 60 * 1000);
-setTimeout(cleanupExpiredFreeServers, 10000);
+setInterval(cleanupExpiredFreeServers, 5 * 60 * 1000);
+setTimeout(cleanupExpiredFreeServers, 15000);
 
 app.post('/api/wolf/chat', async (req, res) => {
   try {
