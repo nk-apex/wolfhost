@@ -13,11 +13,26 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  const getUserCountryKey = (userId) => `user_country_${userId}`;
+
+  const loadUserCountry = (userId) => {
+    if (!userId) return DEFAULT_COUNTRY;
+    const perUser = localStorage.getItem(getUserCountryKey(userId));
+    if (perUser) return perUser;
+    const legacy = localStorage.getItem('user_country');
+    if (legacy) {
+      localStorage.setItem(getUserCountryKey(userId), legacy);
+      return legacy;
+    }
+    return DEFAULT_COUNTRY;
+  };
+
   const checkAuth = async () => {
     try {
       const result = await authAPI.getUser();
       if (result.success) {
-        const savedCountry = localStorage.getItem('user_country') || DEFAULT_COUNTRY;
+        const userId = result.user.id || result.user.pterodactyl_id || result.user.username;
+        const savedCountry = loadUserCountry(userId);
         setUser({ ...result.user, countryCode: savedCountry, country: savedCountry });
       }
     } catch (err) {
@@ -32,7 +47,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const result = await authAPI.login(credentials);
       if (result.success) {
-        setUser(result.user);
+        const userId = result.user.id || result.user.pterodactyl_id || result.user.username;
+        const savedCountry = loadUserCountry(userId);
+        setUser({ ...result.user, countryCode: savedCountry, country: savedCountry });
         return { success: true };
       } else {
         setError(result.error);
@@ -50,7 +67,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const result = await authAPI.register(userData);
       if (result.success) {
-        setUser(result.user);
+        const userId = result.user.id || result.user.pterodactyl_id || result.user.username;
+        const savedCountry = loadUserCountry(userId);
+        setUser({ ...result.user, countryCode: savedCountry, country: savedCountry });
         return { success: true };
       } else {
         setError(result.error);
@@ -82,6 +101,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const setCountry = (countryCode) => {
+    const userId = user?.id || user?.pterodactyl_id || user?.username;
+    if (userId) {
+      localStorage.setItem(getUserCountryKey(userId), countryCode);
+    }
     localStorage.setItem('user_country', countryCode);
     const updatedUser = { ...user, countryCode, country: countryCode };
     setUser(updatedUser);
