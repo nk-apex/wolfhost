@@ -93,6 +93,15 @@ export default function Landing() {
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.8 }}
+            className="mt-2 text-lg text-gray-400 font-mono"
+          >
+            I am just an explorer
+          </motion.p>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
             className="mt-4 max-w-2xl mx-auto text-lg text-gray-400 font-mono"
           >
