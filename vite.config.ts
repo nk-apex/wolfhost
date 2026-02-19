@@ -20,10 +20,25 @@ export default defineConfig(({ mode }) => ({
       compress: {
         drop_console: true,
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.debug', 'console.info', 'console.warn'],
+        pure_funcs: ['console.log', 'console.debug', 'console.info', 'console.warn', 'console.error', 'console.trace'],
+        passes: 2,
+      },
+      mangle: {
+        toplevel: true,
+        properties: {
+          regex: /^_private/,
+        },
       },
       format: {
         comments: false,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+        chunkFileNames: 'assets/[hash].js',
+        entryFileNames: 'assets/[hash].js',
+        assetFileNames: 'assets/[hash].[ext]',
       },
     },
   },

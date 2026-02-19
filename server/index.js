@@ -2864,13 +2864,31 @@ app.post('/api/notifications/read', authenticateToken, (req, res) => {
 const distPath = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath, {
-    setHeaders: (res) => {
-      res.set('Cache-Control', 'no-cache');
-    }
+    setHeaders: (res, filePath) => {
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      res.set('X-Content-Type-Options', 'nosniff');
+      if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      if (filePath.endsWith('.map')) {
+        res.status(404).end();
+        return;
+      }
+    },
+    dotfiles: 'deny',
+    index: false,
   }));
+
+  app.use('*.map', (req, res) => {
+    res.status(404).json({ message: 'Not found' });
+  });
+
   app.use((req, res, next) => {
     if (!req.path.startsWith('/api/')) {
-      res.set('Cache-Control', 'no-cache');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.set('X-Content-Type-Options', 'nosniff');
       res.sendFile(path.join(distPath, 'index.html'));
     } else {
       next();
@@ -2915,8 +2933,9 @@ process.on('uncaughtException', (err) => {
   securityLog('ALERT', 'UNCAUGHT_EXCEPTION', { error: err.message });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`WolfHost server running on port ${PORT}`);
   console.log(`Security: helmet=ON, cors=RESTRICTED, rate-limiting=ON, input-validation=ON`);
+  console.log(`Mode: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}`);
 });
