@@ -20,7 +20,7 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
 - **Server Management:** Auto-provisioning of servers on Pterodactyl panel with three tiers (Limited, Unlimited, Admin), server suspension/unsuspension, and deletion capabilities. Users can manage servers directly via Pterodactyl links.
 - **Billing & Wallet:** Real-time transaction data and wallet balance from Paystack API, supporting M-Pesa (Kenya), MTN/Vodafone/AirtelTigo Mobile Money (Ghana), MTN/Wave Mobile Money (Cote d'Ivoire), and card payments for all countries. Multi-currency support with FX conversion to KES base currency.
 - **Referral System:** Comprehensive referral tracking with a code, referrer-referred relationships, and completion status. Awards admin panels for achieving referral milestones.
-- **Auto Onboarding:** New users are automatically joined to community groups (WhatsApp, Telegram, YouTube) and receive a free 3-day trial server upon registration. Tasks page has been removed; onboarding is fully automated.
+- **Auto Onboarding:** New users are automatically joined to community groups (WhatsApp, Telegram, YouTube). Free 3-day trial server must be explicitly claimed after login (not auto-provisioned at registration to prevent resource exhaustion abuse). Tasks page has been removed.
 - **Admin Dashboard:** Provides administrators with an overview of users and servers, user management (delete, toggle admin status), server management (suspend, delete), and payment insights including total revenue, payment count, and average payment statistics.
 - **W.O.L.F AI Assistant:** An AI chatbot powered by Grok AI API, providing assistance with server tiers, payments, referrals, and account features.
 - **Welcome Free Server:** New users are offered a 3-day free trial server.
@@ -36,7 +36,7 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
   - **Production Build Serving:** Frontend is built with Vite (Terser minification) and served via Express static — NO dev server in production. Source code is never exposed.
   - **Helmet:** Comprehensive security headers: CSP (strict with Paystack/fonts whitelisted), HSTS (2 years, preload), X-Frame-Options DENY, X-Content-Type-Options nosniff, Permissions-Policy, X-DNS-Prefetch-Control, X-Download-Options, X-Permitted-Cross-Domain-Policies
   - **CORS:** Restricted to localhost, Replit domains, and host.xwolf.space
-  - **Rate Limiting:** 6 tiers — global (300/15min), auth (10/15min), payment (15/15min), admin (60/15min), chat (10/min), server creation (5/hr)
+  - **Rate Limiting:** 7 tiers — global (300/15min), auth/login (10/15min), registration (3/hr + 5/day per IP abuse tracking), payment (15/15min), admin (60/15min), chat (10/min), server creation (5/hr)
   - **Input Validation:** express-validator on login, register, payment charges, server creation, chat messages
   - **Centralized Error Handler:** Catches JSON parse errors, oversized requests, unhandled errors; always returns generic error messages in production (no stack traces ever)
   - **Security Logging:** Failed logins, rate limit hits, admin access denials, admin actions, payment attempts, validation failures logged to server/security.log (console suppressed in production)

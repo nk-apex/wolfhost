@@ -249,6 +249,51 @@ const serverCreateLimiter = rateLimit({
   },
 });
 
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many registration attempts. Please try again later.' },
+  keyGenerator: (req) => req._clientIp || getClientIp(req),
+  handler: (req, res, next, options) => {
+    securityLog('ALERT', 'REGISTRATION_RATE_LIMIT', { ip: req._clientIp, email: req.body?.email, username: req.body?.username });
+    res.status(429).json(options.message);
+  },
+});
+
+const registrationTracker = new Map();
+const REGISTRATION_CLEANUP_INTERVAL = 60 * 60 * 1000;
+setInterval(() => {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  for (const [ip, data] of registrationTracker.entries()) {
+    if (data.lastAttempt < cutoff) registrationTracker.delete(ip);
+  }
+}, REGISTRATION_CLEANUP_INTERVAL);
+
+function checkRegistrationAbuse(req, res, next) {
+  const ip = req._clientIp || getClientIp(req);
+  const now = Date.now();
+  const tracker = registrationTracker.get(ip) || { count: 0, firstAttempt: now, lastAttempt: now };
+
+  const windowMs = 24 * 60 * 60 * 1000;
+  if (now - tracker.firstAttempt > windowMs) {
+    tracker.count = 0;
+    tracker.firstAttempt = now;
+  }
+
+  tracker.count++;
+  tracker.lastAttempt = now;
+  registrationTracker.set(ip, tracker);
+
+  if (tracker.count > 5) {
+    securityLog('ALERT', 'REGISTRATION_ABUSE_BLOCKED', { ip, count: tracker.count, email: req.body?.email });
+    return res.status(429).json({ success: false, message: 'Too many accounts created from this network. Please contact support.' });
+  }
+
+  next();
+}
+
 app.use('/api/', globalLimiter);
 
 function handleValidationErrors(req, res, next) {
@@ -1238,7 +1283,7 @@ app.post('/api/auth/login', authLimiter, [
   }
 });
 
-app.post('/api/auth/register', authLimiter, [
+app.post('/api/auth/register', registerLimiter, checkRegistrationAbuse, [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required')
     .isLength({ max: 255 }).withMessage('Email too long'),
   body('username').isString().trim().notEmpty().withMessage('Username is required')
@@ -1328,100 +1373,7 @@ app.post('/api/auth/register', authLimiter, [
     saveTasks(allTasks);
     serverLog(`Auto-completed all tasks for new user ${userId}`);
 
-    addNotification(panelUser.id, 'welcome', 'Welcome to WolfHost!', 'Your account has been created and you\'ve been automatically joined to our community groups. Your free trial server is being set up!');
-
-    (async () => {
-      try {
-        const welcomeClaims = loadWelcomeClaims();
-        if (!welcomeClaims[userId]) {
-          const allocationId = await findFreeAllocation();
-          if (allocationId) {
-            const serverName = `${panelUser.username}-welcome-trial`;
-            const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
-
-            const serverPayload = {
-              name: serverName,
-              user: parseInt(userId),
-              egg: 15,
-              docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
-              startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
-              environment: {
-                GIT_ADDRESS: '',
-                BRANCH: '',
-                USERNAME: '',
-                ACCESS_TOKEN: '',
-                CMD_RUN: 'npm start',
-                AUTO_UPDATE: '0',
-                NODE_PACKAGES: '',
-                UNNODE_PACKAGES: '',
-                CUSTOM_ENVIRONMENT_VARIABLES: '',
-              },
-              limits: {
-                memory: FREE_SERVER_LIMITS.memory,
-                swap: FREE_SERVER_LIMITS.swap,
-                disk: FREE_SERVER_LIMITS.disk,
-                io: FREE_SERVER_LIMITS.io,
-                cpu: FREE_SERVER_LIMITS.cpu,
-              },
-              feature_limits: {
-                databases: FREE_SERVER_LIMITS.databases,
-                allocations: FREE_SERVER_LIMITS.allocations,
-                backups: FREE_SERVER_LIMITS.backups,
-              },
-              allocation: { default: allocationId },
-              description: `WolfHost Welcome Trial - Expires ${new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toLocaleDateString()}`,
-              start_on_completion: false,
-              external_id: `wolfhost-welcome-${userId}-${Date.now()}`,
-            };
-
-            const pteroRes = await pteroFetch('/servers', {
-              method: 'POST',
-              body: JSON.stringify(serverPayload),
-            });
-
-            const pteroServerData = await pteroRes.json();
-
-            if (pteroRes.ok) {
-              const serverAttrs = pteroServerData.attributes;
-              const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
-
-              const freeServerRecord = {
-                userId,
-                userEmail: userEmail.toLowerCase(),
-                ip: clientIp,
-                serverId: serverAttrs.id,
-                identifier: serverAttrs.identifier,
-                serverName: serverAttrs.name,
-                createdAt: new Date().toISOString(),
-                expiresAt,
-                type: 'welcome',
-              };
-
-              const freeServers = loadFreeServers();
-              freeServers.push(freeServerRecord);
-              saveFreeServers(freeServers);
-
-              const updatedClaims = loadWelcomeClaims();
-              updatedClaims[userId] = {
-                claimedAt: new Date().toISOString(),
-                serverId: serverAttrs.id,
-                expiresAt,
-              };
-              saveWelcomeClaims(updatedClaims);
-
-              addNotification(panelUser.id, 'server', 'Free Trial Server Ready!', `Your free 3-day trial server "${serverAttrs.name}" is live! It expires on ${new Date(expiresAt).toLocaleDateString()}.`);
-              serverLog(`Auto-created welcome trial server ${serverAttrs.id} for new user ${userId}`);
-            } else {
-              console.error('Auto welcome server create failed:', JSON.stringify(pteroServerData));
-            }
-          } else {
-            console.error('No free allocation available for auto welcome server');
-          }
-        }
-      } catch (e) {
-        console.error('Auto welcome server error:', e);
-      }
-    })();
+    addNotification(panelUser.id, 'welcome', 'Welcome to WolfHost!', 'Your account has been created. Log in to claim your free 3-day trial server!');
 
     const userPayload = {
       id: panelUser.id,
