@@ -42,6 +42,13 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
   - **Request Size Limits:** JSON/URL-encoded bodies capped at 1MB
   - **Request Tracking:** Unique request ID + client IP on every request
   - **Known Limitation:** Auth is frontend localStorage-based; userId is client-trusted. Changing auth model is a separate task.
+  - **Credential Protection (Feb 2026):** All sensitive values moved to environment variables:
+    - PAYSTACK_SECRET_KEY, PTERODACTYL_API_KEY stored as Replit secrets (server-side only)
+    - SUPER_ADMIN_USERNAME, PTERODACTYL_API_URL stored as env vars (no longer hardcoded)
+    - Frontend production build strips all console.log/debug via Terser
+    - Source maps disabled in production builds
+    - Browser DevTools inspection blocked (F12, Ctrl+Shift+I, right-click disabled)
+    - Server-side logging suppressed in production mode (NODE_ENV=production)
 
 ## External Dependencies
 - **Pterodactyl Panel:** Used for server provisioning, user authentication, and server management.

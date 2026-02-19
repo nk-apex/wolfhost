@@ -35,6 +35,29 @@
     <meta name="twitter:title" content="WolfHost" />
     <meta name="twitter:description" content="Powerful, fast, and secure hosting solutions." />
     <meta name="twitter:image" content="/image.png" />
+
+    <!-- Security: Disable browser console and DevTools inspection (production only) -->
+    <script>
+      (function(){
+        var isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.port === '5000';
+        if (isDev) return;
+        var n = function(){};
+        try {
+          Object.defineProperty(window, 'console', {
+            get: function(){
+              return {log:n,warn:n,error:n,info:n,debug:n,trace:n,dir:n,dirxml:n,group:n,groupEnd:n,time:n,timeEnd:n,assert:n,profile:n,table:n,clear:n,count:n,groupCollapsed:n};
+            },
+            set: function(){}
+          });
+        } catch(e){}
+        document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+        document.addEventListener('keydown', function(e){
+          if (e.key === 'F12') { e.preventDefault(); return false; }
+          if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) { e.preventDefault(); return false; }
+          if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); return false; }
+        });
+      })();
+    </script>
   </head>
 
   <body>

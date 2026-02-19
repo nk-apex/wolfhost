@@ -13,6 +13,21 @@ export default defineConfig(({ mode }) => ({
     },
   },
 
+  build: {
+    sourcemap: false,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.debug', 'console.info', 'console.warn'],
+      },
+      format: {
+        comments: false,
+      },
+    },
+  },
+
   server: {
     host: "0.0.0.0",
     port: 5000,

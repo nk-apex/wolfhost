@@ -13,6 +13,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
+const serverLog = IS_PRODUCTION ? () => {} : console.log.bind(console);
+const serverDebug = IS_PRODUCTION ? () => {} : console.debug.bind(console);
+
 const app = express();
 
 app.disable('x-powered-by');
@@ -445,9 +448,13 @@ function checkUserPassword(email, password) {
 const PAYSTACK_API_URL = 'https://api.paystack.co';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-const PTERODACTYL_API_URL = 'https://panel.xwolf.space';
+const PTERODACTYL_API_URL = process.env.PTERODACTYL_API_URL || 'https://panel.xwolf.space';
 const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
-const SUPER_ADMIN_USERNAME = 'wolf';
+const SUPER_ADMIN_USERNAME = process.env.SUPER_ADMIN_USERNAME;
+
+if (!SUPER_ADMIN_USERNAME) {
+  console.error('SUPER_ADMIN_USERNAME is not set');
+}
 
 if (!PAYSTACK_SECRET_KEY) {
   console.error('PAYSTACK_SECRET_KEY is not set');
@@ -557,7 +564,7 @@ app.post('/api/mpesa/charge', paymentLimiter, [
     const paystackPhone = '+' + formattedPhone;
     const chargeEmail = userEmail || `${formattedPhone}@mpesa.ke`;
 
-    console.log('Sending to Paystack:', { phone: paystackPhone, amount: amountInCents, email: chargeEmail });
+    serverLog('Sending to Paystack:', { phone: paystackPhone, amount: amountInCents, email: chargeEmail });
 
     const response = await paystackFetch('/charge', {
       method: 'POST',
@@ -580,7 +587,7 @@ app.post('/api/mpesa/charge', paymentLimiter, [
     });
 
     const data = await response.json();
-    console.log('Paystack response:', JSON.stringify(data));
+    serverLog('Paystack response:', JSON.stringify(data));
 
     if (!response.ok || !data.status) {
       const errorMessage = data.message || 'Failed to initiate M-Pesa payment';
@@ -652,7 +659,7 @@ app.post('/api/card/initialize', paymentLimiter, [
 
     const amountInCents = Math.round(amount * 100);
 
-    console.log('Initializing card payment:', { email, amount: amountInCents, callbackUrl });
+    serverLog('Initializing card payment:', { email, amount: amountInCents, callbackUrl });
 
     const response = await paystackFetch('/transaction/initialize', {
       method: 'POST',
@@ -671,7 +678,7 @@ app.post('/api/card/initialize', paymentLimiter, [
     });
 
     const data = await response.json();
-    console.log('Paystack card init response:', JSON.stringify(data));
+    serverLog('Paystack card init response:', JSON.stringify(data));
 
     if (!response.ok || !data.status) {
       const errorMessage = data.message || 'Failed to initialize card payment';
@@ -796,7 +803,7 @@ app.post('/api/mobile-money/charge', paymentLimiter, [
     const chargeEmail = userEmail || `${formattedPhone}@mobilemoney.${countryCode.toLowerCase()}`;
 
     const chargeCurrency = phoneConfig.currency;
-    console.log('Sending Mobile Money to Paystack:', { phone: paystackPhone, amount: amountInCents, provider, countryCode, currency: chargeCurrency, email: chargeEmail });
+    serverLog('Sending Mobile Money to Paystack:', { phone: paystackPhone, amount: amountInCents, provider, countryCode, currency: chargeCurrency, email: chargeEmail });
 
     const response = await paystackFetch('/charge', {
       method: 'POST',
@@ -820,7 +827,7 @@ app.post('/api/mobile-money/charge', paymentLimiter, [
     });
 
     const data = await response.json();
-    console.log('Paystack mobile money response:', JSON.stringify(data));
+    serverLog('Paystack mobile money response:', JSON.stringify(data));
 
     if (!response.ok || !data.status) {
       const errorMessage = data.message || 'Failed to initiate mobile money payment';
@@ -1049,7 +1056,7 @@ app.post('/api/auth/login', authLimiter, [
     const isEmail = email.includes('@');
     const filterParam = isEmail ? `filter[email]=${encodeURIComponent(email)}` : `filter[username]=${encodeURIComponent(email)}`;
 
-    console.log('Looking up Pterodactyl user:', { email, isEmail });
+    serverLog('Looking up Pterodactyl user:', { email, isEmail });
 
     const pteroResponse = await fetch(`${PTERODACTYL_API_URL}/api/application/users?${filterParam}`, {
       method: 'GET',
@@ -1078,7 +1085,7 @@ app.post('/api/auth/login', authLimiter, [
     const passwordCheck = checkUserPassword(loginEmail, password);
 
     if (passwordCheck === null) {
-      console.log('No stored password for user, attempting panel password sync:', loginEmail);
+      serverLog('No stored password for user, attempting panel password sync:', loginEmail);
 
       let panelSyncSuccess = false;
       try {
@@ -1100,7 +1107,7 @@ app.post('/api/auth/login', authLimiter, [
         if (syncRes.ok) {
           panelSyncSuccess = true;
           storeUserPassword(loginEmail, password);
-          console.log('Password synced and stored for:', loginEmail);
+          serverLog('Password synced and stored for:', loginEmail);
         } else {
           const syncData = await syncRes.json();
           console.error('Panel password sync failed:', JSON.stringify(syncData));
@@ -1119,11 +1126,11 @@ app.post('/api/auth/login', authLimiter, [
       }
     } else if (passwordCheck === false) {
       securityLog('WARN', 'LOGIN_FAILED', { ip: req._clientIp, email: loginEmail, reason: 'wrong_password' });
-      console.log('Password verification failed for:', loginEmail);
+      serverLog('Password verification failed for:', loginEmail);
       return res.status(401).json({ success: false, message: 'Invalid password. Please try again.' });
     }
 
-    console.log('Password verified successfully for:', loginEmail);
+    serverLog('Password verified successfully for:', loginEmail);
     securityLog('INFO', 'LOGIN_SUCCESS', { ip: req._clientIp, email: loginEmail, userId: panelUser.id });
 
     return res.json({
@@ -1171,7 +1178,7 @@ app.post('/api/auth/register', authLimiter, [
     const firstName = nameParts[0] || username;
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : username;
 
-    console.log('Creating Pterodactyl user:', { email, username, firstName, lastName });
+    serverLog('Creating Pterodactyl user:', { email, username, firstName, lastName });
 
     const pteroResponse = await fetch(`${PTERODACTYL_API_URL}/api/application/users`, {
       method: 'POST',
@@ -1190,7 +1197,7 @@ app.post('/api/auth/register', authLimiter, [
     });
 
     const pteroData = await pteroResponse.json();
-    console.log('Pterodactyl response status:', pteroResponse.status);
+    serverLog('Pterodactyl response status:', pteroResponse.status);
 
     if (!pteroResponse.ok) {
       console.error('Pterodactyl error:', JSON.stringify(pteroData));
@@ -1216,11 +1223,11 @@ app.post('/api/auth/register', authLimiter, [
     const panelUser = pteroData.attributes;
 
     storeUserPassword(panelUser.email, password);
-    console.log('Stored password hash for new user:', panelUser.email);
+    serverLog('Stored password hash for new user:', panelUser.email);
 
     if (referralCode) {
       const recorded = recordReferral(referralCode, panelUser.id, panelUser.email, panelUser.username);
-      console.log(`Referral tracking: code=${referralCode}, newUser=${panelUser.id}, recorded=${recorded}`);
+      serverLog(`Referral tracking: code=${referralCode}, newUser=${panelUser.id}, recorded=${recorded}`);
     }
 
     const userId = panelUser.id.toString();
@@ -1234,7 +1241,7 @@ app.post('/api/auth/register', authLimiter, [
       }
     }
     saveTasks(allTasks);
-    console.log(`Auto-completed all tasks for new user ${userId}`);
+    serverLog(`Auto-completed all tasks for new user ${userId}`);
 
     addNotification(panelUser.id, 'welcome', 'Welcome to WolfHost!', 'Your account has been created and you\'ve been automatically joined to our community groups. Your free trial server is being set up!');
 
@@ -1318,7 +1325,7 @@ app.post('/api/auth/register', authLimiter, [
               saveWelcomeClaims(updatedClaims);
 
               addNotification(panelUser.id, 'server', 'Free Trial Server Ready!', `Your free 3-day trial server "${serverAttrs.name}" is live! It expires on ${new Date(expiresAt).toLocaleDateString()}.`);
-              console.log(`Auto-created welcome trial server ${serverAttrs.id} for new user ${userId}`);
+              serverLog(`Auto-created welcome trial server ${serverAttrs.id} for new user ${userId}`);
             } else {
               console.error('Auto welcome server create failed:', JSON.stringify(pteroServerData));
             }
@@ -1406,7 +1413,7 @@ app.get('/api/referrals/check-admin-reward', async (req, res) => {
             }),
           });
           if (updateRes.ok) {
-            console.log(`Auto-awarded admin to user ${userId} for reaching 10 referrals`);
+            serverLog(`Auto-awarded admin to user ${userId} for reaching 10 referrals`);
             return res.json({ success: true, awarded: true, message: 'Congratulations! You reached 10 referrals and have been awarded Admin Panel access!' });
           }
         }
@@ -1747,7 +1754,7 @@ app.post('/api/admin/cleanup-expired', adminLimiter, async (req, res) => {
       return res.json({ success: true, message: 'No expired servers found', deleted: 0, total: freeServers.length });
     }
 
-    console.log(`[Admin Cleanup] Admin ${userId} triggered cleanup of ${expired.length} expired servers`);
+    serverLog(`[Admin Cleanup] Admin ${userId} triggered cleanup of ${expired.length} expired servers`);
     let deletedCount = 0;
     const failures = [];
 
@@ -1758,7 +1765,7 @@ app.post('/api/admin/cleanup-expired', adminLimiter, async (req, res) => {
         const deleteRes = await pteroFetch(`/servers/${server.serverId}`, { method: 'DELETE' });
         if (deleteRes.status === 204 || deleteRes.ok || deleteRes.status === 404) {
           deletedCount++;
-          console.log(`[Admin Cleanup] Deleted expired server ${server.serverId} (user ${server.userId})`);
+          serverLog(`[Admin Cleanup] Deleted expired server ${server.serverId} (user ${server.userId})`);
           addNotification(
             server.userId,
             'server',
@@ -1783,7 +1790,7 @@ app.post('/api/admin/cleanup-expired', adminLimiter, async (req, res) => {
     });
     saveFreeServers(finalList);
 
-    console.log(`[Admin Cleanup] Complete. Deleted ${deletedCount}/${expired.length}, ${finalList.length} remaining`);
+    serverLog(`[Admin Cleanup] Complete. Deleted ${deletedCount}/${expired.length}, ${finalList.length} remaining`);
 
     return res.json({
       success: true,
@@ -1869,7 +1876,7 @@ async function findFreeAllocation(nodeId = null) {
 
         const free = data.data.find(a => !a.attributes.assigned);
         if (free) {
-          console.log(`Found free allocation ${free.attributes.id} on node ${nid} (port ${free.attributes.port})`);
+          serverLog(`Found free allocation ${free.attributes.id} on node ${nid} (port ${free.attributes.port})`);
           return free.attributes.id;
         }
 
@@ -1878,7 +1885,7 @@ async function findFreeAllocation(nodeId = null) {
         }
         page++;
       }
-      console.log(`No free allocations found on node ${nid}`);
+      serverLog(`No free allocations found on node ${nid}`);
     }
 
     console.error('No free allocations found on any node');
@@ -1974,7 +1981,7 @@ app.post('/api/admin/upload-server', adminLimiter, async (req, res) => {
     }
 
     const serverAttrs = pteroData.attributes;
-    console.log('Admin uploaded server:', serverAttrs.id, 'for user:', pteroUser.username);
+    serverLog('Admin uploaded server:', serverAttrs.id, 'for user:', pteroUser.username);
 
     return res.json({
       success: true,
@@ -2078,7 +2085,7 @@ app.post('/api/servers/create', serverCreateLimiter, [
       return res.status(503).json({ success: false, message: 'No available ports. Please try again later or contact support.' });
     }
 
-    console.log('Creating Pterodactyl server:', { name, plan, userId, allocationId, verifiedBalance: balance });
+    serverLog('Creating Pterodactyl server:', { name, plan, userId, allocationId, verifiedBalance: balance });
 
     const serverPayload = {
       name: name,
@@ -2134,16 +2141,16 @@ app.post('/api/servers/create', serverCreateLimiter, [
     }
 
     const serverAttrs = pteroData.attributes;
-    console.log('Server created successfully:', serverAttrs.id, serverAttrs.identifier);
+    serverLog('Server created successfully:', serverAttrs.id, serverAttrs.identifier);
 
     recordSpending(userEmail, requiredAmount, `Server "${name}" (${plan} plan)`, serverAttrs.id);
-    console.log(`Recorded spending: KES ${requiredAmount} for user ${userEmail}, server ${serverAttrs.id}`);
+    serverLog(`Recorded spending: KES ${requiredAmount} for user ${userEmail}, server ${serverAttrs.id}`);
 
     addNotification(userId, 'server', 'Server Created', `Your "${name}" server (${plan} plan) has been deployed successfully!`);
 
     const completedRef = completeReferral(userEmail);
     if (completedRef) {
-      console.log(`Referral completed: ${userEmail} purchased a server, crediting referrer ${completedRef.referrerEmail}`);
+      serverLog(`Referral completed: ${userEmail} purchased a server, crediting referrer ${completedRef.referrerEmail}`);
       addNotification(completedRef.referrerUserId, 'referral', 'Referral Completed!', `Your referral ${userEmail} just purchased a server. Keep referring to earn admin access!`);
       const referrerStats = getReferrerStats(completedRef.referrerUserId);
       if (referrerStats.completed >= 10) {
@@ -2164,7 +2171,7 @@ app.post('/api/servers/create', serverCreateLimiter, [
                   root_admin: true,
                 }),
               });
-              console.log(`Auto-awarded admin to referrer ${completedRef.referrerUserId} for reaching 10 referrals`);
+              serverLog(`Auto-awarded admin to referrer ${completedRef.referrerUserId} for reaching 10 referrals`);
             }
           } catch (e) {
             console.error('Error auto-awarding admin:', e);
@@ -2325,14 +2332,14 @@ app.delete('/api/servers/:serverId', async (req, res) => {
       }
     }
 
-    console.log('Deleting Pterodactyl server:', serverId);
+    serverLog('Deleting Pterodactyl server:', serverId);
 
     const pteroResponse = await pteroFetch(`/servers/${serverId}`, {
       method: 'DELETE',
     });
 
     if (pteroResponse.status === 204 || pteroResponse.ok) {
-      console.log('Server deleted successfully:', serverId);
+      serverLog('Server deleted successfully:', serverId);
       return res.json({ success: true, message: 'Server deleted successfully' });
     }
 
@@ -2461,7 +2468,7 @@ app.post('/api/tasks/claim-server', async (req, res) => {
     if (clientIp && clientIp !== 'unknown') {
       const existingIp = freeServers.find(s => s.ip === clientIp);
       if (existingIp) {
-        console.log(`Suspicious: IP ${clientIp} already claimed a free server (user ${existingIp.userId}), now user ${userId} trying`);
+        serverLog(`Suspicious: IP ${clientIp} already claimed a free server (user ${existingIp.userId}), now user ${userId} trying`);
         return res.status(400).json({ success: false, message: 'A free server has already been claimed from this network' });
       }
     }
@@ -2479,7 +2486,7 @@ app.post('/api/tasks/claim-server', async (req, res) => {
     const serverName = `${pteroUser.username}-free-trial`;
     const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
 
-    console.log('Creating free trial server:', { serverName, userId, allocationId, expiresAt });
+    serverLog('Creating free trial server:', { serverName, userId, allocationId, expiresAt });
 
     const serverPayload = {
       name: serverName,
@@ -2548,7 +2555,7 @@ app.post('/api/tasks/claim-server', async (req, res) => {
     freeServers.push(freeServerRecord);
     saveFreeServers(freeServers);
 
-    console.log(`Free trial server created: ${serverAttrs.id} for user ${userId}, expires ${expiresAt}`);
+    serverLog(`Free trial server created: ${serverAttrs.id} for user ${userId}, expires ${expiresAt}`);
 
     return res.json({
       success: true,
@@ -2595,7 +2602,7 @@ app.post('/api/free-server/claim-welcome', async (req, res) => {
     const serverName = `${pteroUser.username}-welcome-trial`;
     const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
 
-    console.log('Creating welcome free trial server:', { serverName, userId, allocationId, expiresAt });
+    serverLog('Creating welcome free trial server:', { serverName, userId, allocationId, expiresAt });
 
     const serverPayload = {
       name: serverName,
@@ -2678,7 +2685,7 @@ app.post('/api/free-server/claim-welcome', async (req, res) => {
 
     addNotification(userId, 'server', 'Free Trial Server Ready!', `Your free 3-day trial server "${serverAttrs.name}" is live! It expires on ${new Date(expiresAt).toLocaleDateString()}.`);
 
-    console.log(`Welcome trial server created: ${serverAttrs.id} for user ${userId}, expires ${expiresAt}`);
+    serverLog(`Welcome trial server created: ${serverAttrs.id} for user ${userId}, expires ${expiresAt}`);
 
     return res.json({
       success: true,
@@ -2727,21 +2734,21 @@ async function cleanupExpiredFreeServers() {
 
     if (expired.length === 0) return;
 
-    console.log(`[Cleanup] Found ${expired.length} expired free servers to remove...`);
+    serverLog(`[Cleanup] Found ${expired.length} expired free servers to remove...`);
     const successfullyRemoved = [];
 
     for (const server of expired) {
       try {
         const suspendRes = await pteroFetch(`/servers/${server.serverId}/suspend`, { method: 'POST' });
         if (suspendRes.status === 204 || suspendRes.ok) {
-          console.log(`[Cleanup] Suspended expired server ${server.serverId}`);
+          serverLog(`[Cleanup] Suspended expired server ${server.serverId}`);
         } else {
-          console.log(`[Cleanup] Suspend returned status ${suspendRes.status} for server ${server.serverId} (may already be suspended)`);
+          serverLog(`[Cleanup] Suspend returned status ${suspendRes.status} for server ${server.serverId} (may already be suspended)`);
         }
 
         const deleteRes = await pteroFetch(`/servers/${server.serverId}`, { method: 'DELETE' });
         if (deleteRes.status === 204 || deleteRes.ok) {
-          console.log(`[Cleanup] Deleted expired free server ${server.serverId} (user ${server.userId})`);
+          serverLog(`[Cleanup] Deleted expired free server ${server.serverId} (user ${server.userId})`);
           successfullyRemoved.push(server.serverId);
           addNotification(
             server.userId,
@@ -2750,7 +2757,7 @@ async function cleanupExpiredFreeServers() {
             `Your free trial server has expired and been removed. Upgrade to a paid plan to keep your server running!`
           );
         } else if (deleteRes.status === 404) {
-          console.log(`[Cleanup] Server ${server.serverId} already deleted from panel, removing from tracking`);
+          serverLog(`[Cleanup] Server ${server.serverId} already deleted from panel, removing from tracking`);
           successfullyRemoved.push(server.serverId);
         } else {
           console.error(`[Cleanup] Failed to delete expired server ${server.serverId}: status ${deleteRes.status}`);
@@ -2766,7 +2773,7 @@ async function cleanupExpiredFreeServers() {
       return true;
     });
     saveFreeServers(remaining);
-    console.log(`[Cleanup] Complete. Removed ${successfullyRemoved.length}, ${remaining.length} servers remaining.`);
+    serverLog(`[Cleanup] Complete. Removed ${successfullyRemoved.length}, ${remaining.length} servers remaining.`);
   } catch (e) {
     console.error('[Cleanup] Free server cleanup error:', e);
   }
