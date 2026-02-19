@@ -83,6 +83,7 @@ app.use(helmet({
       upgradeInsecureRequests: [],
       workerSrc: ["'self'"],
       manifestSrc: ["'self'"],
+      frameAncestors: ["'self'", "https://*.replit.dev", "https://*.replit.app", "https://*.repl.co", "https://replit.com"],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -92,7 +93,7 @@ app.use(helmet({
   xContentTypeOptions: true,
   xDnsPrefetchControl: { allow: false },
   xDownloadOptions: true,
-  xFrameOptions: { action: 'deny' },
+  xFrameOptions: false,
   xPermittedCrossDomainPolicies: { permittedPolicies: 'none' },
   xPoweredBy: false,
 }));
