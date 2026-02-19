@@ -2200,6 +2200,11 @@ app.get('/api/servers', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
 
+    if (req.query.userId && parseInt(req.query.userId) !== userId) {
+      securityLog('ALERT', 'IDOR_ATTEMPT', { ip: req._clientIp, authenticatedUserId: userId, requestedUserId: req.query.userId });
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     if (!userId) {
       return res.status(400).json({ success: false, message: 'User ID is required' });
     }
