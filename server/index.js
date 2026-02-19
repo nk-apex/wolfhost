@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { body, query, param, validationResult } from 'express-validator';
+import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,52 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 const serverLog = IS_PRODUCTION ? () => {} : console.log.bind(console);
 const serverDebug = IS_PRODUCTION ? () => {} : console.debug.bind(console);
+
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+const JWT_EXPIRY = '7d';
+
+function generateToken(user) {
+  return jwt.sign({
+    userId: user.id,
+    email: user.email,
+    username: user.username,
+    isAdmin: user.isAdmin || false,
+    isSuperAdmin: user.isSuperAdmin || false,
+  }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+}
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+  }
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user || !req.user.isAdmin) {
+    securityLog('ALERT', 'ADMIN_ACCESS_DENIED', { ip: req._clientIp, userId: req.user?.userId });
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+  next();
+}
+
+function requireSuperAdmin(req, res, next) {
+  if (!req.user || !req.user.isSuperAdmin) {
+    securityLog('ALERT', 'SUPER_ADMIN_ACCESS_DENIED', { ip: req._clientIp, userId: req.user?.userId });
+    return res.status(403).json({ success: false, message: 'Super admin access required' });
+  }
+  next();
+}
 
 const app = express();
 
@@ -528,7 +575,7 @@ async function fetchUserTransactions(email, perPage = 100, page = 1, status = nu
   return { transactions: data.data || [], meta: data.meta || {} };
 }
 
-app.post('/api/mpesa/charge', paymentLimiter, [
+app.post('/api/mpesa/charge', paymentLimiter, authenticateToken, [
   body('phone').isString().trim().notEmpty().withMessage('Phone number is required')
     .matches(/^[0-9+\-\s()]+$/).withMessage('Invalid phone number format'),
   body('amount').isNumeric().withMessage('Amount must be a number')
@@ -606,7 +653,7 @@ app.post('/api/mpesa/charge', paymentLimiter, [
   }
 });
 
-app.get('/api/mpesa/verify/:reference', async (req, res) => {
+app.get('/api/mpesa/verify/:reference', authenticateToken, async (req, res) => {
   try {
     const { reference } = req.params;
 
@@ -641,7 +688,7 @@ app.get('/api/mpesa/verify/:reference', async (req, res) => {
   }
 });
 
-app.post('/api/card/initialize', paymentLimiter, [
+app.post('/api/card/initialize', paymentLimiter, authenticateToken, [
   body('amount').isNumeric().withMessage('Amount must be a number')
     .custom(v => Number(v) >= 50).withMessage('Minimum deposit is 50 KSH'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -699,7 +746,7 @@ app.post('/api/card/initialize', paymentLimiter, [
   }
 });
 
-app.get('/api/card/verify/:reference', async (req, res) => {
+app.get('/api/card/verify/:reference', authenticateToken, async (req, res) => {
   try {
     const { reference } = req.params;
 
@@ -734,7 +781,7 @@ app.get('/api/card/verify/:reference', async (req, res) => {
   }
 });
 
-app.post('/api/mpesa/submit-otp', paymentLimiter, async (req, res) => {
+app.post('/api/mpesa/submit-otp', paymentLimiter, authenticateToken, async (req, res) => {
   try {
     const { otp, reference } = req.body;
 
@@ -760,7 +807,7 @@ app.post('/api/mpesa/submit-otp', paymentLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/mobile-money/charge', paymentLimiter, [
+app.post('/api/mobile-money/charge', paymentLimiter, authenticateToken, [
   body('phone').isString().trim().notEmpty().withMessage('Phone number is required')
     .matches(/^[0-9+\-\s()]+$/).withMessage('Invalid phone number format'),
   body('amount').isNumeric().withMessage('Amount must be a number')
@@ -846,7 +893,7 @@ app.post('/api/mobile-money/charge', paymentLimiter, [
   }
 });
 
-app.get('/api/mobile-money/verify/:reference', async (req, res) => {
+app.get('/api/mobile-money/verify/:reference', authenticateToken, async (req, res) => {
   try {
     const { reference } = req.params;
 
@@ -882,9 +929,10 @@ app.get('/api/mobile-money/verify/:reference', async (req, res) => {
   }
 });
 
-app.get('/api/transactions', async (req, res) => {
+app.get('/api/transactions', authenticateToken, async (req, res) => {
   try {
-    const { perPage = 50, page = 1, status, email } = req.query;
+    const email = req.user.email;
+    const { perPage = 50, page = 1, status } = req.query;
 
     const { transactions: allTransactions, meta } = await fetchUserTransactions(
       email || null,
@@ -971,15 +1019,15 @@ app.get('/api/transactions', async (req, res) => {
   }
 });
 
-app.get('/api/transactions/totals', async (req, res) => {
+app.get('/api/transactions/totals', authenticateToken, async (req, res) => {
   try {
-    const { email } = req.query;
+    const email = req.user.email;
 
-    const { transactions } = await fetchUserTransactions(email || null, 100, 1, 'success');
+    const { transactions } = await fetchUserTransactions(email, 100, 1, 'success');
 
     const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
 
-    const spending = email ? getTotalSpending(email) : 0;
+    const spending = getTotalSpending(email);
     const balance = Math.max(0, totalDeposits - spending);
 
     return res.json({
@@ -1001,13 +1049,9 @@ app.get('/api/transactions/totals', async (req, res) => {
   }
 });
 
-app.get('/api/admin/payments', adminLimiter, async (req, res) => {
+app.get('/api/admin/payments', adminLimiter, authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
-    const { perPage = 50, page = 1, userId } = req.query;
-    await resolveSuperAdminId();
-    if (!userId || !(await verifyAdmin(userId)) || !isSuperAdminById(userId)) {
-      return res.status(403).json({ success: false, message: 'Super admin access required' });
-    }
+    const { perPage = 50, page = 1 } = req.query;
 
     const { transactions: allTxns } = await fetchUserTransactions(null, parseInt(perPage), parseInt(page), 'success');
 
@@ -1133,19 +1177,24 @@ app.post('/api/auth/login', authLimiter, [
     serverLog('Password verified successfully for:', loginEmail);
     securityLog('INFO', 'LOGIN_SUCCESS', { ip: req._clientIp, email: loginEmail, userId: panelUser.id });
 
+    const userPayload = {
+      id: panelUser.id,
+      email: panelUser.email,
+      username: panelUser.username,
+      firstName: panelUser.first_name,
+      lastName: panelUser.last_name,
+      panelId: panelUser.id,
+      isAdmin: panelUser.root_admin || false,
+      isSuperAdmin: isSuperAdminByUsername(panelUser.username),
+    };
+
+    const token = generateToken(userPayload);
+
     return res.json({
       success: true,
       message: 'Login successful',
-      user: {
-        id: panelUser.id,
-        email: panelUser.email,
-        username: panelUser.username,
-        firstName: panelUser.first_name,
-        lastName: panelUser.last_name,
-        panelId: panelUser.id,
-        isAdmin: panelUser.root_admin || false,
-        isSuperAdmin: isSuperAdminByUsername(panelUser.username),
-      },
+      user: userPayload,
+      token,
     });
   } catch (error) {
     console.error('Login error:', error.message);
@@ -1338,19 +1387,24 @@ app.post('/api/auth/register', authLimiter, [
       }
     })();
 
+    const userPayload = {
+      id: panelUser.id,
+      email: panelUser.email,
+      username: panelUser.username,
+      firstName: panelUser.first_name,
+      lastName: panelUser.last_name,
+      panelId: panelUser.id,
+      isAdmin: panelUser.root_admin || false,
+      isSuperAdmin: isSuperAdminByUsername(panelUser.username),
+    };
+
+    const token = generateToken(userPayload);
+
     return res.json({
       success: true,
       message: 'Account created successfully',
-      user: {
-        id: panelUser.id,
-        email: panelUser.email,
-        username: panelUser.username,
-        firstName: panelUser.first_name,
-        lastName: panelUser.last_name,
-        panelId: panelUser.id,
-        isAdmin: panelUser.root_admin || false,
-        isSuperAdmin: isSuperAdminByUsername(panelUser.username),
-      },
+      user: userPayload,
+      token,
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -1358,14 +1412,12 @@ app.post('/api/auth/register', authLimiter, [
   }
 });
 
-app.get('/api/referrals', async (req, res) => {
+app.get('/api/referrals', authenticateToken, async (req, res) => {
   try {
-    const { userId, email } = req.query;
-    if (!userId) {
-      return res.status(400).json({ success: false, message: 'userId is required' });
-    }
+    const userId = req.user.userId;
+    const email = req.user.email;
 
-    const code = getReferralCode(userId, email || '');
+    const code = getReferralCode(userId, email);
     const stats = getReferrerStats(userId);
 
     return res.json({
@@ -1389,10 +1441,9 @@ app.get('/api/referrals', async (req, res) => {
   }
 });
 
-app.get('/api/referrals/check-admin-reward', async (req, res) => {
+app.get('/api/referrals/check-admin-reward', authenticateToken, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ success: false });
+    const userId = req.user.userId;
 
     const stats = getReferrerStats(userId);
     if (stats.completed >= 10) {
@@ -1466,13 +1517,8 @@ function isSuperAdminByUsername(username) {
   return username?.toLowerCase() === SUPER_ADMIN_USERNAME.toLowerCase();
 }
 
-app.get('/api/admin/overview', adminLimiter, async (req, res) => {
+app.get('/api/admin/overview', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     const usersRes = await pteroFetch('/users?per_page=1');
     const usersData = await usersRes.json();
     const serversRes = await pteroFetch('/servers?per_page=1');
@@ -1494,13 +1540,8 @@ app.get('/api/admin/overview', adminLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/admin/users', adminLimiter, async (req, res) => {
+app.get('/api/admin/users', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     let allUsers = [];
     let currentPage = 1;
     let totalPages = 1;
@@ -1536,17 +1577,11 @@ app.get('/api/admin/users', adminLimiter, async (req, res) => {
   }
 });
 
-app.patch('/api/admin/users/:id/admin', adminLimiter, async (req, res) => {
+app.patch('/api/admin/users/:id/admin', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      securityLog('ALERT', 'ADMIN_ACCESS_DENIED', { ip: req._clientIp, path: req.path, claimedUserId: userId });
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     const targetId = req.params.id;
     const { isAdmin } = req.body;
-    securityLog('INFO', 'ADMIN_TOGGLE', { ip: req._clientIp, adminUserId: userId, targetId, isAdmin });
+    securityLog('INFO', 'ADMIN_TOGGLE', { ip: req._clientIp, adminUserId: req.user.userId, targetId, isAdmin });
 
     const userRes = await pteroFetch(`/users/${targetId}`);
     const userData = await userRes.json();
@@ -1578,18 +1613,14 @@ app.patch('/api/admin/users/:id/admin', adminLimiter, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/users/:id', adminLimiter, async (req, res) => {
+app.delete('/api/admin/users/:id', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      securityLog('ALERT', 'ADMIN_ACCESS_DENIED', { ip: req._clientIp, path: req.path, claimedUserId: userId });
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
+    const userId = req.user.userId;
     securityLog('WARN', 'ADMIN_DELETE_USER', { ip: req._clientIp, adminUserId: userId, targetId: req.params.id });
 
     const targetId = req.params.id;
 
-    if (targetId === userId) {
+    if (targetId.toString() === userId.toString()) {
       return res.status(400).json({ success: false, message: 'Cannot delete yourself' });
     }
 
@@ -1606,13 +1637,8 @@ app.delete('/api/admin/users/:id', adminLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/admin/servers', adminLimiter, async (req, res) => {
+app.get('/api/admin/servers', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     const response = await pteroFetch('/servers?per_page=100&include=user');
     const data = await response.json();
 
@@ -1679,13 +1705,8 @@ app.get('/api/admin/servers', adminLimiter, async (req, res) => {
   }
 });
 
-app.patch('/api/admin/servers/:id/suspend', adminLimiter, async (req, res) => {
+app.patch('/api/admin/servers/:id/suspend', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     const serverId = req.params.id;
     const suspendRes = await pteroFetch(`/servers/${serverId}/suspend`, { method: 'POST' });
 
@@ -1699,13 +1720,8 @@ app.patch('/api/admin/servers/:id/suspend', adminLimiter, async (req, res) => {
   }
 });
 
-app.patch('/api/admin/servers/:id/unsuspend', adminLimiter, async (req, res) => {
+app.patch('/api/admin/servers/:id/unsuspend', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     const serverId = req.params.id;
     const unsuspendRes = await pteroFetch(`/servers/${serverId}/unsuspend`, { method: 'POST' });
 
@@ -1719,13 +1735,8 @@ app.patch('/api/admin/servers/:id/unsuspend', adminLimiter, async (req, res) => 
   }
 });
 
-app.delete('/api/admin/servers/:id', adminLimiter, async (req, res) => {
+app.delete('/api/admin/servers/:id', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     const serverId = req.params.id;
     const deleteRes = await pteroFetch(`/servers/${serverId}`, { method: 'DELETE' });
 
@@ -1739,13 +1750,8 @@ app.delete('/api/admin/servers/:id', adminLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/admin/cleanup-expired', adminLimiter, async (req, res) => {
+app.post('/api/admin/cleanup-expired', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.body;
-    if (!userId || !(await verifyAdmin(userId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
     const freeServers = loadFreeServers();
     const now = new Date();
     const expired = freeServers.filter(s => new Date(s.expiresAt) <= now);
@@ -1898,13 +1904,9 @@ async function findFreeAllocation(nodeId = null) {
 
 const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 250 };
 
-app.post('/api/admin/upload-server', adminLimiter, async (req, res) => {
+app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { adminUserId, targetUserId, plan } = req.body;
-
-    if (!adminUserId || !(await verifyAdmin(adminUserId))) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
+    const { targetUserId, plan } = req.body;
 
     if (!targetUserId || !plan) {
       return res.status(400).json({ success: false, message: 'Target user ID and plan are required' });
@@ -2041,16 +2043,16 @@ async function verifyPteroUser(userId) {
   }
 }
 
-app.post('/api/servers/create', serverCreateLimiter, [
+app.post('/api/servers/create', serverCreateLimiter, authenticateToken, [
   body('name').isString().trim().notEmpty().withMessage('Server name is required')
     .isLength({ max: 100 }).withMessage('Server name too long')
     .matches(/^[a-zA-Z0-9_\-. ]+$/).withMessage('Server name contains invalid characters'),
   body('plan').isString().trim().isIn(['Limited', 'Unlimited', 'Admin']).withMessage('Invalid server plan'),
-  body('userId').notEmpty().withMessage('User ID is required'),
-  body('userEmail').isEmail().normalizeEmail().withMessage('Valid email is required'),
 ], handleValidationErrors, async (req, res) => {
   try {
-    const { name, plan, userId, userEmail } = req.body;
+    const userId = req.user.userId;
+    const userEmail = req.user.email;
+    const { name, plan } = req.body;
     securityLog('INFO', 'SERVER_CREATE_ATTEMPT', { ip: req._clientIp, userId, plan, email: userEmail });
 
     if (!name || !plan || !userId || !userEmail) {
@@ -2203,9 +2205,9 @@ app.post('/api/servers/create', serverCreateLimiter, [
   }
 });
 
-app.get('/api/servers', async (req, res) => {
+app.get('/api/servers', authenticateToken, async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.user.userId;
 
     if (!userId) {
       return res.status(400).json({ success: false, message: 'User ID is required' });
@@ -2308,27 +2310,21 @@ app.get('/api/servers', async (req, res) => {
   }
 });
 
-app.delete('/api/servers/:serverId', async (req, res) => {
+app.delete('/api/servers/:serverId', authenticateToken, async (req, res) => {
   try {
     const { serverId } = req.params;
-    const { userId, userEmail } = req.query;
+    const userId = req.user.userId;
+    const userEmail = req.user.email;
 
     if (!serverId) {
       return res.status(400).json({ success: false, message: 'Server ID is required' });
     }
 
-    if (userId && userEmail) {
-      const pteroUser = await verifyPteroUser(userId);
-      if (!pteroUser || pteroUser.email.toLowerCase() !== userEmail.toLowerCase()) {
-        return res.status(403).json({ success: false, message: 'User verification failed' });
-      }
-
-      const serverRes = await pteroFetch(`/servers/${serverId}`);
-      if (serverRes.ok) {
-        const serverData = await serverRes.json();
-        if (serverData.attributes && serverData.attributes.user !== parseInt(userId)) {
-          return res.status(403).json({ success: false, message: 'You do not own this server' });
-        }
+    const serverRes = await pteroFetch(`/servers/${serverId}`);
+    if (serverRes.ok) {
+      const serverData = await serverRes.json();
+      if (serverData.attributes && serverData.attributes.user !== parseInt(userId)) {
+        return res.status(403).json({ success: false, message: 'You do not own this server' });
       }
     }
 
@@ -2375,10 +2371,9 @@ const FREE_SERVER_LIMITS = {
   backups: 0,
 };
 
-app.get('/api/tasks', (req, res) => {
+app.get('/api/tasks', authenticateToken, (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+    const userId = req.user.userId;
 
     const allTasks = loadTasks();
     const userTasks = allTasks[userId] || {};
@@ -2409,10 +2404,11 @@ app.get('/api/tasks', (req, res) => {
   }
 });
 
-app.post('/api/tasks/complete', (req, res) => {
+app.post('/api/tasks/complete', authenticateToken, (req, res) => {
   try {
-    const { userId, taskId } = req.body;
-    if (!userId || !taskId) return res.status(400).json({ success: false, message: 'userId and taskId are required' });
+    const userId = req.user.userId;
+    const { taskId } = req.body;
+    if (!taskId) return res.status(400).json({ success: false, message: 'taskId is required' });
 
     const validTask = TASK_DEFINITIONS.find(t => t.id === taskId);
     if (!validTask) return res.status(400).json({ success: false, message: 'Invalid task ID' });
@@ -2442,12 +2438,10 @@ app.post('/api/tasks/complete', (req, res) => {
   }
 });
 
-app.post('/api/tasks/claim-server', async (req, res) => {
+app.post('/api/tasks/claim-server', authenticateToken, async (req, res) => {
   try {
-    const { userId, userEmail } = req.body;
-    if (!userId || !userEmail) {
-      return res.status(400).json({ success: false, message: 'userId and userEmail are required' });
-    }
+    const userId = req.user.userId;
+    const userEmail = req.user.email;
 
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
 
@@ -2573,12 +2567,10 @@ app.post('/api/tasks/claim-server', async (req, res) => {
   }
 });
 
-app.post('/api/free-server/claim-welcome', async (req, res) => {
+app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) => {
   try {
-    const { userId, userEmail } = req.body;
-    if (!userId || !userEmail) {
-      return res.status(400).json({ success: false, message: 'userId and userEmail are required' });
-    }
+    const userId = req.user.userId;
+    const userEmail = req.user.email;
 
     const welcomeClaims = loadWelcomeClaims();
     if (welcomeClaims[userId.toString()]) {
@@ -2703,10 +2695,9 @@ app.post('/api/free-server/claim-welcome', async (req, res) => {
   }
 });
 
-app.get('/api/free-server/status', (req, res) => {
+app.get('/api/free-server/status', authenticateToken, (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+    const userId = req.user.userId;
 
     const welcomeClaims = loadWelcomeClaims();
     const hasClaimed = !!welcomeClaims[userId.toString()];
@@ -2782,7 +2773,7 @@ async function cleanupExpiredFreeServers() {
 setInterval(cleanupExpiredFreeServers, 5 * 60 * 1000);
 setTimeout(cleanupExpiredFreeServers, 15000);
 
-app.post('/api/wolf/chat', chatLimiter, [
+app.post('/api/wolf/chat', chatLimiter, authenticateToken, [
   body('message').isString().trim().notEmpty().withMessage('Message is required')
     .isLength({ max: 2000 }).withMessage('Message too long'),
 ], handleValidationErrors, async (req, res) => {
@@ -2827,10 +2818,9 @@ Keep responses concise, friendly, and helpful. If asked about something unrelate
   }
 });
 
-app.get('/api/notifications', (req, res) => {
+app.get('/api/notifications', authenticateToken, (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+    const userId = req.user.userId;
 
     const allNotifs = loadNotifications();
     const userNotifs = allNotifs[userId.toString()] || [];
@@ -2847,10 +2837,10 @@ app.get('/api/notifications', (req, res) => {
   }
 });
 
-app.post('/api/notifications/read', (req, res) => {
+app.post('/api/notifications/read', authenticateToken, (req, res) => {
   try {
-    const { userId, notificationId } = req.body;
-    if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+    const userId = req.user.userId;
+    const { notificationId } = req.body;
 
     const allNotifs = loadNotifications();
     const key = userId.toString();

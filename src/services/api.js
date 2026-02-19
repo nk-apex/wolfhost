@@ -6,7 +6,6 @@
 
 const API_BASE_URL = '/api';
 
-// Simulate API delay
 const API_DELAY = 300;
 
 // ======================
@@ -14,6 +13,36 @@ const API_DELAY = 300;
 // ======================
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getAuthToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('jwt_token');
+  }
+  return null;
+};
+
+const authHeaders = () => {
+  const token = getAuthToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
+const authFetch = async (url, options = {}) => {
+  const headers = { ...authHeaders(), ...options.headers };
+  const response = await fetch(url, { ...options, headers });
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('current_user');
+      window.location.href = '/login';
+    }
+    throw new Error('Session expired. Please log in again.');
+  }
+  return response;
+};
 
 // Mock user data (in KES)
 const mockUser = {
@@ -110,13 +139,15 @@ export const authAPI = {
 
       if (typeof window !== 'undefined') {
         localStorage.setItem('current_user', JSON.stringify(userData));
-        localStorage.setItem('auth_token', 'panel-token-' + Date.now());
+        if (data.token) {
+          localStorage.setItem('jwt_token', data.token);
+        }
       }
 
       return {
         success: true,
         user: userData,
-        token: 'panel-token-' + Date.now(),
+        token: data.token,
         message: 'Login successful'
       };
     } catch (error) {
@@ -187,13 +218,15 @@ export const authAPI = {
 
       if (typeof window !== 'undefined') {
         localStorage.setItem('current_user', JSON.stringify(newUser));
-        localStorage.setItem('auth_token', 'panel-token-' + Date.now());
+        if (data.token) {
+          localStorage.setItem('jwt_token', data.token);
+        }
       }
 
       return {
         success: true,
         user: newUser,
-        token: 'panel-token-' + Date.now(),
+        token: data.token,
         message: 'Registration successful'
       };
     } catch (error) {
@@ -214,6 +247,7 @@ export const authAPI = {
       // Clear localStorage
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('jwt_token');
         localStorage.removeItem('current_user');
       }
       
