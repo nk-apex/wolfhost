@@ -579,7 +579,7 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 const PTERODACTYL_API_URL = process.env.PTERODACTYL_API_URL || 'https://panel.xwolf.space';
 const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
-const SUPER_ADMIN_USERNAME = process.env.SUPER_ADMIN_USERNAME;
+const SUPER_ADMIN_USERNAME = process.env.SUPER_ADMIN_USERNAME || '';
 
 if (!SUPER_ADMIN_USERNAME) {
   console.error('SUPER_ADMIN_USERNAME is not set');
@@ -1485,6 +1485,7 @@ function isSuperAdminById(userId) {
 let _superAdminIdCache = null;
 
 async function resolveSuperAdminId() {
+  if (!SUPER_ADMIN_USERNAME) return null;
   if (_superAdminIdCache) return _superAdminIdCache;
   try {
     const res = await pteroFetch(`/users?filter[username]=${SUPER_ADMIN_USERNAME}`);
@@ -1503,7 +1504,8 @@ async function resolveSuperAdminId() {
 }
 
 function isSuperAdminByUsername(username) {
-  return username?.toLowerCase() === SUPER_ADMIN_USERNAME.toLowerCase();
+  if (!SUPER_ADMIN_USERNAME || !username) return false;
+  return username.toLowerCase() === SUPER_ADMIN_USERNAME.toLowerCase();
 }
 
 app.get('/api/admin/overview', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
