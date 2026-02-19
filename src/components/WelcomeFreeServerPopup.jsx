@@ -12,9 +12,13 @@ const WelcomeFreeServerPopup = ({ user, onClose, onClaimed }) => {
     setLoading(true);
     setError('');
     try {
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch('/api/free-server/claim-welcome', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: user.panelId || user.id,
           userEmail: user.email,

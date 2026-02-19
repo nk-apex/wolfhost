@@ -34,6 +34,18 @@ import { toast } from 'sonner';
 
 const PANEL_URL = 'https://panel.xwolf.space';
 
+const getAdminHeaders = () => {
+  const token = localStorage.getItem('jwt_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
+
+const adminFetch = async (url, options = {}) => {
+  const headers = { ...getAdminHeaders(), ...options.headers };
+  return fetch(url, { ...options, headers });
+};
+
 const Admin = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -59,9 +71,8 @@ const Admin = () => {
     const targetUsername = uploadServerTarget?.username || 'User';
     setUploadServerLoading(true);
     try {
-      const res = await fetch('/api/admin/upload-server', {
+      const res = await adminFetch('/api/admin/upload-server', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminUserId: user.id, targetUserId, plan }),
       });
       const data = await res.json();
@@ -95,9 +106,9 @@ const Admin = () => {
     setLoading(true);
     try {
       const [overviewRes, usersRes, serversRes] = await Promise.all([
-        fetch(`/api/admin/overview?userId=${user.id}`),
-        fetch(`/api/admin/users?userId=${user.id}`),
-        fetch(`/api/admin/servers?userId=${user.id}`),
+        adminFetch(`/api/admin/overview`),
+        adminFetch(`/api/admin/users`),
+        adminFetch(`/api/admin/servers`),
       ]);
 
       const [overviewData, usersData, serversData] = await Promise.all([
@@ -119,7 +130,7 @@ const Admin = () => {
   const fetchPayments = async () => {
     setPaymentsLoading(true);
     try {
-      const res = await fetch(`/api/admin/payments?perPage=100&userId=${user.id}`);
+      const res = await adminFetch(`/api/admin/payments?perPage=100`);
       const data = await res.json();
       if (data.success) {
         setPayments(data.payments || []);
@@ -143,7 +154,7 @@ const Admin = () => {
   const handleDeleteUser = async (targetId) => {
     setActionLoading(`delete-user-${targetId}`);
     try {
-      const res = await fetch(`/api/admin/users/${targetId}?userId=${user.id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/users/${targetId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         toast.success('User deleted');
@@ -163,7 +174,7 @@ const Admin = () => {
   const handleToggleAdmin = async (targetId, makeAdmin) => {
     setActionLoading(`admin-${targetId}`);
     try {
-      const res = await fetch(`/api/admin/users/${targetId}/admin?userId=${user.id}`, {
+      const res = await adminFetch(`/api/admin/users/${targetId}/admin`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isAdmin: makeAdmin }),
@@ -186,7 +197,7 @@ const Admin = () => {
     setActionLoading(`suspend-${serverId}`);
     try {
       const action = suspend ? 'suspend' : 'unsuspend';
-      const res = await fetch(`/api/admin/servers/${serverId}/${action}?userId=${user.id}`, { method: 'PATCH' });
+      const res = await adminFetch(`/api/admin/servers/${serverId}/${action}`, { method: 'PATCH' });
       const data = await res.json();
       if (data.success) {
         toast.success(suspend ? 'Server suspended' : 'Server unsuspended');
@@ -204,7 +215,7 @@ const Admin = () => {
   const handleDeleteServer = async (serverId) => {
     setActionLoading(`delete-server-${serverId}`);
     try {
-      const res = await fetch(`/api/admin/servers/${serverId}?userId=${user.id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/servers/${serverId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         toast.success('Server deleted');
@@ -224,9 +235,8 @@ const Admin = () => {
   const handleCleanupExpired = async () => {
     setCleanupLoading(true);
     try {
-      const res = await fetch('/api/admin/cleanup-expired', {
+      const res = await adminFetch('/api/admin/cleanup-expired', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
       });
       const data = await res.json();

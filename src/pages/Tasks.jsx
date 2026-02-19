@@ -40,7 +40,10 @@ const Tasks = () => {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch(`/api/tasks?userId=${userId}`);
+      const token = localStorage.getItem('jwt_token');
+      const tHeaders = {};
+      if (token) tHeaders['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`/api/tasks?userId=${userId}`, { headers: tHeaders });
       const data = await res.json();
       if (data.success) {
         setTasks(data.tasks);
@@ -70,9 +73,13 @@ const Tasks = () => {
     setCompletingTask(taskId);
     setError('');
     try {
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/tasks/complete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ userId: userId.toString(), taskId }),
       });
       const data = await res.json();
@@ -95,9 +102,13 @@ const Tasks = () => {
     setError('');
     setSuccessMsg('');
     try {
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/tasks/claim-server', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           userId: userId.toString(),
           userEmail,

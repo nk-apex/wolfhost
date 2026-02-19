@@ -73,7 +73,10 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
   const fetchNotifications = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/notifications?userId=${user.id}`);
+      const token = localStorage.getItem('jwt_token');
+      const nHeaders = {};
+      if (token) nHeaders['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`/api/notifications?userId=${user.id}`, { headers: nHeaders });
       const data = await res.json();
       if (data.success) {
         setNotifications(data.notifications || []);
@@ -104,9 +107,13 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
   const markAllRead = async () => {
     if (!user?.id) return;
     try {
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       await fetch('/api/notifications/read', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ userId: user.id.toString() }),
       });
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -117,9 +124,13 @@ const Header = ({ onMenuToggle, isSidebarOpen }) => {
   const markOneRead = async (notifId) => {
     if (!user?.id) return;
     try {
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       await fetch('/api/notifications/read', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ userId: user.id.toString(), notificationId: notifId }),
       });
       setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));

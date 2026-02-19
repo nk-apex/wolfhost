@@ -432,7 +432,7 @@ export const statsAPI = {
           }
         } catch (e) {}
         const params = userEmail ? `?email=${encodeURIComponent(userEmail)}` : '';
-        const totalsRes = await fetch(`/api/transactions/totals${params}`);
+        const totalsRes = await authFetch(`/api/transactions/totals${params}`);
         const totalsData = await totalsRes.json();
         if (totalsData.success) {
           balance = totalsData.balance;
@@ -513,7 +513,7 @@ export const statsAPI = {
           }
         } catch (e) {}
         const emailParam = userEmail ? `&email=${encodeURIComponent(userEmail)}` : '';
-        const response = await fetch(`/api/transactions?perPage=100&status=success${emailParam}`);
+        const response = await authFetch(`/api/transactions?perPage=100&status=success${emailParam}`);
         const data = await response.json();
         if (data.success && data.transactions) {
           data.transactions.forEach(txn => {
@@ -554,7 +554,7 @@ export const activityAPI = {
     try {
       let mpesaActivities = [];
       try {
-        const response = await fetch(`/api/transactions?perPage=${limit}`);
+        const response = await authFetch(`/api/transactions?perPage=${limit}`);
         const data = await response.json();
         if (data.success && data.transactions) {
           mpesaActivities = data.transactions.map(txn => ({
@@ -635,7 +635,7 @@ export const referralAPI = {
       const user = JSON.parse(localStorage.getItem('current_user') || '{}');
       if (!user.id) return { success: false, referrals: [], totalReferrals: 0 };
 
-      const response = await fetch(`/api/referrals?userId=${user.id}&email=${encodeURIComponent(user.email || '')}`, {
+      const response = await authFetch(`/api/referrals?userId=${user.id}&email=${encodeURIComponent(user.email || '')}`, {
         signal: AbortSignal.timeout(10000),
       });
       const data = await response.json();
@@ -651,7 +651,7 @@ export const referralAPI = {
       const user = JSON.parse(localStorage.getItem('current_user') || '{}');
       if (!user.id) return { success: false, code: '', link: '' };
 
-      const response = await fetch(`/api/referrals?userId=${user.id}&email=${encodeURIComponent(user.email || '')}`, {
+      const response = await authFetch(`/api/referrals?userId=${user.id}&email=${encodeURIComponent(user.email || '')}`, {
         signal: AbortSignal.timeout(10000),
       });
       const data = await response.json();
@@ -675,7 +675,7 @@ export const referralAPI = {
       const user = JSON.parse(localStorage.getItem('current_user') || '{}');
       if (!user.id) return { success: false };
 
-      const response = await fetch(`/api/referrals/check-admin-reward?userId=${user.id}`, {
+      const response = await authFetch(`/api/referrals/check-admin-reward?userId=${user.id}`, {
         signal: AbortSignal.timeout(10000),
       });
       return await response.json();
@@ -698,7 +698,7 @@ export const serverAPI = {
         return { success: true, servers: [], total: 0 };
       }
       const userId = user.panelId || user.id;
-      const response = await fetch(`/api/servers?userId=${encodeURIComponent(userId)}`, {
+      const response = await authFetch(`/api/servers?userId=${encodeURIComponent(userId)}`, {
         signal: AbortSignal.timeout(15000),
       });
       const data = await response.json();
@@ -711,9 +711,8 @@ export const serverAPI = {
 
   createServer: async (serverData) => {
     try {
-      const response = await fetch('/api/servers/create', {
+      const response = await authFetch('/api/servers/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serverData),
         signal: AbortSignal.timeout(30000),
       });
@@ -731,7 +730,7 @@ export const serverAPI = {
       const userId = user.panelId || user.id;
       const userEmail = user.email || '';
       const params = new URLSearchParams({ userId, userEmail });
-      const response = await fetch(`/api/servers/${serverId}?${params}`, {
+      const response = await authFetch(`/api/servers/${serverId}?${params}`, {
         method: 'DELETE',
         signal: AbortSignal.timeout(15000),
       });
@@ -848,7 +847,7 @@ export const walletAPI = {
       } catch (e) {}
 
       const emailParam = userEmail ? `&email=${encodeURIComponent(userEmail)}` : '';
-      const response = await fetch(`/api/transactions?perPage=50&status=success${emailParam}`);
+      const response = await authFetch(`/api/transactions?perPage=50&status=success${emailParam}`);
       const data = await response.json();
 
       if (!data.success) {
@@ -899,7 +898,7 @@ export const walletAPI = {
       } catch (e) {}
 
       const params = userEmail ? `?email=${encodeURIComponent(userEmail)}` : '';
-      const response = await fetch(`/api/transactions/totals${params}`);
+      const response = await authFetch(`/api/transactions/totals${params}`);
       const data = await response.json();
 
       const balance = data.success ? data.balance : 0;
@@ -942,7 +941,7 @@ export const walletAPI = {
       } catch (e) {}
 
       const emailParam = userEmail ? `&email=${encodeURIComponent(userEmail)}` : '';
-      const response = await fetch(`/api/transactions?perPage=${limit}${emailParam}`);
+      const response = await authFetch(`/api/transactions?perPage=${limit}${emailParam}`);
       const data = await response.json();
 
       if (!data.success) {
@@ -969,7 +968,7 @@ export const walletAPI = {
       const totalDeposits = deposits.reduce((sum, t) => sum + t.amount, 0);
 
       const balanceParams = userEmail ? `?email=${encodeURIComponent(userEmail)}` : '';
-      const balanceRes = await fetch(`/api/transactions/totals${balanceParams}`);
+      const balanceRes = await authFetch(`/api/transactions/totals${balanceParams}`);
       const balanceData = await balanceRes.json();
       const currentBalance = balanceData.success ? balanceData.balance : totalDeposits;
 
@@ -1149,8 +1148,8 @@ export const walletAPI = {
   getWalletSummary: async () => {
     try {
       const [totalsRes, txnRes] = await Promise.all([
-        fetch(`/api/transactions/totals`),
-        fetch(`/api/transactions?perPage=50&status=success`)
+        authFetch(`/api/transactions/totals`),
+        authFetch(`/api/transactions?perPage=50&status=success`)
       ]);
       const totalsData = await totalsRes.json();
       const txnData = await txnRes.json();

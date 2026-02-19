@@ -28,9 +28,13 @@ export const paystackAPI = {
 
       console.log('Initiating MPESA Payment:', { phone, amount, userEmail });
 
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch('/api/mpesa/charge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ phone, amount, metadata, userEmail }),
       });
 
@@ -69,9 +73,13 @@ export const paystackAPI = {
 
       console.log('Initiating Mobile Money Payment:', { phone, amount, countryCode, provider, userEmail });
 
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch('/api/mobile-money/charge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ phone, amount, countryCode, provider, metadata, userEmail }),
       });
 
@@ -149,9 +157,13 @@ export const paystackAPI = {
     try {
       console.log('Initiating Card Payment:', { email, amount });
 
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch('/api/card/initialize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ email, amount, callbackUrl, metadata }),
       });
 
@@ -205,9 +217,13 @@ export const paystackAPI = {
 
   submitOtp: async (otp, reference) => {
     try {
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch('/api/mpesa/submit-otp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ otp, reference }),
       });
 
