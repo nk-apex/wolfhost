@@ -17,7 +17,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const serverLog = IS_PRODUCTION ? () => {} : console.log.bind(console);
 const serverDebug = IS_PRODUCTION ? () => {} : console.debug.bind(console);
 
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || (IS_PRODUCTION ? (() => { throw new Error('JWT_SECRET must be set in production'); })() : crypto.randomBytes(64).toString('hex'));
 const JWT_EXPIRY = '7d';
 
 function generateToken(user) {
@@ -80,13 +80,33 @@ app.use(helmet({
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
+      upgradeInsecureRequests: [],
+      workerSrc: ["'self'"],
+      manifestSrc: ["'self'"],
     },
   },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  hsts: IS_PRODUCTION ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+  hsts: IS_PRODUCTION ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
   referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  xContentTypeOptions: true,
+  xDnsPrefetchControl: { allow: false },
+  xDownloadOptions: true,
+  xFrameOptions: { action: 'deny' },
+  xPermittedCrossDomainPolicies: { permittedPolicies: 'none' },
+  xPoweredBy: false,
 }));
+
+app.use((req, res, next) => {
+  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self)');
+  res.set('X-Content-Type-Options', 'nosniff');
+  if (IS_PRODUCTION) {
+    res.set('X-Robots-Tag', 'noindex, nofollow, nosnippet, noarchive');
+  }
+  res.removeHeader('X-Powered-By');
+  res.removeHeader('Server');
+  next();
+});
 
 app.use(cors({
   origin: function(origin, callback) {
@@ -98,6 +118,7 @@ app.use(cors({
       /^https?:\/\/.*\.replit\.app$/,
       /^https?:\/\/.*\.repl\.dev$/,
       /^https?:\/\/.*\.wss\.replit\.dev$/,
+      /^https?:\/\/(host\.)?xwolf\.space$/,
     ];
     if (allowed.some(re => re.test(origin))) return callback(null, true);
     callback(null, false);
@@ -124,7 +145,7 @@ function securityLog(level, event, details = {}) {
   try {
     fs.appendFileSync(SECURITY_LOG_FILE, line);
   } catch (e) {}
-  if (level === 'WARN' || level === 'ALERT') {
+  if (!IS_PRODUCTION && (level === 'WARN' || level === 'ALERT')) {
     console.warn(`[SECURITY:${level}] ${event}`, JSON.stringify(details));
   }
 }
@@ -136,6 +157,21 @@ function getClientIp(req) {
 app.use((req, res, next) => {
   req._clientIp = getClientIp(req);
   req._requestId = crypto.randomUUID();
+  next();
+});
+
+app.use((req, res, next) => {
+  const blocked = ['.env', '.git', '.htaccess', 'wp-admin', 'wp-login', 'phpinfo',
+    'phpmyadmin', '.php', 'xmlrpc', 'wp-content', 'wp-includes', '.asp', '.aspx',
+    'cgi-bin', '.bak', '.sql', '.log', 'debug', '.config', 'web.config',
+    '.DS_Store', 'Thumbs.db', '.idea', '.vscode', 'node_modules', '.npmrc',
+    'package.json', 'package-lock', '.gitignore', 'tsconfig', 'vite.config',
+    'tailwind.config', 'postcss.config', 'server/', 'src/'];
+  const lp = req.path.toLowerCase();
+  if (blocked.some(p => lp.includes(p))) {
+    securityLog('WARN', 'BLOCKED_PATH', { ip: req._clientIp, path: req.path });
+    return res.status(404).json({ message: 'Not found' });
+  }
   next();
 });
 
@@ -2881,8 +2917,11 @@ if (fs.existsSync(distPath)) {
     index: false,
   }));
 
-  app.use('*.map', (req, res) => {
-    res.status(404).json({ message: 'Not found' });
+  app.use((req, res, next) => {
+    if (req.path.endsWith('.map')) {
+      return res.status(404).json({ message: 'Not found' });
+    }
+    next();
   });
 
   app.use((req, res, next) => {
@@ -2896,7 +2935,7 @@ if (fs.existsSync(distPath)) {
   });
 } else {
   app.get('/', (req, res) => {
-    res.json({ status: 'ok', service: 'WolfHost API' });
+    res.json({ status: 'ok' });
   });
 }
 
@@ -2914,12 +2953,14 @@ app.use((err, req, res, next) => {
     return res.status(413).json({ success: false, message: 'Request too large' });
   }
 
-  console.error(`[ERROR:${requestId}] ${req.method} ${req.path}:`, err.message);
+  if (!IS_PRODUCTION) {
+    console.error(`[ERROR:${requestId}] ${req.method} ${req.path}:`, err.message);
+  }
   securityLog('ALERT', 'UNHANDLED_ERROR', { ip, path: req.path, method: req.method, requestId, error: err.message });
 
   res.status(err.status || 500).json({
     success: false,
-    message: IS_PRODUCTION ? 'An internal error occurred' : err.message || 'An internal error occurred',
+    message: 'An internal error occurred',
   });
 });
 

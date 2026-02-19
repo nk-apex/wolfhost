@@ -44,44 +44,6 @@ const authFetch = async (url, options = {}) => {
   return response;
 };
 
-// Mock user data (in KES)
-const mockUser = {
-  id: '1',
-  email: 'demo@example.com',
-  name: 'Demo User',
-  phone: '+254712345678',
-  wallet: 1500.00, // KES
-  referrals: 5,
-  tier: 'pro',
-  createdAt: '2024-01-01',
-  avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Demo',
-  country: 'Kenya',
-  isEmailVerified: true,
-  isPhoneVerified: false,
-  twoFactorEnabled: false
-};
-
-// Initialize localStorage for MPESA transactions
-const initializeLocalStorage = () => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    if (!localStorage.getItem('mpesa_transactions')) {
-      localStorage.setItem('mpesa_transactions', JSON.stringify([]));
-    }
-    if (!localStorage.getItem('wallet_balance')) {
-      localStorage.setItem('wallet_balance', '1500.00');
-    }
-    if (!localStorage.getItem('user_preferences')) {
-      localStorage.setItem('user_preferences', JSON.stringify({
-        theme: 'light',
-        notifications: true,
-        currency: 'KES'
-      }));
-    }
-  }
-};
-
-// Initialize on import
-initializeLocalStorage();
 
 // ======================
 // AUTH API

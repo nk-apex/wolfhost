@@ -33,22 +33,25 @@ The application is built with React 18, Vite 5, and uses TypeScript/JavaScript. 
 - **Server Auto-Naming:** Servers are automatically named `username-plan-timestamp`.
 - **Payment Flow:** Includes detailed processes for M-Pesa (Kenya STK Push with polling), Ghana Mobile Money (MTN, Vodafone Cash, AirtelTigo via Paystack charge API), Cote d'Ivoire Mobile Money (MTN, Wave), and Card payments (Paystack hosted checkout with verification). Country-aware phone formatting and validation.
 - **Security Hardening (Feb 2026):** Enterprise-grade security stack applied:
-  - **Helmet:** Security headers with CSP (Paystack/fonts whitelisted), HSTS in production, X-Frame-Options, referrer policy
-  - **CORS:** Restricted to localhost and Replit domains (not wide-open)
+  - **Production Build Serving:** Frontend is built with Vite (Terser minification) and served via Express static — NO dev server in production. Source code is never exposed.
+  - **Helmet:** Comprehensive security headers: CSP (strict with Paystack/fonts whitelisted), HSTS (2 years, preload), X-Frame-Options DENY, X-Content-Type-Options nosniff, Permissions-Policy, X-DNS-Prefetch-Control, X-Download-Options, X-Permitted-Cross-Domain-Policies
+  - **CORS:** Restricted to localhost, Replit domains, and host.xwolf.space
   - **Rate Limiting:** 6 tiers — global (300/15min), auth (10/15min), payment (15/15min), admin (60/15min), chat (10/min), server creation (5/hr)
   - **Input Validation:** express-validator on login, register, payment charges, server creation, chat messages
-  - **Centralized Error Handler:** Catches JSON parse errors, oversized requests, unhandled errors; hides stack traces in production
-  - **Security Logging:** Failed logins, rate limit hits, admin access denials, admin actions, payment attempts, validation failures logged to server/security.log
+  - **Centralized Error Handler:** Catches JSON parse errors, oversized requests, unhandled errors; always returns generic error messages in production (no stack traces ever)
+  - **Security Logging:** Failed logins, rate limit hits, admin access denials, admin actions, payment attempts, validation failures logged to server/security.log (console suppressed in production)
+  - **Path Blocking:** Suspicious paths blocked (.env, .git, server/, src/, package.json, wp-admin, .php, etc.)
+  - **Source Map Protection:** No source maps generated, .map requests blocked
   - **Request Size Limits:** JSON/URL-encoded bodies capped at 1MB
   - **Request Tracking:** Unique request ID + client IP on every request
+  - **Anti-DevTools:** Advanced browser protection — debugger traps, console nullification, keyboard shortcut blocking (F12, Ctrl+Shift+I, Cmd+Option+I), right-click disabled, text selection/copy/drag restricted, React DevTools blocked, Function.prototype.toString spoofing
+  - **Build Security:** Terser strips ALL console methods (log, debug, info, warn, error, trace), removes comments, mangles variable names, hash-based filenames hide structure
+  - **JWT Auth:** Persistent JWT_SECRET via Replit secrets, 7-day token expiry, proper Bearer token validation on all protected endpoints
   - **Known Limitation:** Auth is frontend localStorage-based; userId is client-trusted. Changing auth model is a separate task.
-  - **Credential Protection (Feb 2026):** All sensitive values moved to environment variables:
-    - PAYSTACK_SECRET_KEY, PTERODACTYL_API_KEY stored as Replit secrets (server-side only)
-    - SUPER_ADMIN_USERNAME, PTERODACTYL_API_URL stored as env vars (no longer hardcoded)
-    - Frontend production build strips all console.log/debug via Terser
-    - Source maps disabled in production builds
-    - Browser DevTools inspection blocked (F12, Ctrl+Shift+I, right-click disabled)
-    - Server-side logging suppressed in production mode (NODE_ENV=production)
+  - **Credential Protection:** All sensitive values in environment variables:
+    - PAYSTACK_SECRET_KEY, PTERODACTYL_API_KEY, JWT_SECRET stored as Replit secrets (server-side only)
+    - SUPER_ADMIN_USERNAME, PTERODACTYL_API_URL, NODE_ENV stored as env vars
+    - No mock data or demo credentials in production build
 
 ## External Dependencies
 - **Pterodactyl Panel:** Used for server provisioning, user authentication, and server management.
