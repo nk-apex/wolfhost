@@ -75,7 +75,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
-      connectSrc: ["'self'", "https://api.paystack.co", "https://apiskeith.vercel.app", "wss:", "ws:"],
+      connectSrc: ["'self'", "https://api.paystack.co", "wss:", "ws:"],
       frameSrc: ["'self'", "https://js.paystack.co"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
@@ -708,9 +708,9 @@ app.get('/api/mpesa/verify/:reference', authenticateToken, async (req, res) => {
     }
 
     const isSuccess = data.status === true && data.data?.status === 'success';
-    if (isSuccess && req.query.userId) {
+    if (isSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
-      addNotification(req.query.userId, 'payment', 'M-Pesa Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via M-Pesa.`);
+      addNotification(req.user.userId, 'payment', 'M-Pesa Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via M-Pesa.`);
     }
 
     return res.json({
@@ -801,9 +801,9 @@ app.get('/api/card/verify/:reference', authenticateToken, async (req, res) => {
     }
 
     const cardSuccess = data.status === true && data.data?.status === 'success';
-    if (cardSuccess && req.query.userId) {
+    if (cardSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
-      addNotification(req.query.userId, 'payment', 'Card Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via card.`);
+      addNotification(req.user.userId, 'payment', 'Card Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via card.`);
     }
 
     return res.json({
@@ -948,10 +948,10 @@ app.get('/api/mobile-money/verify/:reference', authenticateToken, async (req, re
     }
 
     const isSuccess = data.status === true && data.data?.status === 'success';
-    if (isSuccess && req.query.userId) {
+    if (isSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
       const provider = data.data?.metadata?.provider || 'Mobile Money';
-      addNotification(req.query.userId, 'payment', 'Mobile Money Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via ${provider}.`);
+      addNotification(req.user.userId, 'payment', 'Mobile Money Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via ${provider}.`);
     }
 
     return res.json({
@@ -2321,13 +2321,10 @@ app.get('/api/servers', authenticateToken, async (req, res) => {
       return {
         id: attrs.id.toString(),
         identifier: attrs.identifier,
-        uuid: attrs.uuid,
         name: attrs.name,
-        description: attrs.description || '',
         status,
         plan: plan,
         ip: ip ? `${ip}:${port}` : '',
-        node: attrs.node,
         cpu: `${cpu}%`,
         ram: formatMem(mem),
         storage: formatDisk(attrs.limits.disk),
