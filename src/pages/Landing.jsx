@@ -56,9 +56,12 @@ export default function Landing() {
               >
                 <Zap className="h-6 w-6 text-primary/90" />
               </motion.div>
-              <span className="ml-3 text-xl font-display font-bold tracking-widest">
-                <span className="text-primary">WOLF</span><span className="text-gray-400">HOST</span>
-              </span>
+              <div className="ml-3">
+                <span className="text-xl font-display font-bold tracking-widest">
+                  <span className="text-primary">WOLF</span><span className="text-gray-400">HOST</span>
+                </span>
+                <p className="text-xs text-gray-500 font-mono">I am just an explorer</p>
+              </div>
             </div>
             <div className="flex space-x-2 sm:space-x-3">
               <Link to="/login">
@@ -96,7 +99,7 @@ export default function Landing() {
             transition={{ delay: 0.2, duration: 0.8 }}
             className="mt-2 text-lg text-gray-400 font-mono"
           >
-            I am just an explorer
+            Silent Wolf I am just an explorer
           </motion.p>
 
           <motion.p
