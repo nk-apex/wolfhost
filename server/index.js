@@ -1927,6 +1927,8 @@ app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdm
       docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
       startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
       environment: {
+        USER_UPLOAD: '1',
+        MAIN_FILE: 'index.js',
         GIT_ADDRESS: '',
         BRANCH: '',
         USERNAME: '',
@@ -2087,6 +2089,8 @@ app.post('/api/servers/create', serverCreateLimiter, authenticateToken, [
       docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
       startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
       environment: {
+        USER_UPLOAD: '1',
+        MAIN_FILE: 'index.js',
         GIT_ADDRESS: '',
         BRANCH: '',
         USERNAME: '',
@@ -2482,6 +2486,8 @@ app.post('/api/tasks/claim-server', authenticateToken, async (req, res) => {
       docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
       startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
       environment: {
+        USER_UPLOAD: '1',
+        MAIN_FILE: 'index.js',
         GIT_ADDRESS: '',
         BRANCH: '',
         USERNAME: '',
@@ -2596,6 +2602,8 @@ app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) =
       docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
       startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
       environment: {
+        USER_UPLOAD: '1',
+        MAIN_FILE: 'index.js',
         GIT_ADDRESS: '',
         BRANCH: '',
         USERNAME: '',
