@@ -3024,8 +3024,19 @@ process.on('uncaughtException', (err) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`WolfHost server running on port ${PORT}`);
   console.log(`Security: helmet=ON, cors=RESTRICTED, rate-limiting=ON, input-validation=ON`);
   console.log(`Mode: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+
+  if (PTERODACTYL_API_KEY) {
+    try {
+      console.log('Startup: Fetching Pterodactyl egg variables...');
+      const env = await getEggEnvironment();
+      console.log('Startup: Egg environment keys:', JSON.stringify(Object.keys(env)));
+      console.log('Startup: Egg environment values:', JSON.stringify(env));
+    } catch (e) {
+      console.error('Startup: Failed to fetch egg variables:', e.message);
+    }
+  }
 });
