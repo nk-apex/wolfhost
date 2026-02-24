@@ -239,7 +239,7 @@ const chatLimiter = rateLimit({
 
 const serverCreateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many server creation requests. Please wait.' },
