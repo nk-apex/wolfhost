@@ -1919,6 +1919,8 @@ const DEFAULT_ENV_VALUES = {
 };
 
 let cachedEggVars = null;
+let cachedEggStartup = null;
+let cachedEggDockerImage = null;
 let eggVarsCacheTime = 0;
 const EGG_CACHE_TTL = 5 * 60 * 1000;
 
@@ -1944,7 +1946,8 @@ async function getEggEnvironment() {
       const res = await pteroFetch(`/nests/${nid}/eggs/${SERVER_EGG_ID}?include=variables`);
       if (res.ok) {
         const data = await res.json();
-        const variables = data.attributes?.relationships?.variables?.data || [];
+        const eggAttrs = data.attributes || {};
+        const variables = eggAttrs?.relationships?.variables?.data || [];
         const env = {};
         for (const v of variables) {
           const attr = v.attributes;
@@ -1952,6 +1955,18 @@ async function getEggEnvironment() {
           const isRequired = (attr.rules || '').includes('required');
           env[envVar] = DEFAULT_ENV_VALUES[envVar] !== undefined ? DEFAULT_ENV_VALUES[envVar] : (attr.default_value || '');
           serverLog(`  Egg var: ${attr.name} -> env_variable=${envVar}, default=${attr.default_value}, required=${isRequired}, sending=${env[envVar]}`);
+        }
+        if (eggAttrs.startup) {
+          cachedEggStartup = eggAttrs.startup;
+          serverLog('Egg startup command:', cachedEggStartup);
+        }
+        if (eggAttrs.docker_image) {
+          cachedEggDockerImage = eggAttrs.docker_image;
+          serverLog('Egg docker image:', cachedEggDockerImage);
+        } else if (eggAttrs.docker_images && Object.keys(eggAttrs.docker_images).length > 0) {
+          const images = Object.values(eggAttrs.docker_images);
+          cachedEggDockerImage = images[images.length - 1];
+          serverLog('Egg docker images:', JSON.stringify(eggAttrs.docker_images), '-> using:', cachedEggDockerImage);
         }
         cachedEggVars = env;
         eggVarsCacheTime = now;
@@ -2070,8 +2085,8 @@ app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdm
       name: serverName,
       user: parseInt(targetUserId),
       egg: SERVER_EGG_ID,
-      docker_image: SERVER_DOCKER_IMAGE,
-      startup: SERVER_STARTUP,
+      docker_image: cachedEggDockerImage || SERVER_DOCKER_IMAGE,
+      startup: cachedEggStartup || SERVER_STARTUP,
       environment: eggEnv,
       limits: {
         memory: tierConfig.memory,
@@ -2202,8 +2217,8 @@ app.post('/api/servers/create', serverCreateLimiter, authenticateToken, [
       name: name,
       user: parseInt(userId),
       egg: SERVER_EGG_ID,
-      docker_image: SERVER_DOCKER_IMAGE,
-      startup: SERVER_STARTUP,
+      docker_image: cachedEggDockerImage || SERVER_DOCKER_IMAGE,
+      startup: cachedEggStartup || SERVER_STARTUP,
       environment: eggEnv,
       limits: {
         memory: tierConfig.memory,
@@ -2589,8 +2604,8 @@ app.post('/api/tasks/claim-server', authenticateToken, async (req, res) => {
       name: serverName,
       user: parseInt(userId),
       egg: SERVER_EGG_ID,
-      docker_image: SERVER_DOCKER_IMAGE,
-      startup: SERVER_STARTUP,
+      docker_image: cachedEggDockerImage || SERVER_DOCKER_IMAGE,
+      startup: cachedEggStartup || SERVER_STARTUP,
       environment: eggEnv,
       limits: {
         memory: FREE_SERVER_LIMITS.memory,
@@ -2695,8 +2710,8 @@ app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) =
       name: serverName,
       user: parseInt(userId),
       egg: SERVER_EGG_ID,
-      docker_image: SERVER_DOCKER_IMAGE,
-      startup: SERVER_STARTUP,
+      docker_image: cachedEggDockerImage || SERVER_DOCKER_IMAGE,
+      startup: cachedEggStartup || SERVER_STARTUP,
       environment: eggEnv,
       limits: {
         memory: FREE_SERVER_LIMITS.memory,
@@ -3035,6 +3050,8 @@ app.listen(PORT, '0.0.0.0', async () => {
       const env = await getEggEnvironment();
       console.log('Startup: Egg environment keys:', JSON.stringify(Object.keys(env)));
       console.log('Startup: Egg environment values:', JSON.stringify(env));
+      console.log('Startup: Egg startup:', cachedEggStartup ? 'FROM EGG' : 'HARDCODED FALLBACK');
+      console.log('Startup: Egg docker image:', cachedEggDockerImage || 'HARDCODED FALLBACK');
     } catch (e) {
       console.error('Startup: Failed to fetch egg variables:', e.message);
     }
