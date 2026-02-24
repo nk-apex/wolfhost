@@ -31,7 +31,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "npx vite build && NODE_ENV=production node server/index.js"
 waitForPort = 5000
 
 [[ports]]
@@ -42,14 +42,13 @@ externalPort = 3001
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 5001
-externalPort = 3000
-
 [userenv]
 
 [userenv.shared]
 VITE_PAYSTACK_PUBLIC_KEY = "pk_live_088049698ee943a439abd25e20173c85503afa02"
 PTERODACTYL_API_URL = "https://panel.xwolf.space"
 SUPER_ADMIN_USERNAME = "wolf"
-NODE_ENV = "production"
+JWT_SECRET = "96bd4b6daa3209c83de40896e43f2051751aebee27fcdac6c8b457ee45a94d80708edd2057ae100479772017b7eb4c5d1f74bab02987a0ade01a428a4f10db35"
+
+[userenv.development]
+NODE_ENV = "development"
