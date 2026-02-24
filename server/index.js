@@ -1849,6 +1849,63 @@ async function pteroFetch(path, options = {}) {
   return response;
 }
 
+const SERVER_EGG_ID = 15;
+const SERVER_DOCKER_IMAGE = 'ghcr.io/parkervcp/yolks:nodejs_24';
+const SERVER_STARTUP = 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};';
+
+const DEFAULT_ENV_VALUES = {
+  'USER_UPLOAD': '1',
+  'MAIN_FILE': 'index.js',
+  'JS_FILE': 'index.js',
+  'FILE': 'index.js',
+  'GIT_ADDRESS': '',
+  'BRANCH': '',
+  'USERNAME': '',
+  'ACCESS_TOKEN': '',
+  'CMD_RUN': 'npm start',
+  'AUTO_UPDATE': '0',
+  'NODE_PACKAGES': '',
+  'UNNODE_PACKAGES': '',
+  'CUSTOM_ENVIRONMENT_VARIABLES': '',
+};
+
+let cachedEggVars = null;
+let eggVarsCacheTime = 0;
+const EGG_CACHE_TTL = 5 * 60 * 1000;
+
+async function getEggEnvironment(nestId) {
+  const now = Date.now();
+  if (cachedEggVars && (now - eggVarsCacheTime) < EGG_CACHE_TTL) {
+    return { ...cachedEggVars };
+  }
+
+  try {
+    const nests = nestId ? [nestId] : [1, 2, 3, 4, 5];
+    for (const nid of nests) {
+      const res = await pteroFetch(`/nests/${nid}/eggs/${SERVER_EGG_ID}?include=variables`);
+      if (res.ok) {
+        const data = await res.json();
+        const variables = data.attributes?.relationships?.variables?.data || [];
+        const env = {};
+        for (const v of variables) {
+          const attr = v.attributes;
+          const envVar = attr.env_variable;
+          env[envVar] = DEFAULT_ENV_VALUES[envVar] || attr.default_value || '';
+        }
+        cachedEggVars = env;
+        eggVarsCacheTime = now;
+        serverLog('Fetched egg variables:', Object.keys(env));
+        return { ...env };
+      }
+    }
+  } catch (e) {
+    console.error('Error fetching egg variables:', e.message);
+  }
+
+  serverLog('Using fallback environment variables');
+  return { ...DEFAULT_ENV_VALUES };
+}
+
 async function findFreeAllocation(nodeId = null) {
   try {
     const nodeIds = [];
@@ -1920,25 +1977,15 @@ app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdm
 
     const serverName = `${pteroUser.username}-${plan.toLowerCase()}-${Date.now().toString(36)}`;
 
+    const eggEnv = await getEggEnvironment();
+
     const serverPayload = {
       name: serverName,
       user: parseInt(targetUserId),
-      egg: 15,
-      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
-      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
-      environment: {
-        USER_UPLOAD: '1',
-        MAIN_FILE: 'index.js',
-        GIT_ADDRESS: '',
-        BRANCH: '',
-        USERNAME: '',
-        ACCESS_TOKEN: '',
-        CMD_RUN: 'npm start',
-        AUTO_UPDATE: '0',
-        NODE_PACKAGES: '',
-        UNNODE_PACKAGES: '',
-        CUSTOM_ENVIRONMENT_VARIABLES: '',
-      },
+      egg: SERVER_EGG_ID,
+      docker_image: SERVER_DOCKER_IMAGE,
+      startup: SERVER_STARTUP,
+      environment: eggEnv,
       limits: {
         memory: tierConfig.memory,
         swap: tierConfig.swap,
@@ -2062,25 +2109,15 @@ app.post('/api/servers/create', serverCreateLimiter, authenticateToken, [
 
     serverLog('Creating Pterodactyl server:', { name, plan, userId, allocationId, verifiedBalance: balance });
 
+    const eggEnv = await getEggEnvironment();
+
     const serverPayload = {
       name: name,
       user: parseInt(userId),
-      egg: 15,
-      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
-      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
-      environment: {
-        USER_UPLOAD: '1',
-        MAIN_FILE: 'index.js',
-        GIT_ADDRESS: '',
-        BRANCH: '',
-        USERNAME: '',
-        ACCESS_TOKEN: '',
-        CMD_RUN: 'npm start',
-        AUTO_UPDATE: '0',
-        NODE_PACKAGES: '',
-        UNNODE_PACKAGES: '',
-        CUSTOM_ENVIRONMENT_VARIABLES: '',
-      },
+      egg: SERVER_EGG_ID,
+      docker_image: SERVER_DOCKER_IMAGE,
+      startup: SERVER_STARTUP,
+      environment: eggEnv,
       limits: {
         memory: tierConfig.memory,
         swap: tierConfig.swap,
@@ -2459,25 +2496,15 @@ app.post('/api/tasks/claim-server', authenticateToken, async (req, res) => {
 
     serverLog('Creating free trial server:', { serverName, userId, allocationId, expiresAt });
 
+    const eggEnv = await getEggEnvironment();
+
     const serverPayload = {
       name: serverName,
       user: parseInt(userId),
-      egg: 15,
-      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
-      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
-      environment: {
-        USER_UPLOAD: '1',
-        MAIN_FILE: 'index.js',
-        GIT_ADDRESS: '',
-        BRANCH: '',
-        USERNAME: '',
-        ACCESS_TOKEN: '',
-        CMD_RUN: 'npm start',
-        AUTO_UPDATE: '0',
-        NODE_PACKAGES: '',
-        UNNODE_PACKAGES: '',
-        CUSTOM_ENVIRONMENT_VARIABLES: '',
-      },
+      egg: SERVER_EGG_ID,
+      docker_image: SERVER_DOCKER_IMAGE,
+      startup: SERVER_STARTUP,
+      environment: eggEnv,
       limits: {
         memory: FREE_SERVER_LIMITS.memory,
         swap: FREE_SERVER_LIMITS.swap,
@@ -2575,25 +2602,15 @@ app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) =
 
     serverLog('Creating welcome free trial server:', { serverName, userId, allocationId, expiresAt });
 
+    const eggEnv = await getEggEnvironment();
+
     const serverPayload = {
       name: serverName,
       user: parseInt(userId),
-      egg: 15,
-      docker_image: 'ghcr.io/parkervcp/yolks:nodejs_24',
-      startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};',
-      environment: {
-        USER_UPLOAD: '1',
-        MAIN_FILE: 'index.js',
-        GIT_ADDRESS: '',
-        BRANCH: '',
-        USERNAME: '',
-        ACCESS_TOKEN: '',
-        CMD_RUN: 'npm start',
-        AUTO_UPDATE: '0',
-        NODE_PACKAGES: '',
-        UNNODE_PACKAGES: '',
-        CUSTOM_ENVIRONMENT_VARIABLES: '',
-      },
+      egg: SERVER_EGG_ID,
+      docker_image: SERVER_DOCKER_IMAGE,
+      startup: SERVER_STARTUP,
+      environment: eggEnv,
       limits: {
         memory: FREE_SERVER_LIMITS.memory,
         swap: FREE_SERVER_LIMITS.swap,

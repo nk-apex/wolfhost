@@ -66,5 +66,12 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - This caused inconsistent balance calculation between what the UI shows and what the backend verifies during server creation
   - Fixed by reusing `fetchUserTransactions()` which properly resolves email to Paystack customer code via `resolvePaystackCustomer()`
 
+- 2026-02-24: Fixed server creation "variable field is required" error
+  - All 4 server creation payloads (admin, user, free trial, welcome) had hardcoded egg environment variables that didn't match the Pterodactyl panel's actual egg variable definitions
+  - Added `getEggEnvironment()` function that dynamically fetches egg 15's variable definitions from the Pterodactyl API (`/nests/{id}/eggs/15?include=variables`) and builds the environment object from actual variable names
+  - Results are cached for 5 minutes to avoid repeated API calls
+  - Falls back to a comprehensive set of known variable names if the API call fails
+  - Centralized egg ID, docker image, and startup command into constants (`SERVER_EGG_ID`, `SERVER_DOCKER_IMAGE`, `SERVER_STARTUP`)
+
 ## User Preferences
 - None documented yet
