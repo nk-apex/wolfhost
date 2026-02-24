@@ -61,6 +61,10 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - All three verify functions in `src/services/paystack.js` (verifyPayment, verifyMobileMoneyPayment, verifyCardPayment) were missing Authorization headers
   - Server endpoints require JWT auth, so verification polls always failed with 401 and silently retried until timeout
   - Added JWT token from localStorage to all verification fetch requests
+- 2026-02-24: Fixed server deployment balance verification bug
+  - `verifyUserBalance()` in `server/index.js` was passing raw email as Paystack `customer` parameter instead of resolving to customer code first
+  - This caused inconsistent balance calculation between what the UI shows and what the backend verifies during server creation
+  - Fixed by reusing `fetchUserTransactions()` which properly resolves email to Paystack customer code via `resolvePaystackCustomer()`
 
 ## User Preferences
 - None documented yet

@@ -1995,27 +1995,7 @@ app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdm
 
 async function verifyUserBalance(email, requiredAmount) {
   try {
-    let path = `/transaction?perPage=100&currency=KES&status=success`;
-    if (email) {
-      path += `&customer=${encodeURIComponent(email)}`;
-    }
-    const response = await paystackFetch(path);
-    const data = await response.json();
-    if (!response.ok || !data.status) return 0;
-
-    let transactions = data.data || [];
-    if (email && transactions.length === 0) {
-      const altResponse = await paystackFetch('/transaction?perPage=100&currency=KES&status=success');
-      const altData = await altResponse.json();
-      if (altResponse.ok && altData.status) {
-        transactions = (altData.data || []).filter(txn => {
-          const txnEmail = txn.customer?.email?.toLowerCase();
-          const filterEmail = email.toLowerCase();
-          return txnEmail === filterEmail || txn.metadata?.user_email?.toLowerCase() === filterEmail;
-        });
-      }
-    }
-
+    const { transactions } = await fetchUserTransactions(email, 100, 1, 'success');
     const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
     const spending = getTotalSpending(email);
     return Math.max(0, totalDeposits - spending);
