@@ -237,18 +237,6 @@ const chatLimiter = rateLimit({
   keyGenerator: (req) => req._clientIp || getClientIp(req),
 });
 
-const serverCreateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many server creation requests. Please wait.' },
-  keyGenerator: (req) => req._clientIp || getClientIp(req),
-  handler: (req, res, next, options) => {
-    securityLog('WARN', 'SERVER_CREATE_RATE_LIMIT', { ip: req._clientIp, userId: req.body?.userId });
-    res.status(429).json(options.message);
-  },
-});
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -2165,7 +2153,7 @@ async function verifyPteroUser(userId) {
   }
 }
 
-app.post('/api/servers/create', serverCreateLimiter, authenticateToken, [
+app.post('/api/servers/create', authenticateToken, [
   body('name').isString().trim().notEmpty().withMessage('Server name is required')
     .isLength({ max: 100 }).withMessage('Server name too long')
     .matches(/^[a-zA-Z0-9_\-. ]+$/).withMessage('Server name contains invalid characters'),
