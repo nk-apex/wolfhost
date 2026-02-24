@@ -1628,6 +1628,55 @@ app.delete('/api/admin/users/:id', adminLimiter, authenticateToken, requireAdmin
   }
 });
 
+app.get('/api/admin/debug-egg', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    cachedEggVars = null;
+    eggVarsCacheTime = 0;
+
+    const nestsRes = await pteroFetch('/nests');
+    if (!nestsRes.ok) {
+      return res.json({ success: false, message: 'Failed to list nests', status: nestsRes.status });
+    }
+    const nestsData = await nestsRes.json();
+    const nestIds = (nestsData.data || []).map(n => ({ id: n.attributes.id, name: n.attributes.name }));
+
+    const allEggs = [];
+    let foundEgg = null;
+
+    for (const nest of nestIds) {
+      const eggsRes = await pteroFetch(`/nests/${nest.id}/eggs?include=variables`);
+      if (!eggsRes.ok) continue;
+      const eggsData = await eggsRes.json();
+      for (const egg of (eggsData.data || [])) {
+        const eggInfo = {
+          nestId: nest.id,
+          nestName: nest.name,
+          eggId: egg.attributes.id,
+          eggName: egg.attributes.name,
+          variables: (egg.attributes?.relationships?.variables?.data || []).map(v => ({
+            name: v.attributes.name,
+            env_variable: v.attributes.env_variable,
+            default_value: v.attributes.default_value,
+            rules: v.attributes.rules,
+          })),
+        };
+        allEggs.push(eggInfo);
+        if (egg.attributes.id === SERVER_EGG_ID) foundEgg = eggInfo;
+      }
+    }
+
+    res.json({
+      success: true,
+      targetEggId: SERVER_EGG_ID,
+      foundEgg,
+      allEggs,
+      currentDefaults: DEFAULT_ENV_VALUES,
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 app.get('/api/admin/servers', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
     const response = await pteroFetch('/servers?per_page=100&include=user');
@@ -1873,15 +1922,25 @@ let cachedEggVars = null;
 let eggVarsCacheTime = 0;
 const EGG_CACHE_TTL = 5 * 60 * 1000;
 
-async function getEggEnvironment(nestId) {
+async function getEggEnvironment() {
   const now = Date.now();
   if (cachedEggVars && (now - eggVarsCacheTime) < EGG_CACHE_TTL) {
+    serverLog('Using cached egg variables:', Object.keys(cachedEggVars));
     return { ...cachedEggVars };
   }
 
   try {
-    const nests = nestId ? [nestId] : [1, 2, 3, 4, 5];
-    for (const nid of nests) {
+    const nestsRes = await pteroFetch('/nests');
+    if (!nestsRes.ok) {
+      console.error('Failed to list nests:', nestsRes.status, await nestsRes.text());
+      serverLog('FALLBACK: Could not list nests, using default env vars');
+      return { ...DEFAULT_ENV_VALUES };
+    }
+    const nestsData = await nestsRes.json();
+    const nestIds = (nestsData.data || []).map(n => n.attributes.id);
+    serverLog('Found nests:', nestIds);
+
+    for (const nid of nestIds) {
       const res = await pteroFetch(`/nests/${nid}/eggs/${SERVER_EGG_ID}?include=variables`);
       if (res.ok) {
         const data = await res.json();
@@ -1890,19 +1949,47 @@ async function getEggEnvironment(nestId) {
         for (const v of variables) {
           const attr = v.attributes;
           const envVar = attr.env_variable;
-          env[envVar] = DEFAULT_ENV_VALUES[envVar] || attr.default_value || '';
+          const isRequired = (attr.rules || '').includes('required');
+          env[envVar] = DEFAULT_ENV_VALUES[envVar] !== undefined ? DEFAULT_ENV_VALUES[envVar] : (attr.default_value || '');
+          serverLog(`  Egg var: ${attr.name} -> env_variable=${envVar}, default=${attr.default_value}, required=${isRequired}, sending=${env[envVar]}`);
         }
         cachedEggVars = env;
         eggVarsCacheTime = now;
-        serverLog('Fetched egg variables:', Object.keys(env));
+        serverLog('Egg environment resolved from nest', nid, ':', JSON.stringify(env));
         return { ...env };
+      } else {
+        serverLog(`Egg ${SERVER_EGG_ID} not found in nest ${nid} (status ${res.status})`);
+      }
+    }
+
+    serverLog('WARNING: Egg not found in any nest, trying all eggs approach...');
+
+    for (const nid of nestIds) {
+      const eggsRes = await pteroFetch(`/nests/${nid}/eggs?include=variables`);
+      if (!eggsRes.ok) continue;
+      const eggsData = await eggsRes.json();
+      for (const egg of (eggsData.data || [])) {
+        serverLog(`  Nest ${nid} has egg: id=${egg.attributes.id}, name=${egg.attributes.name}`);
+        if (egg.attributes.id === SERVER_EGG_ID) {
+          const variables = egg.attributes?.relationships?.variables?.data || [];
+          const env = {};
+          for (const v of variables) {
+            const attr = v.attributes;
+            const envVar = attr.env_variable;
+            env[envVar] = DEFAULT_ENV_VALUES[envVar] !== undefined ? DEFAULT_ENV_VALUES[envVar] : (attr.default_value || '');
+            serverLog(`  Egg var: ${attr.name} -> env_variable=${envVar}, sending=${env[envVar]}`);
+          }
+          cachedEggVars = env;
+          eggVarsCacheTime = now;
+          return { ...env };
+        }
       }
     }
   } catch (e) {
-    console.error('Error fetching egg variables:', e.message);
+    console.error('Error fetching egg variables:', e.message, e.stack);
   }
 
-  serverLog('Using fallback environment variables');
+  serverLog('FALLBACK: Using default environment variables (egg fetch failed completely)');
   return { ...DEFAULT_ENV_VALUES };
 }
 
