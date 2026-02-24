@@ -72,6 +72,14 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - Results are cached for 5 minutes to avoid repeated API calls
   - Falls back to a comprehensive set of known variable names if the API call fails
   - Centralized egg ID, docker image, and startup command into constants (`SERVER_EGG_ID`, `SERVER_DOCKER_IMAGE`, `SERVER_STARTUP`)
+  - Also fetches the egg's actual startup command and docker image (was `ghcr.io/pelican-eggs/yolks:nodejs_24`, not `parkervcp`)
+  - Added `/api/admin/debug-egg` endpoint for diagnosing egg variable issues
+
+### VPS Deployment Notes
+- **Nginx** proxies `host.xwolf.space` → `localhost:4000` (config: `/etc/nginx/sites-available/wolfhost.conf`)
+- **PM2 process**: `wolfhost` must run with `PORT=4000` — use `PORT=4000 NODE_ENV=production pm2 start server/index.js --name wolfhost`
+- Old `wolfhost-backend` and `wolfhost-frontend` processes should remain stopped
+- Deploy command: `cd /var/www/wolfhost && git pull && npx vite build && pm2 restart wolfhost`
 
 ## User Preferences
 - None documented yet

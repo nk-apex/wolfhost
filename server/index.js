@@ -239,7 +239,7 @@ const chatLimiter = rateLimit({
 
 const serverCreateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 20,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many server creation requests. Please wait.' },
@@ -2240,16 +2240,12 @@ app.post('/api/servers/create', serverCreateLimiter, authenticateToken, [
       external_id: `wolfhost-${userId}-${Date.now()}`,
     };
 
-    console.log('SERVER CREATE PAYLOAD:', JSON.stringify(serverPayload, null, 2));
-
     const pteroResponse = await pteroFetch('/servers', {
       method: 'POST',
       body: JSON.stringify(serverPayload),
     });
 
     const pteroData = await pteroResponse.json();
-
-    console.log('SERVER CREATE RESPONSE:', pteroResponse.status, JSON.stringify(pteroData, null, 2));
 
     if (!pteroResponse.ok) {
       console.error('Pterodactyl server create error:', JSON.stringify(pteroData));
