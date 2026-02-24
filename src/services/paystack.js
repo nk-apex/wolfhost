@@ -108,7 +108,10 @@ export const paystackAPI = {
   verifyMobileMoneyPayment: async (reference, userId) => {
     try {
       const url = userId ? `/api/mobile-money/verify/${encodeURIComponent(reference)}?userId=${userId}` : `/api/mobile-money/verify/${encodeURIComponent(reference)}`;
-      const response = await fetch(url);
+      const token = localStorage.getItem('jwt_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch(url, { headers });
       const data = await response.json();
 
       if (!response.ok) {
@@ -132,7 +135,10 @@ export const paystackAPI = {
   verifyPayment: async (reference, userId) => {
     try {
       const url = userId ? `/api/mpesa/verify/${encodeURIComponent(reference)}?userId=${userId}` : `/api/mpesa/verify/${encodeURIComponent(reference)}`;
-      const response = await fetch(url);
+      const token = localStorage.getItem('jwt_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch(url, { headers });
       const data = await response.json();
 
       if (!response.ok) {
@@ -194,7 +200,10 @@ export const paystackAPI = {
   verifyCardPayment: async (reference, userId) => {
     try {
       const url = userId ? `/api/card/verify/${encodeURIComponent(reference)}?userId=${userId}` : `/api/card/verify/${encodeURIComponent(reference)}`;
-      const response = await fetch(url);
+      const token = localStorage.getItem('jwt_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch(url, { headers });
       const data = await response.json();
 
       if (!response.ok) {

@@ -57,6 +57,10 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - Set NODE_ENV=development for dev environment
   - Generated and set JWT_SECRET
   - Configured workflow for build + serve
+- 2026-02-24: Fixed payment verification timeout bug
+  - All three verify functions in `src/services/paystack.js` (verifyPayment, verifyMobileMoneyPayment, verifyCardPayment) were missing Authorization headers
+  - Server endpoints require JWT auth, so verification polls always failed with 401 and silently retried until timeout
+  - Added JWT token from localStorage to all verification fetch requests
 
 ## User Preferences
 - None documented yet
