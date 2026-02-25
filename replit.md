@@ -84,6 +84,15 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - Users can delete own messages, admins can delete any
   - Added "Community" nav item to sidebar
 
+- 2026-02-25: Added admin panel features - Notifications & Site Settings
+  - New admin tabs: "Notify" (broadcast notifications) and "Site" (social links management)
+  - `POST /api/admin/broadcast-notification` — sends notification to all users (type: info/success/warning/alert)
+  - `GET /api/site-settings` — public endpoint for social link data
+  - `PUT /api/admin/site-settings` — admin-only, update social links
+  - Site settings stored in `server/site_settings.json` (WhatsApp channel/group, YouTube, support phone)
+  - Landing page footer and sidebar "Join Us" section now load links dynamically from API
+  - YouTube link added to landing page footer
+
 ### VPS Deployment Notes
 - **Nginx** proxies `host.xwolf.space` → `localhost:4000` (config: `/etc/nginx/sites-available/wolfhost.conf`)
 - **PM2 process**: `wolfhost` must run with `PORT=4000` — use `PORT=4000 NODE_ENV=production pm2 start server/index.js --name wolfhost`

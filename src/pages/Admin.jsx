@@ -26,6 +26,13 @@ import {
   Crown,
   CheckCircle,
   X,
+  Bell,
+  Settings,
+  Save,
+  Send,
+  Globe,
+  MessageCircle,
+  Youtube,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
@@ -66,6 +73,80 @@ const Admin = () => {
   const [uploadServerLoading, setUploadServerLoading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [siteSettings, setSiteSettings] = useState({
+    whatsappChannel: '',
+    whatsappGroup: '',
+    youtube: '',
+    supportPhone: '',
+    supportPhoneDisplay: '',
+  });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastType, setBroadcastType] = useState('info');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+
+  const fetchSiteSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      const res = await adminFetch('/api/site-settings');
+      const data = await res.json();
+      if (data.success) setSiteSettings(data.settings);
+    } catch {
+      toast.error('Failed to load site settings');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const saveSiteSettings = async () => {
+    setSettingsSaving(true);
+    try {
+      const res = await adminFetch('/api/admin/site-settings', {
+        method: 'PUT',
+        body: JSON.stringify(siteSettings),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Site settings saved');
+        setSiteSettings(data.settings);
+      } else {
+        toast.error(data.message || 'Failed to save settings');
+      }
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleBroadcast = async () => {
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      toast.error('Title and message are required');
+      return;
+    }
+    setBroadcastSending(true);
+    try {
+      const res = await adminFetch('/api/admin/broadcast-notification', {
+        method: 'POST',
+        body: JSON.stringify({ title: broadcastTitle, message: broadcastMessage, type: broadcastType }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || 'Notification sent');
+        setBroadcastTitle('');
+        setBroadcastMessage('');
+        setBroadcastType('info');
+      } else {
+        toast.error(data.message || 'Failed to send notification');
+      }
+    } catch {
+      toast.error('Failed to send notification');
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
 
   const handleUploadServer = async (targetUserId, plan) => {
     const targetUsername = uploadServerTarget?.username || 'User';
@@ -148,6 +229,9 @@ const Admin = () => {
   useEffect(() => {
     if (activeTab === 'payments' && payments.length === 0 && !paymentsLoading && user?.isSuperAdmin) {
       fetchPayments();
+    }
+    if (activeTab === 'site-settings' && !siteSettings.whatsappChannel) {
+      fetchSiteSettings();
     }
   }, [activeTab]);
 
@@ -321,6 +405,8 @@ const Admin = () => {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'servers', label: 'Servers', icon: Server },
     ...(user?.isSuperAdmin ? [{ id: 'payments', label: 'Payments', icon: CreditCard }] : []),
+    { id: 'notifications', label: 'Notify', icon: Bell },
+    { id: 'site-settings', label: 'Site', icon: Settings },
   ];
 
   return (
@@ -806,6 +892,213 @@ const Admin = () => {
                 )}
               </>
             )}
+          </motion.div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <motion.div
+            key="notifications"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="space-y-4 sm:space-y-6"
+          >
+            <div className="rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Bell size={18} className="text-primary" />
+                <h3 className="text-sm sm:text-lg font-bold">Broadcast Notification</h3>
+              </div>
+              <p className="text-xs text-gray-500 font-mono mb-4">Send a notification to all users on the platform.</p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-mono text-gray-400 mb-1.5">Type</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { value: 'info', label: 'Info', active: 'bg-blue-500/10 border-blue-500/30 text-blue-400' },
+                      { value: 'success', label: 'Success', active: 'bg-green-500/10 border-green-500/30 text-green-400' },
+                      { value: 'warning', label: 'Warning', active: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' },
+                      { value: 'alert', label: 'Alert', active: 'bg-red-500/10 border-red-500/30 text-red-400' },
+                    ].map(t => (
+                      <button
+                        key={t.value}
+                        onClick={() => setBroadcastType(t.value)}
+                        className={`px-3 py-1.5 rounded-lg font-mono text-xs border transition-all ${
+                          broadcastType === t.value
+                            ? t.active
+                            : 'bg-black/30 border-primary/10 text-gray-500 hover:border-primary/20'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-gray-400 mb-1.5">Title</label>
+                  <input
+                    type="text"
+                    value={broadcastTitle}
+                    onChange={(e) => setBroadcastTitle(e.target.value)}
+                    placeholder="Notification title..."
+                    maxLength={200}
+                    className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-gray-400 mb-1.5">Message</label>
+                  <textarea
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    placeholder="Write your notification message..."
+                    maxLength={1000}
+                    rows={4}
+                    className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors resize-none"
+                  />
+                  <p className="text-[10px] font-mono text-gray-600 mt-1">{broadcastMessage.length}/1000</p>
+                </div>
+
+                {broadcastTitle && broadcastMessage && (
+                  <div className="p-3 rounded-lg border border-primary/10 bg-black/30">
+                    <p className="text-[10px] font-mono text-gray-500 uppercase mb-1">Preview</p>
+                    <p className="text-sm font-bold text-white">{broadcastTitle}</p>
+                    <p className="text-xs text-gray-400 mt-1">{broadcastMessage}</p>
+                  </div>
+                )}
+
+                <motion.button
+                  onClick={handleBroadcast}
+                  disabled={broadcastSending || !broadcastTitle.trim() || !broadcastMessage.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary font-mono text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {broadcastSending ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <>
+                      <Send size={14} />
+                      Send to All Users
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'site-settings' && (
+          <motion.div
+            key="site-settings"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="space-y-4 sm:space-y-6"
+          >
+            <div className="rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Globe size={18} className="text-primary" />
+                <h3 className="text-sm sm:text-lg font-bold">Social Links & Contact</h3>
+              </div>
+              <p className="text-xs text-gray-500 font-mono mb-4">Update the social links shown on the landing page, sidebar, and footer.</p>
+
+              {settingsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner size="lg" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-mono text-gray-400 mb-1.5">
+                      <MessageCircle size={12} className="text-green-400" />
+                      WhatsApp Channel URL
+                    </label>
+                    <input
+                      type="text"
+                      value={siteSettings.whatsappChannel}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, whatsappChannel: e.target.value }))}
+                      placeholder="https://whatsapp.com/channel/..."
+                      className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-mono text-gray-400 mb-1.5">
+                      <Users size={12} className="text-green-400" />
+                      WhatsApp Group URL
+                    </label>
+                    <input
+                      type="text"
+                      value={siteSettings.whatsappGroup}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, whatsappGroup: e.target.value }))}
+                      placeholder="https://chat.whatsapp.com/..."
+                      className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-mono text-gray-400 mb-1.5">
+                      <Youtube size={12} className="text-red-400" />
+                      YouTube URL
+                    </label>
+                    <input
+                      type="text"
+                      value={siteSettings.youtube}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, youtube: e.target.value }))}
+                      placeholder="https://www.youtube.com/@..."
+                      className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-mono text-gray-400 mb-1.5">
+                      <Phone size={12} className="text-green-400" />
+                      Support WhatsApp Link
+                    </label>
+                    <input
+                      type="text"
+                      value={siteSettings.supportPhone}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, supportPhone: e.target.value }))}
+                      placeholder="https://wa.me/..."
+                      className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-mono text-gray-400 mb-1.5">
+                      <Phone size={12} className="text-green-400" />
+                      Support Phone Display
+                    </label>
+                    <input
+                      type="text"
+                      value={siteSettings.supportPhoneDisplay}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, supportPhoneDisplay: e.target.value }))}
+                      placeholder="+254 713 046 497"
+                      className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                    />
+                  </div>
+
+                  <motion.button
+                    onClick={saveSiteSettings}
+                    disabled={settingsSaving}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary font-mono text-sm font-semibold transition-colors disabled:opacity-30"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {settingsSaving ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        Save Settings
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

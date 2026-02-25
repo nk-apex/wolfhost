@@ -1,6 +1,14 @@
 {
   "1": [
     {
+      "id": "1772027498212-ai7pbc",
+      "type": "server",
+      "title": "Server Created",
+      "message": "Your \"kip-0\" server (Limited plan) has been deployed successfully!",
+      "read": false,
+      "createdAt": "2026-02-25T13:51:38.212Z"
+    },
+    {
       "id": "1771106129442-3hg1a3",
       "type": "server",
       "title": "Server Deployed",

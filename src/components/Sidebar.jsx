@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -28,6 +29,18 @@ const menuItems = [
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [siteLinks, setSiteLinks] = useState({
+    whatsappChannel: 'https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y',
+    whatsappGroup: 'https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu',
+    youtube: 'https://www.youtube.com/@Silentwolf906',
+  });
+
+  useEffect(() => {
+    fetch('/api/site-settings')
+      .then(r => r.json())
+      .then(data => { if (data.success) setSiteLinks(data.settings); })
+      .catch(() => {});
+  }, []);
 
   const isAdminUnlocked = user?.isAdmin === true;
 
@@ -189,36 +202,42 @@ const Sidebar = ({ isOpen, onClose }) => {
           <div className="p-3 rounded-lg border border-primary/10 bg-black/50">
             <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-2">Join Us</div>
             <div className="space-y-1.5">
-              <a
-                href="https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
-              >
-                <span className="text-sm">📢</span>
-                <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">WA Channel</span>
-                <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
-              </a>
-              <a
-                href="https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
-              >
-                <span className="text-sm">💬</span>
-                <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">WA Group</span>
-                <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
-              </a>
-              <a
-                href="https://www.youtube.com/@Silentwolf906"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
-              >
-                <span className="text-sm">▶️</span>
-                <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">YouTube</span>
-                <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
-              </a>
+              {siteLinks.whatsappChannel && (
+                <a
+                  href={siteLinks.whatsappChannel}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
+                >
+                  <span className="text-sm">📢</span>
+                  <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">WA Channel</span>
+                  <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
+                </a>
+              )}
+              {siteLinks.whatsappGroup && (
+                <a
+                  href={siteLinks.whatsappGroup}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
+                >
+                  <span className="text-sm">💬</span>
+                  <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">WA Group</span>
+                  <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
+                </a>
+              )}
+              {siteLinks.youtube && (
+                <a
+                  href={siteLinks.youtube}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
+                >
+                  <span className="text-sm">▶️</span>
+                  <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">YouTube</span>
+                  <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
+                </a>
+              )}
             </div>
           </div>
         </div>

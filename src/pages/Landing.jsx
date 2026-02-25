@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -14,6 +14,7 @@ import {
   Crown,
   Check,
   Server,
+  Youtube,
 } from "lucide-react";
 import NeonBackground from "../components/NeonBackground";
 import WolfChat from "../components/WolfChat";
@@ -30,6 +31,21 @@ export default function Landing() {
   const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY);
   const countryConfig = getCountryByCode(selectedCountry);
   const userCurrency = countryConfig.currency;
+  const [siteLinks, setSiteLinks] = useState({
+    whatsappChannel: 'https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y',
+    whatsappGroup: 'https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu',
+    youtube: 'https://www.youtube.com/@Silentwolf906',
+    supportPhone: 'https://wa.me/254713046497',
+    supportPhoneDisplay: '+254 713 046 497',
+  });
+
+  useEffect(() => {
+    fetch('/api/site-settings')
+      .then(r => r.json())
+      .then(data => { if (data.success) setSiteLinks(data.settings); })
+      .catch(() => {});
+  }, []);
+
   const features = [
     {
       title: "Hyper-Speed Servers",
@@ -513,7 +529,7 @@ export default function Landing() {
               <ul className="space-y-3">
                 <li>
                   <a
-                    href="https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y"
+                    href={siteLinks.whatsappChannel}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-mono"
@@ -524,7 +540,7 @@ export default function Landing() {
                 </li>
                 <li>
                   <a
-                    href="https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu"
+                    href={siteLinks.whatsappGroup}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-mono"
@@ -533,15 +549,28 @@ export default function Landing() {
                     WhatsApp Group
                   </a>
                 </li>
+                {siteLinks.youtube && (
+                  <li>
+                    <a
+                      href={siteLinks.youtube}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-mono"
+                    >
+                      <Youtube className="w-4 h-4 text-red-400" />
+                      YouTube
+                    </a>
+                  </li>
+                )}
                 <li>
                   <a
-                    href="https://wa.me/254713046497"
+                    href={siteLinks.supportPhone}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-mono"
                   >
                     <Phone className="w-4 h-4 text-green-400" />
-                    +254 713 046 497
+                    {siteLinks.supportPhoneDisplay}
                   </a>
                 </li>
               </ul>
@@ -554,7 +583,7 @@ export default function Landing() {
               <ul className="space-y-3">
                 <li>
                   <a
-                    href="https://wa.me/254713046497"
+                    href={siteLinks.supportPhone}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-white transition-colors text-sm font-mono"
@@ -589,7 +618,7 @@ export default function Landing() {
             </p>
             <div className="flex items-center gap-4">
               <a
-                href="https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y"
+                href={siteLinks.whatsappChannel}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg bg-primary/5 border border-primary/10 text-gray-400 hover:text-green-400 hover:border-green-500/30 transition-all"
@@ -598,7 +627,7 @@ export default function Landing() {
                 <MessageCircle className="w-4 h-4" />
               </a>
               <a
-                href="https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu"
+                href={siteLinks.whatsappGroup}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg bg-primary/5 border border-primary/10 text-gray-400 hover:text-green-400 hover:border-green-500/30 transition-all"
@@ -606,8 +635,19 @@ export default function Landing() {
               >
                 <Users className="w-4 h-4" />
               </a>
+              {siteLinks.youtube && (
+                <a
+                  href={siteLinks.youtube}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-lg bg-primary/5 border border-primary/10 text-gray-400 hover:text-red-400 hover:border-red-500/30 transition-all"
+                  title="YouTube"
+                >
+                  <Youtube className="w-4 h-4" />
+                </a>
+              )}
               <a
-                href="https://wa.me/254713046497"
+                href={siteLinks.supportPhone}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg bg-primary/5 border border-primary/10 text-gray-400 hover:text-green-400 hover:border-green-500/30 transition-all"

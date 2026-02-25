@@ -2949,6 +2949,109 @@ app.post('/api/notifications/read', authenticateToken, (req, res) => {
   }
 });
 
+const SITE_SETTINGS_FILE = path.join(__dirname, 'site_settings.json');
+
+function loadSiteSettings() {
+  try {
+    if (fs.existsSync(SITE_SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(SITE_SETTINGS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading site settings:', e);
+  }
+  return {
+    whatsappChannel: 'https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y',
+    whatsappGroup: 'https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu',
+    youtube: 'https://www.youtube.com/@Silentwolf906',
+    supportPhone: 'https://wa.me/254713046497',
+    supportPhoneDisplay: '+254 713 046 497',
+  };
+}
+
+function saveSiteSettings(settings) {
+  try {
+    fs.writeFileSync(SITE_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving site settings:', e);
+  }
+}
+
+app.get('/api/site-settings', (req, res) => {
+  try {
+    const settings = loadSiteSettings();
+    return res.json({ success: true, settings });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to load settings' });
+  }
+});
+
+app.put('/api/admin/site-settings', adminLimiter, authenticateToken, requireAdmin, [
+  body('whatsappChannel').optional().isString().trim(),
+  body('whatsappGroup').optional().isString().trim(),
+  body('youtube').optional().isString().trim(),
+  body('supportPhone').optional().isString().trim(),
+  body('supportPhoneDisplay').optional().isString().trim(),
+], handleValidationErrors, (req, res) => {
+  try {
+    const current = loadSiteSettings();
+    const updated = { ...current };
+    const fields = ['whatsappChannel', 'whatsappGroup', 'youtube', 'supportPhone', 'supportPhoneDisplay'];
+    for (const field of fields) {
+      if (req.body[field] !== undefined) {
+        updated[field] = sanitizeString(req.body[field]);
+      }
+    }
+    saveSiteSettings(updated);
+    return res.json({ success: true, settings: updated });
+  } catch (error) {
+    console.error('Site settings update error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update settings' });
+  }
+});
+
+app.post('/api/admin/broadcast-notification', adminLimiter, authenticateToken, requireAdmin, [
+  body('title').isString().trim().isLength({ min: 1, max: 200 }).withMessage('Title is required (max 200 chars)'),
+  body('message').isString().trim().isLength({ min: 1, max: 1000 }).withMessage('Message is required (max 1000 chars)'),
+  body('type').optional().isString().isIn(['info', 'warning', 'success', 'alert']).withMessage('Invalid type'),
+], handleValidationErrors, (req, res) => {
+  try {
+    const { title, message, type = 'info' } = req.body;
+    const allNotifs = loadNotifications();
+    const allUsers = Object.keys(allNotifs);
+
+    let userCount = 0;
+    if (allUsers.length > 0) {
+      for (const userId of allUsers) {
+        addNotification(userId, type, title, message);
+        userCount++;
+      }
+    }
+
+    const userFiles = [
+      path.join(__dirname, 'user_credentials.json'),
+      path.join(__dirname, 'welcome_claims.json'),
+    ];
+    for (const file of userFiles) {
+      try {
+        if (fs.existsSync(file)) {
+          const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+          for (const key of Object.keys(data)) {
+            if (!allNotifs[key]) {
+              addNotification(key, type, title, message);
+              userCount++;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    return res.json({ success: true, userCount, message: `Notification sent to ${userCount} users` });
+  } catch (error) {
+    console.error('Broadcast notification error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to broadcast notification' });
+  }
+});
+
 const COMMUNITY_MESSAGES_FILE = path.join(__dirname, 'community_messages.json');
 const COMMUNITY_ACTIVE_FILE = path.join(__dirname, 'community_active.json');
 const COMMUNITY_MAX_MESSAGES = 200;
