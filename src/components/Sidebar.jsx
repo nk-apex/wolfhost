@@ -11,6 +11,7 @@ import {
   LogOut,
   X,
   MessageSquare,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -180,6 +181,45 @@ const Sidebar = ({ isOpen, onClose }) => {
                 SIGN OUT
               </span>
             </motion.button>
+          </div>
+        </div>
+
+        {/* Social Links */}
+        <div className="px-4 pb-2 pt-2">
+          <div className="p-3 rounded-lg border border-primary/10 bg-black/50">
+            <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-2">Join Us</div>
+            <div className="space-y-1.5">
+              <a
+                href="https://whatsapp.com/channel/0029Vb6dn9nEQIaqEMNclK3Y"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
+              >
+                <span className="text-sm">📢</span>
+                <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">WA Channel</span>
+                <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
+              </a>
+              <a
+                href="https://chat.whatsapp.com/HjFc3pud3IA0R0WGr1V2Xu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
+              >
+                <span className="text-sm">💬</span>
+                <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">WA Group</span>
+                <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
+              </a>
+              <a
+                href="https://www.youtube.com/@Silentwolf906"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/5 transition-colors group"
+              >
+                <span className="text-sm">▶️</span>
+                <span className="text-xs font-mono text-gray-400 group-hover:text-primary/80 transition-colors flex-1">YouTube</span>
+                <ExternalLink size={10} className="text-gray-600 group-hover:text-primary/60" />
+              </a>
+            </div>
           </div>
         </div>
 

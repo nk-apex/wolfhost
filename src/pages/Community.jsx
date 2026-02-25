@@ -22,7 +22,7 @@ const Community = () => {
   const chatContainerRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('jwt_token');
 
   const scrollToBottom = (smooth = true) => {
     messagesEndRef.current?.scrollIntoView({
