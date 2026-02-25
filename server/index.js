@@ -2949,6 +2949,113 @@ app.post('/api/notifications/read', authenticateToken, (req, res) => {
   }
 });
 
+const COMMUNITY_MESSAGES_FILE = path.join(__dirname, 'community_messages.json');
+const COMMUNITY_ACTIVE_FILE = path.join(__dirname, 'community_active.json');
+const COMMUNITY_MAX_MESSAGES = 200;
+
+function loadCommunityMessages() {
+  try {
+    if (fs.existsSync(COMMUNITY_MESSAGES_FILE)) {
+      return JSON.parse(fs.readFileSync(COMMUNITY_MESSAGES_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading community messages:', e);
+  }
+  return [];
+}
+
+function saveCommunityMessages(messages) {
+  try {
+    if (messages.length > COMMUNITY_MAX_MESSAGES) {
+      messages = messages.slice(-COMMUNITY_MAX_MESSAGES);
+    }
+    fs.writeFileSync(COMMUNITY_MESSAGES_FILE, JSON.stringify(messages, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving community messages:', e);
+  }
+}
+
+function trackActiveUser(userId) {
+  try {
+    let active = {};
+    if (fs.existsSync(COMMUNITY_ACTIVE_FILE)) {
+      active = JSON.parse(fs.readFileSync(COMMUNITY_ACTIVE_FILE, 'utf8'));
+    }
+    active[userId] = Date.now();
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    for (const uid of Object.keys(active)) {
+      if (active[uid] < fiveMinAgo) delete active[uid];
+    }
+    fs.writeFileSync(COMMUNITY_ACTIVE_FILE, JSON.stringify(active), 'utf8');
+    return Object.keys(active).length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+const communityLimiter = rateLimit({
+  windowMs: 10 * 1000,
+  max: 5,
+  message: { success: false, message: 'Slow down — you are sending messages too fast' },
+});
+
+app.get('/api/community/messages', authenticateToken, (req, res) => {
+  try {
+    const messages = loadCommunityMessages();
+    const onlineCount = trackActiveUser(req.user.userId);
+    return res.json({ success: true, messages, onlineCount });
+  } catch (error) {
+    console.error('Community fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load messages' });
+  }
+});
+
+app.post('/api/community/messages',
+  authenticateToken,
+  communityLimiter,
+  body('message').isString().trim().isLength({ min: 1, max: 500 }).withMessage('Message must be 1-500 characters'),
+  handleValidationErrors,
+  (req, res) => {
+    try {
+      const messages = loadCommunityMessages();
+      const newMsg = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        userId: req.user.userId,
+        username: req.user.username || req.user.email.split('@')[0],
+        isAdmin: req.user.isAdmin || false,
+        message: sanitizeString(req.body.message),
+        createdAt: new Date().toISOString(),
+      };
+      messages.push(newMsg);
+      saveCommunityMessages(messages);
+      return res.json({ success: true, message: newMsg });
+    } catch (error) {
+      console.error('Community send error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to send message' });
+    }
+  }
+);
+
+app.delete('/api/community/messages/:messageId', authenticateToken, (req, res) => {
+  try {
+    const messages = loadCommunityMessages();
+    const msgIndex = messages.findIndex(m => m.id === req.params.messageId);
+    if (msgIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+    const msg = messages[msgIndex];
+    if (msg.userId !== req.user.userId && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own messages' });
+    }
+    messages.splice(msgIndex, 1);
+    saveCommunityMessages(messages);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Community delete error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete message' });
+  }
+});
+
 const distPath = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath, {

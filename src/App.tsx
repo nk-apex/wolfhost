@@ -15,6 +15,7 @@ import Billing from "./pages/Billing";
 import Wallet from "./pages/Wallet";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import Community from "./pages/Community";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/billing" element={<Billing />} />
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/community" element={<Community />} />
               <Route path="/admin" element={<Admin />} />
             </Route>
 

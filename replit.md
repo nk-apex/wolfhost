@@ -75,6 +75,15 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - Also fetches the egg's actual startup command and docker image (was `ghcr.io/pelican-eggs/yolks:nodejs_24`, not `parkervcp`)
   - Added `/api/admin/debug-egg` endpoint for diagnosing egg variable issues
 
+- 2026-02-25: Added Community public chat page
+  - New page at `/community` with real-time public messaging
+  - Backend API: `GET/POST /api/community/messages`, `DELETE /api/community/messages/:id`
+  - Messages stored in `server/community_messages.json` (max 200 messages)
+  - Active user tracking in `server/community_active.json` (5-min window)
+  - Rate limited to 5 messages per 10 seconds
+  - Users can delete own messages, admins can delete any
+  - Added "Community" nav item to sidebar
+
 ### VPS Deployment Notes
 - **Nginx** proxies `host.xwolf.space` → `localhost:4000` (config: `/etc/nginx/sites-available/wolfhost.conf`)
 - **PM2 process**: `wolfhost` must run with `PORT=4000` — use `PORT=4000 NODE_ENV=production pm2 start server/index.js --name wolfhost`
