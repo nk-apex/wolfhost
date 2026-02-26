@@ -16,6 +16,7 @@ import Wallet from "./pages/Wallet";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Community from "./pages/Community";
+import ClaimServer from "./pages/ClaimServer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/community" element={<Community />} />
+              <Route path="/claim-server" element={<ClaimServer />} />
               <Route path="/admin" element={<Admin />} />
             </Route>
 

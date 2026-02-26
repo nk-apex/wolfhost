@@ -768,7 +768,7 @@ export const walletAPI = {
       localStorage.setItem('mpesa_transactions', JSON.stringify(transactions));
       
       // Update wallet balance
-      const currentBalance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
+      const currentBalance = parseFloat(localStorage.getItem('wallet_balance') || '0');
       const newBalance = currentBalance + amount;
       localStorage.setItem('wallet_balance', newBalance.toString());
       
@@ -979,7 +979,7 @@ export const walletAPI = {
       await delay(API_DELAY * 2);
       
       // Get current balance
-      const currentBalance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
+      const currentBalance = parseFloat(localStorage.getItem('wallet_balance') || '0');
       
       if (amount > currentBalance) {
         throw new Error('Insufficient balance');
@@ -1472,7 +1472,7 @@ export const billingAPI = {
       await delay(API_DELAY);
       
       // Get balance for invoice amounts
-      const balance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
+      const balance = parseFloat(localStorage.getItem('wallet_balance') || '0');
       
       return {
         success: true,
@@ -1558,7 +1558,7 @@ export const billingAPI = {
         await walletAPI.recordMpesaPayment(amount, phone, `INV_${invoiceId}`, `Payment for invoice ${invoiceId}`);
       } else if (method === 'wallet') {
         // Deduct from wallet
-        const currentBalance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
+        const currentBalance = parseFloat(localStorage.getItem('wallet_balance') || '0');
         const newBalance = currentBalance - amount;
         localStorage.setItem('wallet_balance', newBalance.toString());
         
@@ -1597,7 +1597,7 @@ export const billingAPI = {
   // Get billing summary
   getBillingSummary: async () => {
     try {
-      const balance = parseFloat(localStorage.getItem('wallet_balance') || '1500.00');
+      const balance = parseFloat(localStorage.getItem('wallet_balance') || '0');
       const transactions = JSON.parse(localStorage.getItem('mpesa_transactions') || '[]');
       const mpesaTotal = transactions
         .filter(txn => txn.amount > 0)
@@ -1647,7 +1647,7 @@ export const billingAPI = {
             id: 'wallet',
             name: 'Wallet Balance',
             type: 'wallet',
-            balance: parseFloat(localStorage.getItem('wallet_balance') || '1500.00'),
+            balance: parseFloat(localStorage.getItem('wallet_balance') || '0'),
             isDefault: false,
             added: '2024-01-01'
           }

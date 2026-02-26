@@ -13,11 +13,13 @@ import {
   X,
   MessageSquare,
   ExternalLink,
+  Gift,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Command Center', path: '/overview' },
+  { icon: Gift, label: 'Claim Server', path: '/claim-server' },
   { icon: Server, label: 'My Servers', path: '/servers' },
   { icon: Users, label: 'Referrals', path: '/referrals' },
   { icon: Receipt, label: 'Billing', path: '/billing' },

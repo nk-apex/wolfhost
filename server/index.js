@@ -2687,7 +2687,11 @@ app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) =
       return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
     }
 
-    const serverName = `${pteroUser.username}-welcome-trial`;
+    let customName = req.body?.serverName;
+    if (customName && typeof customName === 'string') {
+      customName = customName.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').substring(0, 50);
+    }
+    const serverName = customName && customName.length >= 3 ? customName : `${pteroUser.username}-welcome-trial`;
     const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
 
     serverLog('Creating welcome free trial server:', { serverName, userId, allocationId, expiresAt });

@@ -99,5 +99,12 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
 - Old `wolfhost-backend` and `wolfhost-frontend` processes should remain stopped
 - Deploy command: `cd /var/www/wolfhost && git pull && npx vite build && pm2 restart wolfhost`
 
+- 2026-02-26: Fixed new user balance and added Claim Server page
+  - Changed all wallet_balance localStorage fallbacks from '1500.00' to '0' in `src/services/api.js` (6 occurrences) so new users start at 0 balance
+  - Created `/claim-server` page (`src/pages/ClaimServer.jsx`) where users can name and claim a free 3-day limited server
+  - Updated `/api/free-server/claim-welcome` endpoint to accept custom `serverName` from request body
+  - Added "Claim Server" link to sidebar navigation with Gift icon
+  - Added route in `src/App.tsx`
+
 ## User Preferences
 - None documented yet
