@@ -136,5 +136,11 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - USSD shows bank selector and displays USSD dial code after initiation
   - Both methods poll for payment confirmation with appropriate timeouts
 
+- 2026-02-26: Added community chat edit and reply features
+  - Backend: `PATCH /api/community/messages/:messageId` for editing own messages (sets `edited: true`, `editedAt` timestamp)
+  - Backend: POST messages now accept optional `replyTo` (message ID), stores reply context `{ id, username, message }` on the new message
+  - Frontend: Inline edit with save/cancel, "(edited)" indicator next to timestamp
+  - Frontend: Reply button on hover, reply preview bar above input, quoted reply context displayed above message bubbles
+
 ## User Preferences
 - None documented yet

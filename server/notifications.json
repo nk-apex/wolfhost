@@ -31,7 +31,7 @@
       "type": "welcome",
       "title": "Welcome to WolfHost!",
       "message": "Your account has been created. Log in to claim your free 3-day trial server!",
-      "read": false,
+      "read": true,
       "createdAt": "2026-02-26T21:52:38.803Z"
     }
   ],

@@ -3694,6 +3694,7 @@ app.post('/api/community/messages',
   authenticateToken,
   communityLimiter,
   body('message').isString().trim().isLength({ min: 1, max: 500 }).withMessage('Message must be 1-500 characters'),
+  body('replyTo').optional().isString().trim(),
   handleValidationErrors,
   (req, res) => {
     try {
@@ -3706,12 +3707,52 @@ app.post('/api/community/messages',
         message: sanitizeString(req.body.message),
         createdAt: new Date().toISOString(),
       };
+
+      if (req.body.replyTo) {
+        const replyMsg = messages.find(m => m.id === req.body.replyTo);
+        if (replyMsg) {
+          newMsg.replyTo = {
+            id: replyMsg.id,
+            username: replyMsg.username,
+            message: replyMsg.message.length > 100 ? replyMsg.message.slice(0, 100) + '...' : replyMsg.message,
+          };
+        }
+      }
+
       messages.push(newMsg);
       saveCommunityMessages(messages);
       return res.json({ success: true, message: newMsg });
     } catch (error) {
       console.error('Community send error:', error);
       return res.status(500).json({ success: false, message: 'Failed to send message' });
+    }
+  }
+);
+
+app.patch('/api/community/messages/:messageId',
+  authenticateToken,
+  body('message').isString().trim().isLength({ min: 1, max: 500 }).withMessage('Message must be 1-500 characters'),
+  handleValidationErrors,
+  (req, res) => {
+    try {
+      const messages = loadCommunityMessages();
+      const msgIndex = messages.findIndex(m => m.id === req.params.messageId);
+      if (msgIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Message not found' });
+      }
+      const msg = messages[msgIndex];
+      if (msg.userId !== req.user.userId) {
+        return res.status(403).json({ success: false, message: 'You can only edit your own messages' });
+      }
+      msg.message = sanitizeString(req.body.message);
+      msg.edited = true;
+      msg.editedAt = new Date().toISOString();
+      messages[msgIndex] = msg;
+      saveCommunityMessages(messages);
+      return res.json({ success: true, message: msg });
+    } catch (error) {
+      console.error('Community edit error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to edit message' });
     }
   }
 );
