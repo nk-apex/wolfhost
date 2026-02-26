@@ -17,7 +17,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { walletAPI } from '../services/api';
 import { paystackAPI, validatePhoneNumber, formatPhoneNumber } from '../services/paystack';
-import { COUNTRIES, getCountryByCode, formatCurrency, getMinDeposit, supportsMpesa, supportsMobileMoney, getMobileMoneyProviders, getMobileMoneyLabel, convertFromKES, convertToKES } from '../lib/currencyConfig';
+import { COUNTRIES, getCountryByCode, formatCurrency, getMinDeposit, supportsMpesa, supportsMobileMoney, getMobileMoneyProviders, getMobileMoneyLabel, convertFromKES, convertToKES, supportsBankTransfer, supportsUSSD, getUSSDbanks } from '../lib/currencyConfig';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Globe, ChevronDown } from 'lucide-react';
 
@@ -28,6 +28,12 @@ const getPaymentMethodsList = (countryCode) => {
   } else if (supportsMobileMoney(countryCode)) {
     const label = getMobileMoneyLabel(countryCode);
     methods.unshift({ id: 'MobileMoney', name: label, color: 'rgba(255, 193, 7, 0.2)' });
+  }
+  if (supportsBankTransfer(countryCode)) {
+    methods.push({ id: 'BankTransfer', name: 'Bank Transfer', color: 'rgba(16, 185, 129, 0.2)' });
+  }
+  if (supportsUSSD(countryCode)) {
+    methods.push({ id: 'USSD', name: 'USSD', color: 'rgba(168, 85, 247, 0.2)' });
   }
   return methods;
 };
@@ -183,11 +189,115 @@ const ModalContent = ({ title, form, setForm, onSubmit, type, onClose, processin
             </div>
           )}
 
+          {form.method === 'BankTransfer' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2 font-mono">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="email"
+                    value={form.email || ''}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
+                    placeholder="you@email.com"
+                    disabled={processing}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 font-mono mt-1">
+                  A virtual account will be generated for you to transfer to. OPay transfers supported.
+                </p>
+              </div>
+              {form.bankTransferInfo && (
+                <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                  <p className="text-xs font-mono text-emerald-400 font-semibold">Transfer to this account:</p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-gray-400">Bank:</span>
+                      <span className="text-white">{form.bankTransferInfo.bankName}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-gray-400">Account No:</span>
+                      <span className="text-white font-bold tracking-wider">{form.bankTransferInfo.accountNumber}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-gray-400">Account Name:</span>
+                      <span className="text-white">{form.bankTransferInfo.accountName || 'Paystack'}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-gray-400">Amount:</span>
+                      <span className="text-emerald-400 font-bold">{form.bankTransferInfo.amount}</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-mono text-gray-500 mt-2">
+                    Transfer the exact amount. Account expires in ~30 minutes.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {form.method === 'USSD' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2 font-mono">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="email"
+                    value={form.email || ''}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full bg-black/40 border border-primary/20 rounded-lg px-3 py-2 pl-10 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-primary/40 transition-colors"
+                    placeholder="you@email.com"
+                    disabled={processing}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2 font-mono">
+                  Select Your Bank
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(countryConfig.ussdBanks || []).map((bank) => (
+                    <button
+                      key={bank.code}
+                      type="button"
+                      onClick={() => setForm({ ...form, ussdBank: bank.code })}
+                      disabled={processing}
+                      className={`p-2 rounded-lg border text-center text-xs font-mono transition-all ${
+                        form.ussdBank === bank.code
+                          ? 'border-purple-500 bg-purple-500/10 text-purple-400'
+                          : 'border-primary/20 hover:border-primary/40 text-gray-400 hover:text-gray-300'
+                      }`}
+                    >
+                      {bank.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {form.ussdCode && (
+                <div className="p-3 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
+                  <p className="text-xs font-mono text-purple-400 font-semibold">Dial this code on your phone:</p>
+                  <p className="text-lg font-mono text-white text-center font-bold tracking-wider py-2">
+                    {form.ussdCode}
+                  </p>
+                  <p className="text-[10px] font-mono text-gray-500 text-center">
+                    Follow the prompts to complete payment
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm text-gray-400 mb-2 font-mono">
               Payment Method
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${paymentMethods.length > 3 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
               {paymentMethods.map((method) => (
                 <button
                   key={method.id}
@@ -290,7 +400,8 @@ const Wallet = () => {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
   const defaultProvider = getMobileMoneyProviders(selectedCountry)?.[0]?.provider || '';
-  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider });
+  const defaultUssdBank = getUSSDbanks(selectedCountry)?.[0]?.code || '';
+  const [depositForm, setDepositForm] = useState({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider, ussdBank: defaultUssdBank, bankTransferInfo: null, ussdCode: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', method: defaultMethod, mobileProvider: defaultProvider });
   const [cardWaiting, setCardWaiting] = useState(false);
   const [cardRef, setCardRef] = useState('');
@@ -301,7 +412,8 @@ const Wallet = () => {
     const newConfig = getCountryByCode(code);
     const newDefaultMethod = supportsMpesa(code) ? 'M-Pesa' : supportsMobileMoney(code) ? 'MobileMoney' : 'Card';
     const newDefaultProvider = getMobileMoneyProviders(code)?.[0]?.provider || '';
-    setDepositForm(prev => ({ ...prev, method: newDefaultMethod, mobileProvider: newDefaultProvider, phone: '' }));
+    const newUssdBank = getUSSDbanks(code)?.[0]?.code || '';
+    setDepositForm(prev => ({ ...prev, method: newDefaultMethod, mobileProvider: newDefaultProvider, phone: '', ussdBank: newUssdBank, bankTransferInfo: null, ussdCode: '' }));
     setWithdrawForm(prev => ({ ...prev, method: newDefaultMethod, mobileProvider: newDefaultProvider, phone: '' }));
   };
 
@@ -383,6 +495,22 @@ const Wallet = () => {
         return;
       }
       await handleCardDeposit(amountInKES);
+    } else if (depositForm.method === 'BankTransfer') {
+      if (!depositForm.email || !depositForm.email.includes('@')) {
+        setStkStatus({ show: true, status: 'error', message: 'Please enter a valid email address' });
+        return;
+      }
+      await handleBankTransferDeposit(amountInKES);
+    } else if (depositForm.method === 'USSD') {
+      if (!depositForm.email || !depositForm.email.includes('@')) {
+        setStkStatus({ show: true, status: 'error', message: 'Please enter a valid email address' });
+        return;
+      }
+      if (!depositForm.ussdBank) {
+        setStkStatus({ show: true, status: 'error', message: 'Please select your bank' });
+        return;
+      }
+      await handleUSSDDeposit(amountInKES);
     }
   };
 
@@ -438,7 +566,7 @@ const Wallet = () => {
             setTimeout(() => {
               setShowDepositModal(false);
               setStkStatus({ show: false, status: '', message: '' });
-              setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod, mobileProvider: defaultProvider });
+              setDepositForm({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider, ussdBank: defaultUssdBank, bankTransferInfo: null, ussdCode: '' });
             }, 2500);
           } else if (result.data?.status === 'failed') {
             setStkStatus({ show: true, status: 'error', message: 'Payment was declined or cancelled.' });
@@ -518,7 +646,7 @@ const Wallet = () => {
             setTimeout(() => {
               setShowDepositModal(false);
               setStkStatus({ show: false, status: '', message: '' });
-              setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod, mobileProvider: defaultProvider });
+              setDepositForm({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider, ussdBank: defaultUssdBank, bankTransferInfo: null, ussdCode: '' });
             }, 2500);
           } else if (result.data?.status === 'failed') {
             setStkStatus({ show: true, status: 'error', message: 'Payment was declined or cancelled.' });
@@ -567,6 +695,171 @@ const Wallet = () => {
     }
   };
 
+  const handleBankTransferDeposit = async (amountInKES) => {
+    setProcessing(true);
+    setStkStatus({ show: true, status: 'pending', message: 'Generating virtual account for bank transfer...' });
+
+    try {
+      const localAmount = convertFromKES(amountInKES, countryConfig.paystackCurrency || userCurrency);
+      const response = await paystackAPI.initializeBankTransfer(depositForm.email, localAmount, {
+        type: 'wallet_topup',
+        amountInKES: amountInKES,
+      });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to initiate bank transfer');
+      }
+
+      const transferData = response.data;
+      const bankInfo = {
+        bankName: transferData?.bank?.name || 'Paystack-Titan',
+        accountNumber: transferData?.account_number || transferData?.bank?.account_number || '',
+        accountName: transferData?.account_name || transferData?.bank?.account_name || 'Paystack',
+        amount: formatCurrency(localAmount, countryConfig.paystackCurrency || userCurrency),
+      };
+
+      setDepositForm(prev => ({ ...prev, bankTransferInfo: bankInfo }));
+      setStkStatus({ show: true, status: 'pending', message: 'Transfer the exact amount to the account below. Waiting for confirmation...' });
+
+      const reference = response.reference || transferData?.reference;
+      let attempts = 0;
+      const maxAttempts = 180;
+
+      const poll = async () => {
+        if (attempts >= maxAttempts) {
+          setStkStatus({ show: true, status: 'error', message: 'Transfer verification timed out. If you sent the money, it will be credited shortly.' });
+          setProcessing(false);
+          return;
+        }
+        attempts++;
+
+        try {
+          const result = await paystackAPI.verifyBankTransfer(reference, user?.id);
+
+          if (result.success && result.data?.status === 'success') {
+            const paidAmount = result.data.amount / 100;
+            const paidCurrency = result.data.currency || countryConfig.paystackCurrency;
+            const paidInKES = convertToKES(paidAmount, paidCurrency);
+            setStkStatus({ show: true, status: 'success', message: `Successfully deposited ${formatCurrency(convertFromKES(paidInKES, userCurrency), userCurrency)} via bank transfer!` });
+
+            try {
+              await walletAPI.recordMpesaPayment(paidInKES, depositForm.email, reference, 'Bank transfer deposit');
+              const balanceResult = await walletAPI.getBalance();
+              if (balanceResult.success) {
+                await updateUser({ wallet: balanceResult.balance });
+              }
+            } catch (walletErr) {
+              console.error('Wallet update error:', walletErr);
+            }
+
+            fetchTransactions();
+            fetchBalance();
+            setProcessing(false);
+            setTimeout(() => {
+              setShowDepositModal(false);
+              setStkStatus({ show: false, status: '', message: '' });
+              setDepositForm({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider, ussdBank: defaultUssdBank, bankTransferInfo: null, ussdCode: '' });
+            }, 2500);
+          } else if (result.data?.status === 'failed') {
+            setStkStatus({ show: true, status: 'error', message: 'Transfer was not received or was declined.' });
+            setProcessing(false);
+          } else {
+            const mins = Math.floor(attempts / 60);
+            const secs = attempts % 60;
+            const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            setStkStatus({ show: true, status: 'pending', message: `Waiting for bank transfer confirmation... (${timeStr})` });
+            setTimeout(poll, 1000);
+          }
+        } catch (err) {
+          setTimeout(poll, 3000);
+        }
+      };
+
+      setTimeout(poll, 5000);
+    } catch (err) {
+      setStkStatus({ show: true, status: 'error', message: err.message || 'Bank transfer failed. Please try again.' });
+      setProcessing(false);
+    }
+  };
+
+  const handleUSSDDeposit = async (amountInKES) => {
+    setProcessing(true);
+    const bankName = (countryConfig.ussdBanks || []).find(b => b.code === depositForm.ussdBank)?.name || 'your bank';
+    setStkStatus({ show: true, status: 'pending', message: `Generating USSD code for ${bankName}...` });
+
+    try {
+      const localAmount = convertFromKES(amountInKES, countryConfig.paystackCurrency || userCurrency);
+      const response = await paystackAPI.initializeUSSDPayment(depositForm.email, localAmount, depositForm.ussdBank, {
+        type: 'wallet_topup',
+        amountInKES: amountInKES,
+      });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to initiate USSD payment');
+      }
+
+      const ussdCode = response.data?.ussd_code || response.data?.display_text || '';
+      setDepositForm(prev => ({ ...prev, ussdCode }));
+      setStkStatus({ show: true, status: 'pending', message: `Dial the USSD code below on your phone to complete payment via ${bankName}` });
+
+      const reference = response.reference || response.data?.reference;
+      let attempts = 0;
+      const maxAttempts = 120;
+
+      const poll = async () => {
+        if (attempts >= maxAttempts) {
+          setStkStatus({ show: true, status: 'error', message: 'Payment timed out. If you completed the USSD transaction, it will be credited shortly.' });
+          setProcessing(false);
+          return;
+        }
+        attempts++;
+
+        try {
+          const result = await paystackAPI.verifyUSSDPayment(reference, user?.id);
+
+          if (result.success && result.data?.status === 'success') {
+            const paidAmount = result.data.amount / 100;
+            const paidCurrency = result.data.currency || countryConfig.paystackCurrency;
+            const paidInKES = convertToKES(paidAmount, paidCurrency);
+            setStkStatus({ show: true, status: 'success', message: `Successfully deposited ${formatCurrency(convertFromKES(paidInKES, userCurrency), userCurrency)} via USSD!` });
+
+            try {
+              await walletAPI.recordMpesaPayment(paidInKES, depositForm.email, reference, 'USSD deposit');
+              const balanceResult = await walletAPI.getBalance();
+              if (balanceResult.success) {
+                await updateUser({ wallet: balanceResult.balance });
+              }
+            } catch (walletErr) {
+              console.error('Wallet update error:', walletErr);
+            }
+
+            fetchTransactions();
+            fetchBalance();
+            setProcessing(false);
+            setTimeout(() => {
+              setShowDepositModal(false);
+              setStkStatus({ show: false, status: '', message: '' });
+              setDepositForm({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider, ussdBank: defaultUssdBank, bankTransferInfo: null, ussdCode: '' });
+            }, 2500);
+          } else if (result.data?.status === 'failed') {
+            setStkStatus({ show: true, status: 'error', message: 'USSD payment was declined or cancelled.' });
+            setProcessing(false);
+          } else {
+            setStkStatus({ show: true, status: 'pending', message: `Waiting for USSD payment confirmation... (${attempts}s)` });
+            setTimeout(poll, 1000);
+          }
+        } catch (err) {
+          setTimeout(poll, 2000);
+        }
+      };
+
+      setTimeout(poll, 5000);
+    } catch (err) {
+      setStkStatus({ show: true, status: 'error', message: err.message || 'USSD payment failed. Please try again.' });
+      setProcessing(false);
+    }
+  };
+
   const verifyCardDeposit = async () => {
     if (!cardRef) return;
 
@@ -598,7 +891,7 @@ const Wallet = () => {
         setTimeout(() => {
           setShowDepositModal(false);
           setStkStatus({ show: false, status: '', message: '' });
-          setDepositForm({ amount: '', phone: '', email: '', method: defaultMethod, mobileProvider: defaultProvider });
+          setDepositForm({ amount: '', phone: '', email: user?.email || '', method: defaultMethod, mobileProvider: defaultProvider, ussdBank: defaultUssdBank, bankTransferInfo: null, ussdCode: '' });
         }, 2500);
       } else {
         setStkStatus({ show: true, status: 'error', message: 'Payment not completed yet. Complete payment in the checkout tab, then try verifying again.' });

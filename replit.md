@@ -124,5 +124,17 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - Admin API: GET/PATCH/DELETE `/api/admin/alerts` endpoints for managing alerts
   - Admin panel: New "Alerts" tab with severity-coded cards, filter by category/status, resolve/delete actions, unresolved badge count
 
+- 2026-02-26: Added Bank Transfer, USSD, and OPay payment support for Nigeria
+  - Backend: `POST /api/bank-transfer/charge` and `GET /api/bank-transfer/verify/:reference` for bank transfer payments via Paystack `/charge` with `bank_transfer: {}`
+  - Backend: `POST /api/ussd/charge` and `GET /api/ussd/verify/:reference` for USSD payments via Paystack `/charge` with `ussd: { type: bankCode }`
+  - USSD supports GTBank (737), UBA (919), Sterling Bank (822)
+  - Frontend services: `initializeBankTransfer`, `verifyBankTransfer`, `initializeUSSDPayment`, `verifyUSSDPayment` in `src/services/paystack.js`
+  - Currency config: Nigeria (NG) updated with `ussdBanks` array, `paystackCurrency: 'NGN'`, payment methods include `bank_transfer` and `ussd`
+  - New helpers: `supportsUSSD()`, `supportsBankTransfer()`, `getUSSDbanks()` in `src/lib/currencyConfig.js`
+  - Wallet UI: Nigeria users see Card, Bank Transfer, and USSD payment options
+  - Bank Transfer shows virtual account details (bank name, account number, account name) for user to transfer to; supports OPay transfers
+  - USSD shows bank selector and displays USSD dial code after initiation
+  - Both methods poll for payment confirmation with appropriate timeouts
+
 ## User Preferences
 - None documented yet

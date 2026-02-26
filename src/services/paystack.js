@@ -224,6 +224,132 @@ export const paystackAPI = {
     }
   },
 
+  initializeBankTransfer: async (email, amount, metadata = {}) => {
+    try {
+      console.log('Initiating Bank Transfer Payment:', { email, amount });
+
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch('/api/bank-transfer/charge', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email, amount, metadata }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to initiate bank transfer');
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+        reference: data.reference,
+      };
+    } catch (error) {
+      console.error('Bank Transfer Payment Error:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to initiate bank transfer. Please try again.',
+        error: error.message,
+      };
+    }
+  },
+
+  verifyBankTransfer: async (reference, userId) => {
+    try {
+      const url = userId ? `/api/bank-transfer/verify/${encodeURIComponent(reference)}?userId=${userId}` : `/api/bank-transfer/verify/${encodeURIComponent(reference)}`;
+      const token = localStorage.getItem('jwt_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch(url, { headers });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed');
+      }
+
+      return {
+        success: data.success,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error('Bank Transfer Verification Error:', error);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  },
+
+  initializeUSSDPayment: async (email, amount, bankCode, metadata = {}) => {
+    try {
+      console.log('Initiating USSD Payment:', { email, amount, bankCode });
+
+      const token = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch('/api/ussd/charge', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email, amount, bankCode, metadata }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to initiate USSD payment');
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+        reference: data.reference,
+      };
+    } catch (error) {
+      console.error('USSD Payment Error:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to initiate USSD payment. Please try again.',
+        error: error.message,
+      };
+    }
+  },
+
+  verifyUSSDPayment: async (reference, userId) => {
+    try {
+      const url = userId ? `/api/ussd/verify/${encodeURIComponent(reference)}?userId=${userId}` : `/api/ussd/verify/${encodeURIComponent(reference)}`;
+      const token = localStorage.getItem('jwt_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch(url, { headers });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed');
+      }
+
+      return {
+        success: data.success,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error('USSD Verification Error:', error);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  },
+
   submitOtp: async (otp, reference) => {
     try {
       const token = localStorage.getItem('jwt_token');

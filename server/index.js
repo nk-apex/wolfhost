@@ -1076,6 +1076,199 @@ app.get('/api/mobile-money/verify/:reference', authenticateToken, async (req, re
   }
 });
 
+app.post('/api/bank-transfer/charge', paymentLimiter, authenticateToken, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('amount').isNumeric().withMessage('Amount must be a number')
+    .custom(v => Number(v) >= 100).withMessage('Minimum deposit is 100 NGN'),
+], handleValidationErrors, async (req, res) => {
+  try {
+    const { email, amount, metadata } = req.body;
+
+    if (!email || !amount) {
+      return res.status(400).json({ success: false, message: 'Email and amount are required' });
+    }
+
+    if (amount < 100) {
+      return res.status(400).json({ success: false, message: 'Minimum deposit is 100 NGN' });
+    }
+
+    const amountInCents = Math.round(amount * 100);
+
+    serverLog('Sending Bank Transfer to Paystack:', { email, amount: amountInCents });
+
+    const response = await paystackFetch('/charge', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        amount: amountInCents,
+        currency: 'NGN',
+        bank_transfer: {},
+        metadata: {
+          ...metadata,
+          payment_type: 'bank_transfer',
+          user_email: email,
+          country: 'NG',
+        },
+      }),
+    });
+
+    const data = await response.json();
+    serverLog('Paystack bank transfer response:', JSON.stringify(data));
+
+    if (!response.ok || !data.status) {
+      const errorMessage = data.message || 'Failed to initiate bank transfer';
+      return res.status(response.status || 400).json({ success: false, message: errorMessage });
+    }
+
+    return res.json({
+      success: true,
+      data: data.data,
+      message: data.message || 'Bank transfer initiated. Please transfer to the provided account.',
+      reference: data.data.reference,
+    });
+  } catch (error) {
+    console.error('Bank transfer charge error:', error);
+    return res.status(500).json({ success: false, message: 'Server error initiating bank transfer' });
+  }
+});
+
+app.get('/api/bank-transfer/verify/:reference', authenticateToken, async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference is required' });
+    }
+
+    const response = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: data.message || 'Verification failed',
+      });
+    }
+
+    const isSuccess = data.status === true && data.data?.status === 'success';
+    if (isSuccess && req.user?.userId) {
+      const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      addNotification(req.user.userId, 'payment', 'Bank Transfer Payment Received', `NGN ${amount.toLocaleString()} has been added to your wallet via Bank Transfer.`);
+    }
+
+    return res.json({
+      success: data.status === true,
+      data: data.data,
+      message: data.message,
+    });
+  } catch (error) {
+    console.error('Bank transfer verification error:', error);
+    return res.status(500).json({ success: false, message: 'Server error verifying payment' });
+  }
+});
+
+app.post('/api/ussd/charge', paymentLimiter, authenticateToken, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('amount').isNumeric().withMessage('Amount must be a number')
+    .custom(v => Number(v) >= 100).withMessage('Minimum deposit is 100 NGN'),
+  body('bankCode').isString().trim().notEmpty().withMessage('Bank code is required'),
+], handleValidationErrors, async (req, res) => {
+  try {
+    const { email, amount, bankCode, metadata } = req.body;
+
+    if (!email || !amount || !bankCode) {
+      return res.status(400).json({ success: false, message: 'Email, amount, and bank code are required' });
+    }
+
+    if (amount < 100) {
+      return res.status(400).json({ success: false, message: 'Minimum deposit is 100 NGN' });
+    }
+
+    const validBankCodes = ['737', '919', '822'];
+    if (!validBankCodes.includes(bankCode)) {
+      return res.status(400).json({ success: false, message: 'Invalid bank code. Supported: GTBank (737), UBA (919), Sterling (822)' });
+    }
+
+    const amountInCents = Math.round(amount * 100);
+
+    serverLog('Sending USSD charge to Paystack:', { email, amount: amountInCents, bankCode });
+
+    const response = await paystackFetch('/charge', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        amount: amountInCents,
+        currency: 'NGN',
+        ussd: {
+          type: bankCode,
+        },
+        metadata: {
+          ...metadata,
+          payment_type: 'ussd',
+          user_email: email,
+          country: 'NG',
+          bank_code: bankCode,
+        },
+      }),
+    });
+
+    const data = await response.json();
+    serverLog('Paystack USSD response:', JSON.stringify(data));
+
+    if (!response.ok || !data.status) {
+      const errorMessage = data.message || 'Failed to initiate USSD payment';
+      return res.status(response.status || 400).json({ success: false, message: errorMessage });
+    }
+
+    return res.json({
+      success: true,
+      data: data.data,
+      message: data.message || 'USSD payment initiated. Dial the code to complete payment.',
+      reference: data.data.reference,
+    });
+  } catch (error) {
+    console.error('USSD charge error:', error);
+    return res.status(500).json({ success: false, message: 'Server error initiating USSD payment' });
+  }
+});
+
+app.get('/api/ussd/verify/:reference', authenticateToken, async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference is required' });
+    }
+
+    const response = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        message: data.message || 'Verification failed',
+      });
+    }
+
+    const isSuccess = data.status === true && data.data?.status === 'success';
+    if (isSuccess && req.user?.userId) {
+      const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      const bankCode = data.data?.metadata?.bank_code || 'USSD';
+      const bankName = bankCode === '737' ? 'GTBank' : bankCode === '919' ? 'UBA' : bankCode === '822' ? 'Sterling Bank' : 'USSD';
+      addNotification(req.user.userId, 'payment', 'USSD Payment Received', `NGN ${amount.toLocaleString()} has been added to your wallet via ${bankName} USSD.`);
+    }
+
+    return res.json({
+      success: data.status === true,
+      data: data.data,
+      message: data.message,
+    });
+  } catch (error) {
+    console.error('USSD verification error:', error);
+    return res.status(500).json({ success: false, message: 'Server error verifying payment' });
+  }
+});
+
 app.get('/api/transactions', authenticateToken, async (req, res) => {
   try {
     const email = req.user.email;

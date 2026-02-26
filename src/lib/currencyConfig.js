@@ -24,9 +24,14 @@ export const COUNTRIES = {
     phonePrefix: '+234',
     phonePlaceholder: '08012345678',
     phoneLength: 13,
-    paymentMethods: ['card', 'bank_transfer'],
+    paymentMethods: ['card', 'bank_transfer', 'ussd'],
     mobileMoneyProviders: [],
-    paystackCurrency: 'KES',
+    ussdBanks: [
+      { code: '737', name: 'GTBank' },
+      { code: '919', name: 'UBA' },
+      { code: '822', name: 'Sterling Bank' },
+    ],
+    paystackCurrency: 'NGN',
     locale: 'en-NG',
   },
   GH: {
@@ -263,6 +268,24 @@ export function getMobileMoneyLabel(countryCode) {
   if (countryCode === 'GH') return 'Mobile Money';
   if (countryCode === 'CI') return 'Mobile Money';
   return 'Mobile Money';
+}
+
+export function supportsUSSD(countryCode) {
+  const country = COUNTRIES[countryCode];
+  if (!country) return false;
+  return country.paymentMethods.includes('ussd');
+}
+
+export function supportsBankTransfer(countryCode) {
+  const country = COUNTRIES[countryCode];
+  if (!country) return false;
+  return country.paymentMethods.includes('bank_transfer');
+}
+
+export function getUSSDbanks(countryCode) {
+  const country = COUNTRIES[countryCode];
+  if (!country) return [];
+  return country.ussdBanks || [];
 }
 
 export function getCountryList() {
