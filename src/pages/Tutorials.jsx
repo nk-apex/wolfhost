@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlayCircle, BookOpen, Search, X, ExternalLink, Loader2 } from 'lucide-react';
+import { PlayCircle, BookOpen, Search, X, ExternalLink, Loader2, Clock, User, Tag } from 'lucide-react';
 
 const categoryColors = {
   'General': 'primary',
@@ -119,21 +119,28 @@ const Tutorials = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="group rounded-xl border border-primary/10 bg-black/30 overflow-hidden hover:border-primary/30 transition-all cursor-pointer"
+              className="group rounded-xl border border-primary/10 bg-black/30 overflow-hidden hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer"
               onClick={() => setActiveVideo(tutorial)}
             >
               <div className="relative aspect-video bg-black/50 flex items-center justify-center overflow-hidden">
                 {tutorial.youtubeId ? (
                   <>
                     <img
-                      src={`https://img.youtube.com/vi/${tutorial.youtubeId}/mqdefault.jpg`}
+                      src={`https://img.youtube.com/vi/${tutorial.youtubeId}/maxresdefault.jpg`}
                       alt={tutorial.title}
-                      className="w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity"
+                      className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
+                      onError={(e) => { e.target.src = `https://img.youtube.com/vi/${tutorial.youtubeId}/mqdefault.jpg`; }}
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
                         <PlayCircle className="w-8 h-8 text-primary" />
                       </div>
+                    </div>
+                    <div className="absolute top-2 right-2">
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border backdrop-blur-sm ${getColorClasses(tutorial.category)}`}>
+                        {tutorial.category || 'General'}
+                      </span>
                     </div>
                   </>
                 ) : (
@@ -143,20 +150,29 @@ const Tutorials = () => {
                   </div>
                 )}
               </div>
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors line-clamp-2">{tutorial.title}</h3>
-                </div>
+              <div className="p-4 space-y-2.5">
+                <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
                 {tutorial.description && (
-                  <p className="text-xs font-mono text-gray-400 line-clamp-2 mb-3">{tutorial.description}</p>
+                  <p className="text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
                 )}
-                <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${getColorClasses(tutorial.category)}`}>
-                    {tutorial.category || 'General'}
-                  </span>
-                  <span className="text-[10px] font-mono text-gray-500">
-                    {new Date(tutorial.createdAt).toLocaleDateString()}
-                  </span>
+                <div className="flex items-center justify-between pt-1 border-t border-primary/5">
+                  <div className="flex items-center gap-3">
+                    {tutorial.createdBy && (
+                      <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
+                        <User size={9} />
+                        {tutorial.createdBy.split('@')[0]}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
+                      <Clock size={9} />
+                      {new Date(tutorial.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {!tutorial.youtubeId && (
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${getColorClasses(tutorial.category)}`}>
+                      {tutorial.category || 'General'}
+                    </span>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -183,9 +199,21 @@ const Tutorials = () => {
               <div className="flex items-center justify-between p-4 border-b border-primary/10">
                 <div className="flex-1 min-w-0 mr-4">
                   <h3 className="text-sm sm:text-base font-bold text-white truncate">{activeVideo.title}</h3>
-                  {activeVideo.description && (
-                    <p className="text-xs font-mono text-gray-400 mt-1 line-clamp-1">{activeVideo.description}</p>
-                  )}
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${getColorClasses(activeVideo.category)}`}>
+                      {activeVideo.category || 'General'}
+                    </span>
+                    {activeVideo.createdBy && (
+                      <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
+                        <User size={9} />
+                        {activeVideo.createdBy.split('@')[0]}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
+                      <Clock size={9} />
+                      {new Date(activeVideo.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {activeVideo.videoUrl && (
@@ -194,6 +222,7 @@ const Tutorials = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-gray-400 hover:text-primary"
+                      title="Open on YouTube"
                     >
                       <ExternalLink size={16} />
                     </a>
@@ -231,6 +260,11 @@ const Tutorials = () => {
                   </div>
                 )}
               </div>
+              {activeVideo.description && (
+                <div className="p-4 border-t border-primary/10">
+                  <p className="text-xs font-mono text-gray-400 leading-relaxed">{activeVideo.description}</p>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
