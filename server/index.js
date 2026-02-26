@@ -303,6 +303,7 @@ const TASKS_FILE = path.join(__dirname, 'tasks.json');
 const FREE_SERVERS_FILE = path.join(__dirname, 'free_servers.json');
 const WELCOME_CLAIMS_FILE = path.join(__dirname, 'welcome_claims.json');
 const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
+const ADMIN_ALERTS_FILE = path.join(__dirname, 'admin_alerts.json');
 
 function loadNotifications() {
   try {
@@ -337,6 +338,82 @@ function addNotification(userId, type, title, message) {
   });
   if (allNotifs[key].length > 50) allNotifs[key] = allNotifs[key].slice(0, 50);
   saveNotifications(allNotifs);
+}
+
+function loadAdminAlerts() {
+  try {
+    if (fs.existsSync(ADMIN_ALERTS_FILE)) {
+      return JSON.parse(fs.readFileSync(ADMIN_ALERTS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading admin alerts:', e);
+  }
+  return [];
+}
+
+function saveAdminAlerts(data) {
+  try {
+    fs.writeFileSync(ADMIN_ALERTS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving admin alerts:', e);
+  }
+}
+
+function addAdminAlert(severity, category, title, message, metadata = {}) {
+  const alerts = loadAdminAlerts();
+  alerts.unshift({
+    id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    severity,
+    category,
+    title,
+    message,
+    metadata,
+    resolved: false,
+    createdAt: new Date().toISOString(),
+  });
+  if (alerts.length > 200) alerts.length = 200;
+  saveAdminAlerts(alerts);
+
+  if (_superAdminIdCache) {
+    addNotification(_superAdminIdCache, 'alert', `[${severity.toUpperCase()}] ${title}`, message);
+  }
+  serverLog(`[ADMIN ALERT] [${severity}] ${category}: ${title} - ${message}`);
+}
+
+async function notifyAdmin(title, message, severity = 'info', category = 'system', metadata = {}) {
+  addAdminAlert(severity, category, title, message, metadata);
+}
+
+const BUG_BOT_PATTERNS = [
+  { pattern: /\b(raid|raider|raiding)\b/i, reason: 'Raid bot detected' },
+  { pattern: /\b(nuk(?:e|er|ing))\b/i, reason: 'Nuker bot detected' },
+  { pattern: /\b(spam(?:mer|ming|bot)?)\b/i, reason: 'Spam bot detected' },
+  { pattern: /\b(mass[\s-]?dm|mass[\s-]?ban|mass[\s-]?kick)\b/i, reason: 'Mass action bot detected' },
+  { pattern: /\b(token[\s-]?grab(?:ber|bing)?|token[\s-]?log(?:ger|ging)?)\b/i, reason: 'Token grabber detected' },
+  { pattern: /\b(selfbot|self[\s-]?bot)\b/i, reason: 'Self bot detected' },
+  { pattern: /\b(crash(?:er|ing)?[\s-]?bot)\b/i, reason: 'Crasher bot detected' },
+  { pattern: /\b(ddos|dos[\s-]?bot|stress(?:er|test))\b/i, reason: 'DDoS/stress tool detected' },
+  { pattern: /\b(phish(?:ing|er)?)\b/i, reason: 'Phishing tool detected' },
+  { pattern: /\b(nitro[\s-]?gen(?:erator)?|nitro[\s-]?snip(?:er|ing)?)\b/i, reason: 'Nitro generator/sniper detected' },
+  { pattern: /\b(account[\s-]?gen(?:erator)?|acc[\s-]?gen)\b/i, reason: 'Account generator detected' },
+  { pattern: /\b(brute[\s-]?force|credential[\s-]?stuff(?:ing|er)?)\b/i, reason: 'Brute force tool detected' },
+  { pattern: /\b(scraper|scraping[\s-]?bot)\b/i, reason: 'Scraping bot detected' },
+  { pattern: /\b(webhook[\s-]?spam|webhook[\s-]?flood)\b/i, reason: 'Webhook abuse detected' },
+  { pattern: /\b(server[\s-]?destroy(?:er)?|channel[\s-]?destroy(?:er)?)\b/i, reason: 'Server destroyer detected' },
+  { pattern: /\b(ban[\s-]?bot|kick[\s-]?bot|prune[\s-]?bot)\b/i, reason: 'Ban/kick bot detected' },
+  { pattern: /\b(malware|trojan|keylog(?:ger|ging)?)\b/i, reason: 'Malware detected' },
+  { pattern: /\b(proxy[\s-]?scraper|ip[\s-]?grab(?:ber)?)\b/i, reason: 'Proxy scraper/IP grabber detected' },
+];
+
+function scanForBugBot(serverName, description = '') {
+  const combined = `${serverName} ${description}`.toLowerCase();
+  const matches = [];
+  for (const { pattern, reason } of BUG_BOT_PATTERNS) {
+    if (pattern.test(combined)) {
+      matches.push(reason);
+    }
+  }
+  return matches;
 }
 
 function loadWelcomeClaims() {
@@ -2198,6 +2275,18 @@ app.post('/api/servers/create', authenticateToken, [
       return res.status(503).json({ success: false, message: 'No available ports. Please try again later or contact support.' });
     }
 
+    const bugBotMatches = scanForBugBot(name);
+    if (bugBotMatches.length > 0) {
+      await notifyAdmin(
+        'Suspicious Server Deployment',
+        `User ${userEmail} (ID: ${userId}) attempted to deploy server "${name}" with suspicious content: ${bugBotMatches.join(', ')}`,
+        'critical',
+        'bug_bot',
+        { userId, userEmail, serverName: name, plan, matches: bugBotMatches }
+      );
+      return res.status(403).json({ success: false, message: 'Server name contains prohibited content. This has been flagged for review.' });
+    }
+
     serverLog('Creating Pterodactyl server:', { name, plan, userId, allocationId, verifiedBalance: balance });
 
     const eggEnv = await getEggEnvironment();
@@ -2693,6 +2782,18 @@ app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) =
       customName = customName.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').substring(0, 50);
     }
     const serverName = customName && customName.length >= 3 ? customName : `${pteroUser.username}-welcome-trial`;
+
+    const bugBotMatches = scanForBugBot(serverName);
+    if (bugBotMatches.length > 0) {
+      await notifyAdmin(
+        'Suspicious Free Server Claim',
+        `User ${userEmail} (ID: ${userId}) attempted to claim a free server named "${serverName}" with suspicious content: ${bugBotMatches.join(', ')}`,
+        'critical',
+        'bug_bot',
+        { userId, userEmail, serverName, type: 'free_trial', matches: bugBotMatches }
+      );
+      return res.status(403).json({ success: false, message: 'Server name contains prohibited content. This has been flagged for review.' });
+    }
     const expiresAt = new Date(Date.now() + FREE_SERVER_LIFETIME_MS).toISOString();
 
     serverLog('Creating welcome free trial server:', { serverName, userId, allocationId, expiresAt });
@@ -2851,6 +2952,20 @@ async function cleanupExpiredFreeServers() {
       }
     }
 
+    if (successfullyRemoved.length > 0) {
+      const expiredDetails = expired
+        .filter(s => successfullyRemoved.includes(s.serverId))
+        .map(s => `"${s.serverName}" (user ${s.userEmail || s.userId})`)
+        .join(', ');
+      await notifyAdmin(
+        'Free Trial Servers Expired',
+        `${successfullyRemoved.length} free trial server(s) expired and were removed: ${expiredDetails}`,
+        'info',
+        'server_expired',
+        { count: successfullyRemoved.length, serverIds: successfullyRemoved }
+      );
+    }
+
     const remaining = freeServers.filter(s => {
       if (successfullyRemoved.includes(s.serverId)) return false;
       if (new Date(s.expiresAt) > now) return true;
@@ -2865,6 +2980,114 @@ async function cleanupExpiredFreeServers() {
 
 setInterval(cleanupExpiredFreeServers, 5 * 60 * 1000);
 setTimeout(cleanupExpiredFreeServers, 15000);
+
+async function scanExistingServersForBugBots() {
+  try {
+    const alerts = loadAdminAlerts();
+    const alreadyFlagged = new Set(
+      alerts.filter(a => a.category === 'bug_bot' && a.metadata?.serverId).map(a => a.metadata.serverId.toString())
+    );
+
+    let flaggedCount = 0;
+    let page = 1;
+    let totalPages = 1;
+
+    while (page <= totalPages) {
+      const response = await pteroFetch(`/servers?per_page=100&page=${page}&include=user`);
+      if (!response.ok) break;
+      const data = await response.json();
+      const servers = data.data || [];
+      totalPages = data.meta?.pagination?.total_pages || 1;
+
+      for (const s of servers) {
+        const attrs = s.attributes;
+        if (alreadyFlagged.has(attrs.id.toString())) continue;
+
+        const matches = scanForBugBot(attrs.name, attrs.description || '');
+        if (matches.length > 0) {
+          const owner = attrs.relationships?.user?.attributes;
+          await notifyAdmin(
+            'Suspicious Server Detected (Scan)',
+            `Server "${attrs.name}" (ID: ${attrs.id}) owned by ${owner?.email || `user #${attrs.user}`} flagged: ${matches.join(', ')}`,
+            'warning',
+            'bug_bot',
+            { serverId: attrs.id, serverName: attrs.name, ownerId: attrs.user, ownerEmail: owner?.email, matches }
+          );
+          flaggedCount++;
+        }
+      }
+      page++;
+    }
+
+    if (flaggedCount > 0) {
+      serverLog(`[BugBot Scan] Flagged ${flaggedCount} suspicious server(s)`);
+    }
+  } catch (e) {
+    console.error('[BugBot Scan] Error:', e.message);
+  }
+}
+
+setInterval(scanExistingServersForBugBots, 30 * 60 * 1000);
+setTimeout(scanExistingServersForBugBots, 30000);
+
+app.get('/api/admin/alerts', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const alerts = loadAdminAlerts();
+    return res.json({ success: true, alerts });
+  } catch (error) {
+    console.error('Admin alerts error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load alerts' });
+  }
+});
+
+app.patch('/api/admin/alerts/:id/resolve', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const alerts = loadAdminAlerts();
+    const idx = alerts.findIndex(a => a.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Alert not found' });
+    }
+    alerts[idx].resolved = true;
+    alerts[idx].resolvedAt = new Date().toISOString();
+    alerts[idx].resolvedBy = req.user.email || req.user.username;
+    saveAdminAlerts(alerts);
+    return res.json({ success: true, alert: alerts[idx] });
+  } catch (error) {
+    console.error('Admin alert resolve error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to resolve alert' });
+  }
+});
+
+app.delete('/api/admin/alerts/:id', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+  try {
+    let alerts = loadAdminAlerts();
+    const idx = alerts.findIndex(a => a.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Alert not found' });
+    }
+    alerts.splice(idx, 1);
+    saveAdminAlerts(alerts);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Admin alert delete error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete alert' });
+  }
+});
+
+app.delete('/api/admin/alerts', adminLimiter, authenticateToken, requireSuperAdmin, (req, res) => {
+  try {
+    const { resolvedOnly } = req.query;
+    if (resolvedOnly === 'true') {
+      const alerts = loadAdminAlerts().filter(a => !a.resolved);
+      saveAdminAlerts(alerts);
+      return res.json({ success: true, message: 'Resolved alerts cleared' });
+    }
+    saveAdminAlerts([]);
+    return res.json({ success: true, message: 'All alerts cleared' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to clear alerts' });
+  }
+});
 
 app.post('/api/wolf/chat', chatLimiter, authenticateToken, [
   body('message').isString().trim().notEmpty().withMessage('Message is required')
@@ -3413,6 +3636,15 @@ app.listen(PORT, '0.0.0.0', async () => {
       console.log('Startup: Egg docker image:', cachedEggDockerImage || 'HARDCODED FALLBACK');
     } catch (e) {
       console.error('Startup: Failed to fetch egg variables:', e.message);
+    }
+
+    try {
+      const adminId = await resolveSuperAdminId();
+      if (adminId) {
+        console.log('Startup: Super admin ID resolved:', adminId);
+      }
+    } catch (e) {
+      console.error('Startup: Failed to resolve super admin ID:', e.message);
     }
   }
 });

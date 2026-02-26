@@ -114,5 +114,15 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - Updated CSP to allow YouTube iframe embeds and thumbnail images
   - Added "Tutorials" to sidebar navigation with BookOpen icon
 
+- 2026-02-26: Added admin alerts and bug bot detection system
+  - Backend: `notifyAdmin()` helper, `addAdminAlert()` for persistent alerts in `server/admin_alerts.json`
+  - Bug bot detection: 18+ regex patterns scanning for raid bots, nukers, spam bots, token grabbers, DDoS tools, phishing, etc.
+  - Server creation blocked if suspicious name detected (both paid and free servers), with admin notification
+  - Periodic background scan of all existing servers every 30 minutes (paginated)
+  - Admin notified when free trial servers expire (in cleanup function)
+  - Super admin ID resolved on startup for reliable notification delivery
+  - Admin API: GET/PATCH/DELETE `/api/admin/alerts` endpoints for managing alerts
+  - Admin panel: New "Alerts" tab with severity-coded cards, filter by category/status, resolve/delete actions, unresolved badge count
+
 ## User Preferences
 - None documented yet

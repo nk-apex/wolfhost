@@ -97,6 +97,61 @@ const Admin = () => {
   const [tutorialForm, setTutorialForm] = useState({ title: '', description: '', videoUrl: '', category: 'General', published: true });
   const [tutorialSaving, setTutorialSaving] = useState(false);
   const [editingTutorial, setEditingTutorial] = useState(null);
+  const [adminAlerts, setAdminAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertFilter, setAlertFilter] = useState('all');
+
+  const fetchAlerts = async () => {
+    setAlertsLoading(true);
+    try {
+      const res = await adminFetch('/api/admin/alerts');
+      const data = await res.json();
+      if (data.success) setAdminAlerts(data.alerts || []);
+    } catch {
+      toast.error('Failed to load alerts');
+    } finally {
+      setAlertsLoading(false);
+    }
+  };
+
+  const resolveAlert = async (alertId) => {
+    try {
+      const res = await adminFetch(`/api/admin/alerts/${alertId}/resolve`, { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success) {
+        setAdminAlerts(prev => prev.map(a => a.id === alertId ? { ...a, ...data.alert } : a));
+        toast.success('Alert resolved');
+      }
+    } catch {
+      toast.error('Failed to resolve alert');
+    }
+  };
+
+  const deleteAlert = async (alertId) => {
+    try {
+      const res = await adminFetch(`/api/admin/alerts/${alertId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setAdminAlerts(prev => prev.filter(a => a.id !== alertId));
+        toast.success('Alert deleted');
+      }
+    } catch {
+      toast.error('Failed to delete alert');
+    }
+  };
+
+  const clearResolvedAlerts = async () => {
+    try {
+      const res = await adminFetch('/api/admin/alerts?resolvedOnly=true', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setAdminAlerts(prev => prev.filter(a => !a.resolved));
+        toast.success('Resolved alerts cleared');
+      }
+    } catch {
+      toast.error('Failed to clear alerts');
+    }
+  };
 
   const fetchSiteSettings = async () => {
     setSettingsLoading(true);
@@ -276,6 +331,7 @@ const Admin = () => {
       return;
     }
     fetchData();
+    fetchAlerts();
     if (user?.isSuperAdmin) {
       fetchPayments();
     }
@@ -503,6 +559,7 @@ const Admin = () => {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'servers', label: 'Servers', icon: Server },
     ...(user?.isSuperAdmin ? [{ id: 'payments', label: 'Payments', icon: CreditCard }] : []),
+    { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: adminAlerts.filter(a => !a.resolved).length || null },
     { id: 'notifications', label: 'Notify', icon: Bell },
     { id: 'tutorials', label: 'Tutorials', icon: Video },
     { id: 'site-settings', label: 'Site', icon: Settings },
@@ -521,7 +578,7 @@ const Admin = () => {
           </div>
         </div>
         <button
-          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isSuperAdmin) fetchPayments(); if (activeTab === 'tutorials') fetchTutorials(); }}
+          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isSuperAdmin) fetchPayments(); if (activeTab === 'tutorials') fetchTutorials(); if (activeTab === 'alerts') fetchAlerts(); }}
           className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
           <div className="flex items-center text-xs sm:text-sm font-mono">
@@ -535,8 +592,8 @@ const Admin = () => {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); if (tab.id === 'tutorials' && tutorials.length === 0) fetchTutorials(); }}
-            className={`flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-mono text-[10px] sm:text-sm transition-all flex-1 min-w-0 ${
+            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); if (tab.id === 'tutorials' && tutorials.length === 0) fetchTutorials(); if (tab.id === 'alerts' && adminAlerts.length === 0) fetchAlerts(); }}
+            className={`relative flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-mono text-[10px] sm:text-sm transition-all flex-1 min-w-0 ${
               activeTab === tab.id
                 ? 'bg-primary/20 text-white border border-primary/30'
                 : 'text-gray-400 hover:text-white hover:bg-primary/5'
@@ -544,6 +601,11 @@ const Admin = () => {
           >
             <tab.icon size={14} className="shrink-0" />
             <span className="hidden sm:inline">{tab.label}</span>
+            {tab.badge > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 text-[9px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center">
+                {tab.badge > 9 ? '9+' : tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -1085,6 +1147,136 @@ const Admin = () => {
                 </motion.button>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'alerts' && (
+          <motion.div
+            key="alerts"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-lg font-display font-bold flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                Security Alerts
+                {adminAlerts.filter(a => !a.resolved).length > 0 && (
+                  <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-mono">
+                    {adminAlerts.filter(a => !a.resolved).length} unresolved
+                  </span>
+                )}
+              </h2>
+              <div className="flex gap-2">
+                <select
+                  value={alertFilter}
+                  onChange={(e) => setAlertFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-black/40 border border-primary/20 rounded-lg text-xs font-mono text-gray-300 focus:outline-none"
+                >
+                  <option value="all">All Alerts</option>
+                  <option value="unresolved">Unresolved</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="bug_bot">Bug Bots</option>
+                  <option value="server_expired">Expired Servers</option>
+                  <option value="critical">Critical</option>
+                </select>
+                {user?.isSuperAdmin && adminAlerts.some(a => a.resolved) && (
+                  <button
+                    onClick={clearResolvedAlerts}
+                    className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs font-mono text-red-400 hover:bg-red-500/20 transition-colors"
+                  >
+                    Clear Resolved
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {alertsLoading ? (
+              <div className="flex justify-center py-12"><LoadingSpinner /></div>
+            ) : adminAlerts.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 font-mono text-sm">
+                <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-gray-600" />
+                <p>No alerts yet. The system monitors for suspicious activity automatically.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {adminAlerts
+                  .filter(a => {
+                    if (alertFilter === 'unresolved') return !a.resolved;
+                    if (alertFilter === 'resolved') return a.resolved;
+                    if (alertFilter === 'bug_bot') return a.category === 'bug_bot';
+                    if (alertFilter === 'server_expired') return a.category === 'server_expired';
+                    if (alertFilter === 'critical') return a.severity === 'critical';
+                    return true;
+                  })
+                  .map(alert => (
+                    <motion.div
+                      key={alert.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`p-4 rounded-xl border ${
+                        alert.resolved
+                          ? 'border-gray-700/50 bg-black/20 opacity-60'
+                          : alert.severity === 'critical'
+                            ? 'border-red-500/30 bg-red-500/5'
+                            : alert.severity === 'warning'
+                              ? 'border-yellow-500/30 bg-yellow-500/5'
+                              : 'border-blue-500/30 bg-blue-500/5'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                              alert.severity === 'critical' ? 'bg-red-500/20 text-red-400'
+                                : alert.severity === 'warning' ? 'bg-yellow-500/20 text-yellow-400'
+                                  : 'bg-blue-500/20 text-blue-400'
+                            }`}>
+                              {alert.severity.toUpperCase()}
+                            </span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400">
+                              {alert.category === 'bug_bot' ? 'BUG BOT' : alert.category === 'server_expired' ? 'EXPIRED' : alert.category.toUpperCase()}
+                            </span>
+                            {alert.resolved && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">RESOLVED</span>
+                            )}
+                          </div>
+                          <h3 className="text-sm font-semibold text-white mb-1">{alert.title}</h3>
+                          <p className="text-xs text-gray-400 font-mono break-words">{alert.message}</p>
+                          {alert.metadata?.matches && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {alert.metadata.matches.map((m, i) => (
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 font-mono">{m}</span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-[10px] text-gray-500 font-mono mt-2">
+                            {new Date(alert.createdAt).toLocaleString()}
+                            {alert.resolvedBy && ` | Resolved by ${alert.resolvedBy}`}
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          {!alert.resolved && (
+                            <button
+                              onClick={() => resolveAlert(alert.id)}
+                              className="p-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 transition-colors"
+                              title="Mark as resolved"
+                            >
+                              <CheckCircle size={14} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteAlert(alert.id)}
+                            className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
+                            title="Delete alert"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+              </div>
+            )}
           </motion.div>
         )}
 
