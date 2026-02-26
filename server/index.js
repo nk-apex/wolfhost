@@ -1382,6 +1382,7 @@ app.post('/api/auth/register', registerLimiter, checkRegistrationAbuse, [
       message: 'Account created successfully',
       user: userPayload,
       token,
+      isNewUser: true,
     });
   } catch (error) {
     console.error('Registration error:', error);

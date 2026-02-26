@@ -82,8 +82,9 @@ const Register = () => {
       
       if (result.success) {
         setCountry(formData.country);
-        setSuccess('Registration successful! Redirecting to dashboard...');
-        setTimeout(() => navigate('/overview'), 1500);
+        setSuccess('Registration successful! Redirecting to claim your free server...');
+        localStorage.setItem('is_new_signup', 'true');
+        setTimeout(() => navigate('/claim-server'), 1500);
       } else {
         setError(result.error || 'Registration failed');
       }

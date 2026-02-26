@@ -40,18 +40,23 @@ const Overview = () => {
   useEffect(() => {
     fetchData();
     checkWelcomePopup();
+
+    const isNewSignup = localStorage.getItem('is_new_signup');
+    if (isNewSignup) {
+      localStorage.removeItem('is_new_signup');
+      navigate('/claim-server');
+    }
   }, []);
 
   const checkWelcomePopup = async () => {
     const dismissed = localStorage.getItem('welcome_popup_dismissed');
     if (dismissed) return;
 
-    const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-    const userId = currentUser.panelId || currentUser.id;
-    if (!userId) return;
-
     try {
-      const response = await fetch(`/api/free-server/status?userId=${encodeURIComponent(userId)}`);
+      const token = localStorage.getItem('jwt_token');
+      const response = await fetch('/api/free-server/status', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
       const data = await response.json();
       if (data.success && !data.hasFreeServer) {
         setShowWelcomePopup(true);
@@ -187,11 +192,9 @@ const Overview = () => {
 
   return (
     <div className="space-y-4 sm:space-y-8" data-testid="overview-page">
-      {showWelcomePopup && user && (
+      {showWelcomePopup && (
         <WelcomeFreeServerPopup
-          user={user}
           onClose={() => setShowWelcomePopup(false)}
-          onClaimed={() => fetchData()}
         />
       )}
       <div className="mb-6 sm:mb-8 flex flex-wrap justify-between items-end gap-3 sm:gap-4">
