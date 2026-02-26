@@ -33,6 +33,12 @@ import {
   Globe,
   MessageCircle,
   Youtube,
+  Video,
+  Plus,
+  Eye,
+  EyeOff,
+  Edit2,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
@@ -86,6 +92,11 @@ const Admin = () => {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastType, setBroadcastType] = useState('info');
   const [broadcastSending, setBroadcastSending] = useState(false);
+  const [tutorials, setTutorials] = useState([]);
+  const [tutorialsLoading, setTutorialsLoading] = useState(false);
+  const [tutorialForm, setTutorialForm] = useState({ title: '', description: '', videoUrl: '', category: 'General', published: true });
+  const [tutorialSaving, setTutorialSaving] = useState(false);
+  const [editingTutorial, setEditingTutorial] = useState(null);
 
   const fetchSiteSettings = async () => {
     setSettingsLoading(true);
@@ -146,6 +157,93 @@ const Admin = () => {
     } finally {
       setBroadcastSending(false);
     }
+  };
+
+  const fetchTutorials = async () => {
+    setTutorialsLoading(true);
+    try {
+      const res = await adminFetch('/api/admin/tutorials');
+      const data = await res.json();
+      if (data.success) setTutorials(data.tutorials);
+    } catch {
+      toast.error('Failed to load tutorials');
+    } finally {
+      setTutorialsLoading(false);
+    }
+  };
+
+  const handleSaveTutorial = async () => {
+    if (!tutorialForm.title.trim() || !tutorialForm.videoUrl.trim()) {
+      toast.error('Title and video URL are required');
+      return;
+    }
+    setTutorialSaving(true);
+    try {
+      const isEditing = !!editingTutorial;
+      const url = isEditing ? `/api/admin/tutorials/${editingTutorial.id}` : '/api/admin/tutorials';
+      const method = isEditing ? 'PATCH' : 'POST';
+      const res = await adminFetch(url, { method, body: JSON.stringify(tutorialForm) });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(isEditing ? 'Tutorial updated' : 'Tutorial added');
+        setTutorialForm({ title: '', description: '', videoUrl: '', category: 'General', published: true });
+        setEditingTutorial(null);
+        fetchTutorials();
+      } else {
+        toast.error(data.message || 'Failed to save tutorial');
+      }
+    } catch {
+      toast.error('Failed to save tutorial');
+    } finally {
+      setTutorialSaving(false);
+    }
+  };
+
+  const handleDeleteTutorial = async (id) => {
+    try {
+      const res = await adminFetch(`/api/admin/tutorials/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Tutorial deleted');
+        fetchTutorials();
+      } else {
+        toast.error(data.message || 'Failed to delete tutorial');
+      }
+    } catch {
+      toast.error('Failed to delete tutorial');
+    }
+  };
+
+  const handleToggleTutorialPublish = async (tutorial) => {
+    try {
+      const res = await adminFetch(`/api/admin/tutorials/${tutorial.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ published: !tutorial.published }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.tutorial.published ? 'Tutorial published' : 'Tutorial unpublished');
+        fetchTutorials();
+      }
+    } catch {
+      toast.error('Failed to update tutorial');
+    }
+  };
+
+  const startEditTutorial = (tutorial) => {
+    setEditingTutorial(tutorial);
+    setTutorialForm({
+      title: tutorial.title,
+      description: tutorial.description || '',
+      videoUrl: tutorial.videoUrl,
+      category: tutorial.category || 'General',
+      published: tutorial.published !== false,
+    });
+  };
+
+  const cancelEditTutorial = () => {
+    setEditingTutorial(null);
+    setTutorialForm({ title: '', description: '', videoUrl: '', category: 'General', published: true });
   };
 
   const handleUploadServer = async (targetUserId, plan) => {
@@ -406,6 +504,7 @@ const Admin = () => {
     { id: 'servers', label: 'Servers', icon: Server },
     ...(user?.isSuperAdmin ? [{ id: 'payments', label: 'Payments', icon: CreditCard }] : []),
     { id: 'notifications', label: 'Notify', icon: Bell },
+    { id: 'tutorials', label: 'Tutorials', icon: Video },
     { id: 'site-settings', label: 'Site', icon: Settings },
   ];
 
@@ -422,7 +521,7 @@ const Admin = () => {
           </div>
         </div>
         <button
-          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isSuperAdmin) fetchPayments(); }}
+          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isSuperAdmin) fetchPayments(); if (activeTab === 'tutorials') fetchTutorials(); }}
           className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
           <div className="flex items-center text-xs sm:text-sm font-mono">
@@ -436,7 +535,7 @@ const Admin = () => {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
+            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); if (tab.id === 'tutorials' && tutorials.length === 0) fetchTutorials(); }}
             className={`flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-mono text-[10px] sm:text-sm transition-all flex-1 min-w-0 ${
               activeTab === tab.id
                 ? 'bg-primary/20 text-white border border-primary/30'
@@ -985,6 +1084,179 @@ const Admin = () => {
                   )}
                 </motion.button>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'tutorials' && (
+          <motion.div
+            key="tutorials"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="space-y-4 sm:space-y-6"
+          >
+            <div className="rounded-xl border border-primary/10 bg-black/30 backdrop-blur-sm p-4 sm:p-6">
+              <h3 className="text-sm sm:text-base font-bold text-white mb-4 flex items-center gap-2">
+                <Video size={16} className="text-primary" />
+                {editingTutorial ? 'Edit Tutorial' : 'Add Tutorial'}
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-mono text-gray-400 mb-1 block">Title *</label>
+                  <input
+                    type="text"
+                    value={tutorialForm.title}
+                    onChange={(e) => setTutorialForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g. How to Claim Your Free Server"
+                    className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-mono text-gray-400 mb-1 block">Video URL * (YouTube link)</label>
+                  <input
+                    type="text"
+                    value={tutorialForm.videoUrl}
+                    onChange={(e) => setTutorialForm(prev => ({ ...prev, videoUrl: e.target.value }))}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-mono text-gray-400 mb-1 block">Description</label>
+                  <textarea
+                    value={tutorialForm.description}
+                    onChange={(e) => setTutorialForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Brief description of what this tutorial covers..."
+                    rows={2}
+                    className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-primary/30 transition-colors resize-none"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="text-xs font-mono text-gray-400 mb-1 block">Category</label>
+                    <select
+                      value={tutorialForm.category}
+                      onChange={(e) => setTutorialForm(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-black/50 border border-primary/10 rounded-lg text-sm font-mono text-white focus:outline-none focus:border-primary/30 transition-colors"
+                    >
+                      <option value="General">General</option>
+                      <option value="Getting Started">Getting Started</option>
+                      <option value="Payments">Payments</option>
+                      <option value="Deployment">Deployment</option>
+                      <option value="Server Management">Server Management</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary/10 bg-black/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tutorialForm.published}
+                        onChange={(e) => setTutorialForm(prev => ({ ...prev, published: e.target.checked }))}
+                        className="rounded border-primary/30"
+                      />
+                      <span className="text-xs font-mono text-gray-400">Published</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <motion.button
+                    onClick={handleSaveTutorial}
+                    disabled={tutorialSaving}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary font-mono text-sm font-semibold transition-colors disabled:opacity-30"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {tutorialSaving ? <LoadingSpinner size="sm" /> : (
+                      <>
+                        {editingTutorial ? <Save size={14} /> : <Plus size={14} />}
+                        {editingTutorial ? 'Update Tutorial' : 'Add Tutorial'}
+                      </>
+                    )}
+                  </motion.button>
+                  {editingTutorial && (
+                    <button
+                      onClick={cancelEditTutorial}
+                      className="px-4 py-2.5 rounded-lg border border-primary/10 text-gray-400 hover:bg-primary/5 font-mono text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-primary/10 bg-black/30 backdrop-blur-sm p-4 sm:p-6">
+              <h3 className="text-sm sm:text-base font-bold text-white mb-4 flex items-center gap-2">
+                <BookOpen size={16} className="text-primary" />
+                All Tutorials ({tutorials.length})
+              </h3>
+              {tutorialsLoading ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner size="md" />
+                </div>
+              ) : tutorials.length === 0 ? (
+                <p className="text-center text-gray-500 font-mono text-sm py-8">No tutorials yet. Add one above.</p>
+              ) : (
+                <div className="space-y-3">
+                  {tutorials.map(tutorial => (
+                    <div
+                      key={tutorial.id}
+                      className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
+                        tutorial.published ? 'border-primary/10 bg-black/20' : 'border-yellow-500/10 bg-yellow-500/5'
+                      }`}
+                    >
+                      <div className="w-24 h-16 rounded-lg bg-black/50 overflow-hidden shrink-0">
+                        {tutorial.youtubeId ? (
+                          <img
+                            src={`https://img.youtube.com/vi/${tutorial.youtubeId}/mqdefault.jpg`}
+                            alt={tutorial.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Video size={20} className="text-gray-600" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate">{tutorial.title}</p>
+                            <p className="text-[10px] font-mono text-gray-500 mt-0.5">
+                              {tutorial.category} · {new Date(tutorial.createdAt).toLocaleDateString()}
+                              {!tutorial.published && <span className="text-yellow-400 ml-1">(Draft)</span>}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleToggleTutorialPublish(tutorial)}
+                              className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-gray-400 hover:text-white"
+                              title={tutorial.published ? 'Unpublish' : 'Publish'}
+                            >
+                              {tutorial.published ? <Eye size={14} /> : <EyeOff size={14} />}
+                            </button>
+                            <button
+                              onClick={() => startEditTutorial(tutorial)}
+                              className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-gray-400 hover:text-primary"
+                              title="Edit"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTutorial(tutorial.id)}
+                              className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors text-gray-400 hover:text-red-400"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

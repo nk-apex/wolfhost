@@ -17,6 +17,7 @@ import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Community from "./pages/Community";
 import ClaimServer from "./pages/ClaimServer";
+import Tutorials from "./pages/Tutorials";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/community" element={<Community />} />
               <Route path="/claim-server" element={<ClaimServer />} />
+              <Route path="/tutorials" element={<Tutorials />} />
               <Route path="/admin" element={<Admin />} />
             </Route>
 

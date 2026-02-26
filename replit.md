@@ -106,5 +106,13 @@ WolfHost is a premium hosting infrastructure platform built with React + Vite fr
   - Added "Claim Server" link to sidebar navigation with Gift icon
   - Added route in `src/App.tsx`
 
+- 2026-02-26: Added tutorial video management system
+  - Backend: CRUD API endpoints at `/api/tutorials` (public) and `/api/admin/tutorials` (admin) with YouTube URL validation
+  - Tutorials stored in `server/tutorials.json` with YouTube ID extraction, categories, publish/draft status
+  - Admin panel: New "Tutorials" tab for adding, editing, deleting, and publishing/unpublishing tutorial videos
+  - User-facing: New `/tutorials` page with search, category filtering, video grid with YouTube thumbnails, and embedded player modal
+  - Updated CSP to allow YouTube iframe embeds and thumbnail images
+  - Added "Tutorials" to sidebar navigation with BookOpen icon
+
 ## User Preferences
 - None documented yet

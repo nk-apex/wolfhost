@@ -74,9 +74,9 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.paystack.co"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "https://img.youtube.com"],
       connectSrc: ["'self'", "https://api.paystack.co", "wss:", "ws:"],
-      frameSrc: ["'self'", "https://js.paystack.co"],
+      frameSrc: ["'self'", "https://js.paystack.co", "https://www.youtube.com", "https://youtube.com"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
@@ -3053,6 +3053,162 @@ app.post('/api/admin/broadcast-notification', adminLimiter, authenticateToken, r
   } catch (error) {
     console.error('Broadcast notification error:', error);
     return res.status(500).json({ success: false, message: 'Failed to broadcast notification' });
+  }
+});
+
+const TUTORIALS_FILE = path.join(__dirname, 'tutorials.json');
+
+function loadTutorials() {
+  try {
+    if (fs.existsSync(TUTORIALS_FILE)) {
+      return JSON.parse(fs.readFileSync(TUTORIALS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading tutorials:', e);
+  }
+  return [];
+}
+
+function saveTutorials(data) {
+  try {
+    fs.writeFileSync(TUTORIALS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving tutorials:', e);
+  }
+}
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+app.get('/api/tutorials', (req, res) => {
+  try {
+    const tutorials = loadTutorials();
+    const published = tutorials.filter(t => t.published !== false);
+    published.sort((a, b) => (b.order || 0) - (a.order || 0) || new Date(b.createdAt) - new Date(a.createdAt));
+    return res.json({ success: true, tutorials: published });
+  } catch (error) {
+    console.error('Tutorials fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch tutorials' });
+  }
+});
+
+app.get('/api/admin/tutorials', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const tutorials = loadTutorials();
+    tutorials.sort((a, b) => (b.order || 0) - (a.order || 0) || new Date(b.createdAt) - new Date(a.createdAt));
+    return res.json({ success: true, tutorials });
+  } catch (error) {
+    console.error('Admin tutorials fetch error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch tutorials' });
+  }
+});
+
+app.post('/api/admin/tutorials', authenticateToken, requireAdmin, [
+  body('title').isString().trim().notEmpty().withMessage('Title is required')
+    .isLength({ max: 200 }).withMessage('Title too long'),
+  body('description').optional().isString().trim().isLength({ max: 1000 }),
+  body('videoUrl').isString().trim().notEmpty().withMessage('Video URL is required')
+    .isLength({ max: 500 }).withMessage('URL too long'),
+  body('category').optional().isString().trim().isLength({ max: 50 }),
+  body('published').optional().isBoolean(),
+], handleValidationErrors, (req, res) => {
+  try {
+    const { title, description, videoUrl, category, published } = req.body;
+
+    const youtubeId = extractYouTubeId(videoUrl);
+    if (!youtubeId) {
+      return res.status(400).json({ success: false, message: 'Invalid YouTube URL. Please provide a valid YouTube video link.' });
+    }
+
+    const tutorials = loadTutorials();
+    const tutorial = {
+      id: `tut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: title.trim(),
+      description: (description || '').trim(),
+      videoUrl: videoUrl.trim(),
+      youtubeId,
+      category: (category || 'General').trim(),
+      published: published !== false,
+      order: tutorials.length,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: req.user.email,
+    };
+
+    tutorials.push(tutorial);
+    saveTutorials(tutorials);
+
+    return res.json({ success: true, tutorial, message: 'Tutorial added successfully' });
+  } catch (error) {
+    console.error('Tutorial create error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create tutorial' });
+  }
+});
+
+app.patch('/api/admin/tutorials/:id', authenticateToken, requireAdmin, [
+  param('id').isString().trim().notEmpty(),
+  body('title').optional().isString().trim().isLength({ max: 200 }),
+  body('description').optional().isString().trim().isLength({ max: 1000 }),
+  body('videoUrl').optional().isString().trim().isLength({ max: 500 }),
+  body('category').optional().isString().trim().isLength({ max: 50 }),
+  body('published').optional().isBoolean(),
+], handleValidationErrors, (req, res) => {
+  try {
+    const tutorials = loadTutorials();
+    const idx = tutorials.findIndex(t => t.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Tutorial not found' });
+    }
+
+    const updates = req.body;
+    if (updates.title !== undefined) tutorials[idx].title = updates.title.trim();
+    if (updates.description !== undefined) tutorials[idx].description = updates.description.trim();
+    if (updates.videoUrl !== undefined) {
+      const newYoutubeId = extractYouTubeId(updates.videoUrl);
+      if (!newYoutubeId) {
+        return res.status(400).json({ success: false, message: 'Invalid YouTube URL. Please provide a valid YouTube video link.' });
+      }
+      tutorials[idx].videoUrl = updates.videoUrl.trim();
+      tutorials[idx].youtubeId = newYoutubeId;
+    }
+    if (updates.category !== undefined) tutorials[idx].category = updates.category.trim();
+    if (updates.published !== undefined) tutorials[idx].published = updates.published;
+    tutorials[idx].updatedAt = new Date().toISOString();
+
+    saveTutorials(tutorials);
+
+    return res.json({ success: true, tutorial: tutorials[idx], message: 'Tutorial updated' });
+  } catch (error) {
+    console.error('Tutorial update error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update tutorial' });
+  }
+});
+
+app.delete('/api/admin/tutorials/:id', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const tutorials = loadTutorials();
+    const idx = tutorials.findIndex(t => t.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Tutorial not found' });
+    }
+
+    tutorials.splice(idx, 1);
+    saveTutorials(tutorials);
+
+    return res.json({ success: true, message: 'Tutorial deleted' });
+  } catch (error) {
+    console.error('Tutorial delete error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete tutorial' });
   }
 });
 

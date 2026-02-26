@@ -14,6 +14,7 @@ import {
   MessageSquare,
   ExternalLink,
   Gift,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: Users, label: 'Referrals', path: '/referrals' },
   { icon: Receipt, label: 'Billing', path: '/billing' },
   { icon: Wallet, label: 'Wallet', path: '/wallet' },
+  { icon: BookOpen, label: 'Tutorials', path: '/tutorials' },
   { icon: MessageSquare, label: 'Community', path: '/community' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
