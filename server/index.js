@@ -3496,9 +3496,10 @@ function saveTutorials(data) {
 
 function extractYouTubeId(url) {
   if (!url) return null;
+  // Enhanced patterns to match various YouTube URL formats including mobile, shorts, and si parameter
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /^[a-zA-Z0-9_-]{11}$/ // Support just the ID
   ];
   for (const pattern of patterns) {
     const match = url.match(pattern);
