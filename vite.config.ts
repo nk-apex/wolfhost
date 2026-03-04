@@ -35,12 +35,39 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: (id) => {
+          // Vendor chunk for node_modules
+          if (id.includes('node_modules')) {
+            // Separate large libraries into their own chunks
+            if (id.includes('@radix-ui')) {
+              return 'radix-ui';
+            }
+            if (id.includes('recharts')) {
+              return 'recharts';
+            }
+            if (id.includes('framer-motion')) {
+              return 'framer-motion';
+            }
+            if (id.includes('react-router-dom')) {
+              return 'router';
+            }
+            if (id.includes('@tanstack/react-query') || id.includes('@hookform')) {
+              return 'react-libraries';
+            }
+            // Default vendor chunk
+            return 'vendor';
+          }
+          // Component chunk
+          if (id.includes('components/ui')) {
+            return 'ui-components';
+          }
+        },
         chunkFileNames: 'assets/[hash].js',
         entryFileNames: 'assets/[hash].js',
         assetFileNames: 'assets/[hash].[ext]',
       },
     },
+    chunkSizeWarningLimit: 700,
   },
 
   server: {
