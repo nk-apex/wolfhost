@@ -1,0 +1,48 @@
+{
+  "1": [
+    {
+      "id": "1772027498212-ai7pbc",
+      "type": "server",
+      "title": "Server Created",
+      "message": "Your \"kip-0\" server (Limited plan) has been deployed successfully!",
+      "read": false,
+      "createdAt": "2026-02-25T13:51:38.212Z"
+    },
+    {
+      "id": "1771106129442-3hg1a3",
+      "type": "server",
+      "title": "Server Deployed",
+      "message": "Your bot has been deployed successfully from GitHub! Server: wolf-deploy-1771106129058",
+      "read": true,
+      "createdAt": "2026-02-14T21:55:29.442Z"
+    },
+    {
+      "id": "1770991877676-z72qgw",
+      "type": "server",
+      "title": "Free Trial Server Ready!",
+      "message": "Your free 3-day trial server \"wolf-welcome-trial\" is live! It expires on 2/16/2026.",
+      "read": true,
+      "createdAt": "2026-02-13T14:11:17.676Z"
+    }
+  ],
+  "45": [
+    {
+      "id": "1772142758803-ml0hs0",
+      "type": "welcome",
+      "title": "Welcome to WolfHost!",
+      "message": "Your account has been created. Log in to claim your free 3-day trial server!",
+      "read": true,
+      "createdAt": "2026-02-26T21:52:38.803Z"
+    }
+  ],
+  "163": [
+    {
+      "id": "1771325220091-42njhg",
+      "type": "welcome",
+      "title": "Welcome to WolfHost!",
+      "message": "Your account has been created and you've been automatically joined to our community groups. Your free trial server is being set up!",
+      "read": true,
+      "createdAt": "2026-02-17T10:47:00.091Z"
+    }
+  ]
+}
