@@ -168,9 +168,10 @@ app.use((req, res, next) => {
     'cgi-bin', '.bak', '.sql', '.log', 'debug', '.config', 'web.config',
     '.DS_Store', 'Thumbs.db', '.idea', '.vscode', 'node_modules', '.npmrc',
     'package.json', 'package-lock', '.gitignore', 'tsconfig', 'vite.config',
-    'tailwind.config', 'postcss.config', 'server/', 'src/'];
+    'tailwind.config', 'postcss.config', 'src/'];
   const lp = req.path.toLowerCase();
-  if (blocked.some(p => lp.includes(p))) {
+  const isBlocked = blocked.some(p => lp.includes(p)) || lp.startsWith('/server/');
+  if (isBlocked) {
     securityLog('WARN', 'BLOCKED_PATH', { ip: req._clientIp, path: req.path });
     return res.status(404).json({ message: 'Not found' });
   }
@@ -3015,10 +3016,23 @@ app.post('/api/tasks/claim-server', authenticateToken, async (req, res) => {
       external_id: `wolfhost-free-${userId}-${Date.now()}`,
     };
 
-    const pteroResponse = await pteroFetch('/servers', {
-      method: 'POST',
-      body: JSON.stringify(serverPayload),
-    });
+    let pteroResponse;
+    try {
+      pteroResponse = await pteroFetch('/servers', {
+        method: 'POST',
+        body: JSON.stringify(serverPayload),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (fetchErr) {
+      console.error('Pterodactyl connection error during free server create:', fetchErr.message);
+      const isTimeout = fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError';
+      return res.status(503).json({
+        success: false,
+        message: isTimeout
+          ? 'Panel connection timed out. Please try again in a moment.'
+          : 'Could not reach the panel. Please check your connection and try again.',
+      });
+    }
 
     const pteroData = await pteroResponse.json();
 
@@ -3026,7 +3040,7 @@ app.post('/api/tasks/claim-server', authenticateToken, async (req, res) => {
       console.error('Free server create error:', JSON.stringify(pteroData));
       let errorMessage = 'Failed to create free server';
       if (pteroData.errors && pteroData.errors.length > 0) {
-        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+        errorMessage = pteroData.errors.map(e => e.detail || e.code || e.status).filter(Boolean).join(', ');
       }
       return res.status(500).json({ success: false, message: errorMessage });
     }
@@ -3137,10 +3151,23 @@ app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) =
       external_id: `wolfhost-welcome-${userId}-${Date.now()}`,
     };
 
-    const pteroResponse = await pteroFetch('/servers', {
-      method: 'POST',
-      body: JSON.stringify(serverPayload),
-    });
+    let pteroResponse;
+    try {
+      pteroResponse = await pteroFetch('/servers', {
+        method: 'POST',
+        body: JSON.stringify(serverPayload),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (fetchErr) {
+      console.error('Pterodactyl connection error during welcome server create:', fetchErr.message);
+      const isTimeout = fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError';
+      return res.status(503).json({
+        success: false,
+        message: isTimeout
+          ? 'Panel connection timed out. Please try again in a moment.'
+          : 'Could not reach the panel. Please check your connection and try again.',
+      });
+    }
 
     const pteroData = await pteroResponse.json();
 
@@ -3148,7 +3175,7 @@ app.post('/api/free-server/claim-welcome', authenticateToken, async (req, res) =
       console.error('Welcome free server create error:', JSON.stringify(pteroData));
       let errorMessage = 'Failed to create free server';
       if (pteroData.errors && pteroData.errors.length > 0) {
-        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+        errorMessage = pteroData.errors.map(e => e.detail || e.code || e.status).filter(Boolean).join(', ');
       }
       return res.status(500).json({ success: false, message: errorMessage });
     }
