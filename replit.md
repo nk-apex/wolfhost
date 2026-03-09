@@ -1,146 +1,57 @@
 # WolfHost
 
-## Overview
-WolfHost is a premium hosting infrastructure platform built with React + Vite frontend and Express.js backend. It allows users to deploy servers, manage hosting, and pay with crypto or mobile money (M-Pesa via Paystack).
+A premium hosting platform that allows users to deploy servers, pay via M-Pesa/Paystack, manage their infrastructure, and earn through referrals.
 
-## Project Architecture
+## Architecture
 
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite 5
-- **UI**: Shadcn/ui components with Radix UI primitives
-- **Styling**: Tailwind CSS with custom theme (dark/cyber aesthetic)
-- **Routing**: React Router DOM v6
-- **State Management**: TanStack React Query
-- **Animations**: Framer Motion
+- **Frontend**: React + TypeScript + Vite, served from the Express server via the built `dist/` folder
+- **Backend**: Express.js (Node.js, ESM modules) on port 5000
+- **Auth**: JWT-based authentication (stored in localStorage)
+- **Payments**: Paystack integration (M-Pesa and card)
+- **Server management**: Pterodactyl panel API integration
 
-### Backend
-- **Runtime**: Node.js with Express 5
-- **Data Storage**: JSON files in `server/` directory
-- **Authentication**: JWT-based auth with scrypt password hashing
-- **Security**: Helmet, CORS, rate limiting, input validation
-- **Payment**: Paystack integration (M-Pesa)
-- **Server Management**: Pterodactyl API integration
+## Key Files
 
-### Project Structure
-```
-├── src/                    # Frontend React source
-├── server/                 # Express backend
-│   ├── index.js           # Main server file (API routes + static serving)
-│   ├── config/            # Server configuration
-│   ├── tasks.json         # Task data
-│   ├── free_servers.json  # Free server data
-│   └── ...                # Other JSON data files
-├── public/                # Static assets
-├── dist/                  # Built frontend (generated)
-├── vite.config.ts         # Vite configuration
-├── tailwind.config.ts     # Tailwind CSS config
-└── package.json           # Dependencies
-```
+- `server/index.js` — Main Express server (~3900 lines), handles all API routes and serves the built frontend
+- `src/` — React frontend source
+- `src/services/api.js` — All frontend API calls (~2300 lines)
+- `server/config/countries.js` — Currency/FX rate config
+- `server/*.json` — Flat-file data storage (users, servers, messages, notifications, etc.)
 
-### How It Runs
-- **Development**: `npx vite build && NODE_ENV=production node server/index.js`
-- The Vite build outputs to `dist/`, then the Express server serves those static files on port 5000
-- The Express server also handles all `/api/*` routes
+## Data Storage
 
-### Environment Variables
-- `JWT_SECRET` - Required for JWT token signing (set)
-- `NODE_ENV` - Set to `development` in dev environment
-- `PAYSTACK_SECRET_KEY` - Paystack payment API key (needs to be set by user)
-- `PTERODACTYL_API_KEY` - Pterodactyl panel API key (needs to be set by user)
-- `PTERODACTYL_API_URL` - Defaults to `https://panel.xwolf.space`
-- `SUPER_ADMIN_USERNAME` - Super admin username (needs to be set by user)
+Uses JSON flat files in `server/`:
+- `user_credentials.json` — Hashed passwords
+- `notifications.json` — Per-user notifications
+- `community_messages.json` — Community chat
+- `spending.json` — Transaction history
+- `referrals.json` — Referral codes and tracking
+- `tasks.json` — Completed social tasks per user
+- `deploy_claims.json` — GitHub deploy claims
+- `welcome_claims.json` — Free trial claims
+- `free_servers.json` — Available free server pool
+- `admin_alerts.json` — Admin notifications
 
-## Recent Changes
-- 2026-02-24: Imported project to Replit environment
-  - Installed all npm dependencies (including devDependencies)
-  - Set NODE_ENV=development for dev environment
-  - Generated and set JWT_SECRET
-  - Configured workflow for build + serve
-- 2026-02-24: Fixed payment verification timeout bug
-  - All three verify functions in `src/services/paystack.js` (verifyPayment, verifyMobileMoneyPayment, verifyCardPayment) were missing Authorization headers
-  - Server endpoints require JWT auth, so verification polls always failed with 401 and silently retried until timeout
-  - Added JWT token from localStorage to all verification fetch requests
-- 2026-02-24: Fixed server deployment balance verification bug
-  - `verifyUserBalance()` in `server/index.js` was passing raw email as Paystack `customer` parameter instead of resolving to customer code first
-  - This caused inconsistent balance calculation between what the UI shows and what the backend verifies during server creation
-  - Fixed by reusing `fetchUserTransactions()` which properly resolves email to Paystack customer code via `resolvePaystackCustomer()`
+## Environment Variables
 
-- 2026-02-24: Fixed server creation "variable field is required" error
-  - All 4 server creation payloads (admin, user, free trial, welcome) had hardcoded egg environment variables that didn't match the Pterodactyl panel's actual egg variable definitions
-  - Added `getEggEnvironment()` function that dynamically fetches egg 15's variable definitions from the Pterodactyl API (`/nests/{id}/eggs/15?include=variables`) and builds the environment object from actual variable names
-  - Results are cached for 5 minutes to avoid repeated API calls
-  - Falls back to a comprehensive set of known variable names if the API call fails
-  - Centralized egg ID, docker image, and startup command into constants (`SERVER_EGG_ID`, `SERVER_DOCKER_IMAGE`, `SERVER_STARTUP`)
-  - Also fetches the egg's actual startup command and docker image (was `ghcr.io/pelican-eggs/yolks:nodejs_24`, not `parkervcp`)
-  - Added `/api/admin/debug-egg` endpoint for diagnosing egg variable issues
+- `NODE_ENV` — `development` (set in Replit shared env)
+- `PORT` — `5000` (set in Replit shared env)
+- `JWT_SECRET` — Required in production (auto-generated random in dev)
+- `PAYSTACK_SECRET_KEY` — Paystack payment processing
+- `PTERODACTYL_API_KEY` — Pterodactyl panel API key
+- `PTERODACTYL_API_URL` — Defaults to `https://panel.xwolf.space`
+- `SUPER_ADMIN_USERNAME` — Username for super admin access
 
-- 2026-02-25: Added Community public chat page
-  - New page at `/community` with real-time public messaging
-  - Backend API: `GET/POST /api/community/messages`, `DELETE /api/community/messages/:id`
-  - Messages stored in `server/community_messages.json` (max 200 messages)
-  - Active user tracking in `server/community_active.json` (5-min window)
-  - Rate limited to 5 messages per 10 seconds
-  - Users can delete own messages, admins can delete any
-  - Added "Community" nav item to sidebar
+## Running the App
 
-- 2026-02-25: Added admin panel features - Notifications & Site Settings
-  - New admin tabs: "Notify" (broadcast notifications) and "Site" (social links management)
-  - `POST /api/admin/broadcast-notification` — sends notification to all users (type: info/success/warning/alert)
-  - `GET /api/site-settings` — public endpoint for social link data
-  - `PUT /api/admin/site-settings` — admin-only, update social links
-  - Site settings stored in `server/site_settings.json` (WhatsApp channel/group, YouTube, support phone)
-  - Landing page footer and sidebar "Join Us" section now load links dynamically from API
-  - YouTube link added to landing page footer
+The `npm run dev` script builds the Vite frontend then starts Express. The workflow "Start application" runs this automatically on port 5000.
 
-### VPS Deployment Notes
-- **Nginx** proxies `host.xwolf.space` → `localhost:4000` (config: `/etc/nginx/sites-available/wolfhost.conf`)
-- **PM2 process**: `wolfhost` must run with `PORT=4000` — use `PORT=4000 NODE_ENV=production pm2 start server/index.js --name wolfhost`
-- Old `wolfhost-backend` and `wolfhost-frontend` processes should remain stopped
-- Deploy command: `cd /var/www/wolfhost && git pull && npx vite build && pm2 restart wolfhost`
+## Security
 
-- 2026-02-26: Fixed new user balance and added Claim Server page
-  - Changed all wallet_balance localStorage fallbacks from '1500.00' to '0' in `src/services/api.js` (6 occurrences) so new users start at 0 balance
-  - Created `/claim-server` page (`src/pages/ClaimServer.jsx`) where users can name and claim a free 3-day limited server
-  - Updated `/api/free-server/claim-welcome` endpoint to accept custom `serverName` from request body
-  - Added "Claim Server" link to sidebar navigation with Gift icon
-  - Added route in `src/App.tsx`
-
-- 2026-02-26: Added tutorial video management system
-  - Backend: CRUD API endpoints at `/api/tutorials` (public) and `/api/admin/tutorials` (admin) with YouTube URL validation
-  - Tutorials stored in `server/tutorials.json` with YouTube ID extraction, categories, publish/draft status
-  - Admin panel: New "Tutorials" tab for adding, editing, deleting, and publishing/unpublishing tutorial videos
-  - User-facing: New `/tutorials` page with search, category filtering, video grid with YouTube thumbnails, and embedded player modal
-  - Updated CSP to allow YouTube iframe embeds and thumbnail images
-  - Added "Tutorials" to sidebar navigation with BookOpen icon
-
-- 2026-02-26: Added admin alerts and bug bot detection system
-  - Backend: `notifyAdmin()` helper, `addAdminAlert()` for persistent alerts in `server/admin_alerts.json`
-  - Bug bot detection: 18+ regex patterns scanning for raid bots, nukers, spam bots, token grabbers, DDoS tools, phishing, etc.
-  - Server creation blocked if suspicious name detected (both paid and free servers), with admin notification
-  - Periodic background scan of all existing servers every 30 minutes (paginated)
-  - Admin notified when free trial servers expire (in cleanup function)
-  - Super admin ID resolved on startup for reliable notification delivery
-  - Admin API: GET/PATCH/DELETE `/api/admin/alerts` endpoints for managing alerts
-  - Admin panel: New "Alerts" tab with severity-coded cards, filter by category/status, resolve/delete actions, unresolved badge count
-
-- 2026-02-26: Added Bank Transfer, USSD, and OPay payment support for Nigeria
-  - Backend: `POST /api/bank-transfer/charge` and `GET /api/bank-transfer/verify/:reference` for bank transfer payments via Paystack `/charge` with `bank_transfer: {}`
-  - Backend: `POST /api/ussd/charge` and `GET /api/ussd/verify/:reference` for USSD payments via Paystack `/charge` with `ussd: { type: bankCode }`
-  - USSD supports GTBank (737), UBA (919), Sterling Bank (822)
-  - Frontend services: `initializeBankTransfer`, `verifyBankTransfer`, `initializeUSSDPayment`, `verifyUSSDPayment` in `src/services/paystack.js`
-  - Currency config: Nigeria (NG) updated with `ussdBanks` array, `paystackCurrency: 'NGN'`, payment methods include `bank_transfer` and `ussd`
-  - New helpers: `supportsUSSD()`, `supportsBankTransfer()`, `getUSSDbanks()` in `src/lib/currencyConfig.js`
-  - Wallet UI: Nigeria users see Card, Bank Transfer, and USSD payment options
-  - Bank Transfer shows virtual account details (bank name, account number, account name) for user to transfer to; supports OPay transfers
-  - USSD shows bank selector and displays USSD dial code after initiation
-  - Both methods poll for payment confirmation with appropriate timeouts
-
-- 2026-02-26: Added community chat edit and reply features
-  - Backend: `PATCH /api/community/messages/:messageId` for editing own messages (sets `edited: true`, `editedAt` timestamp)
-  - Backend: POST messages now accept optional `replyTo` (message ID), stores reply context `{ id, username, message }` on the new message
-  - Frontend: Inline edit with save/cancel, "(edited)" indicator next to timestamp
-  - Frontend: Reply button on hover, reply preview bar above input, quoted reply context displayed above message bubbles
-
-## User Preferences
-- None documented yet
+- Helmet.js for HTTP security headers
+- Rate limiting on all API routes (auth, payments, registration)
+- Input validation with express-validator
+- JWT authentication for protected routes
+- CORS restricted to localhost, Replit, and xwolf.space domains
+- Path-based attack blocking (SQL injection patterns, config file access, etc.)
+- Security event logging to `server/security.log`
