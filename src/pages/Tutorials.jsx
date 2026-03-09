@@ -126,10 +126,10 @@ const Tutorials = () => {
                 {tutorial.youtubeId ? (
                   <>
                     <img
-                      src={`https://img.youtube.com/vi/${tutorial.youtubeId}/maxresdefault.jpg`}
+                      src={`https://img.youtube.com/vi/${tutorial.youtubeId}/hqdefault.jpg`}
                       alt={tutorial.title}
                       className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
-                      onError={(e) => { e.target.src = `https://img.youtube.com/vi/${tutorial.youtubeId}/mqdefault.jpg`; }}
+                      onError={(e) => { e.target.src = `https://img.youtube.com/vi/${tutorial.youtubeId}/0.jpg`; }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                     <div className="absolute inset-0 flex items-center justify-center">
