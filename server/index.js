@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { body, query, param, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
+import { convertToKES } from './config/countries.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -593,6 +594,56 @@ function refundSpending(serverId) {
   return false;
 }
 
+const DEPOSITS_FILE = path.join(__dirname, 'deposits.json');
+
+function loadDeposits() {
+  try {
+    if (fs.existsSync(DEPOSITS_FILE)) {
+      return JSON.parse(fs.readFileSync(DEPOSITS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading deposits:', e);
+  }
+  return [];
+}
+
+function saveDeposits(data) {
+  try {
+    fs.writeFileSync(DEPOSITS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving deposits:', e);
+  }
+}
+
+function recordDeposit(email, amountKES, reference, currency = 'KES', method = 'mpesa') {
+  if (!email || amountKES <= 0) return;
+  const records = loadDeposits();
+  const alreadyRecorded = records.some(r => r.reference === reference);
+  if (alreadyRecorded) return;
+  records.push({
+    email: email.toLowerCase(),
+    amountKES,
+    reference,
+    currency,
+    method,
+    date: new Date().toISOString(),
+  });
+  saveDeposits(records);
+  serverLog(`Recorded local deposit: ${amountKES} KES for ${email} (${method}, ref: ${reference})`);
+}
+
+function getTotalDepositsKES(email) {
+  const records = loadDeposits();
+  return records
+    .filter(r => r.email === email.toLowerCase())
+    .reduce((sum, r) => sum + (r.amountKES || 0), 0);
+}
+
+function hasLocalDeposits(email) {
+  const records = loadDeposits();
+  return records.some(r => r.email === email.toLowerCase());
+}
+
 const USER_CREDENTIALS_FILE = path.join(__dirname, 'user_credentials.json');
 
 function loadUserCredentials() {
@@ -821,6 +872,9 @@ app.get('/api/mpesa/verify/:reference', authenticateToken, async (req, res) => {
     const isSuccess = data.status === true && data.data?.status === 'success';
     if (isSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      const email = data.data?.customer?.email || req.user.email;
+      const reference = data.data?.reference || req.params.reference;
+      recordDeposit(email, amount, reference, 'KES', 'mpesa');
       addNotification(req.user.userId, 'payment', 'M-Pesa Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via M-Pesa.`);
     }
 
@@ -914,7 +968,12 @@ app.get('/api/card/verify/:reference', authenticateToken, async (req, res) => {
     const cardSuccess = data.status === true && data.data?.status === 'success';
     if (cardSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
-      addNotification(req.user.userId, 'payment', 'Card Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via card.`);
+      const email = data.data?.customer?.email || req.user.email;
+      const reference = data.data?.reference || req.params.reference;
+      const currency = data.data?.currency || 'KES';
+      const amountKES = currency === 'KES' ? amount : convertToKES(amount, currency);
+      recordDeposit(email, amountKES, reference, currency, 'card');
+      addNotification(req.user.userId, 'payment', 'Card Payment Received', `KES ${amountKES.toLocaleString()} has been added to your wallet via card.`);
     }
 
     return res.json({
@@ -1061,8 +1120,13 @@ app.get('/api/mobile-money/verify/:reference', authenticateToken, async (req, re
     const isSuccess = data.status === true && data.data?.status === 'success';
     if (isSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      const currency = data.data?.currency || 'KES';
+      const amountKES = currency === 'KES' ? amount : convertToKES(amount, currency);
+      const email = data.data?.customer?.email || req.user.email;
+      const reference = data.data?.reference || req.params.reference;
       const provider = data.data?.metadata?.provider || 'Mobile Money';
-      addNotification(req.user.userId, 'payment', 'Mobile Money Payment Received', `KES ${amount.toLocaleString()} has been added to your wallet via ${provider}.`);
+      recordDeposit(email, amountKES, reference, currency, 'mobile_money');
+      addNotification(req.user.userId, 'payment', 'Mobile Money Payment Received', `KES ${amountKES.toLocaleString()} has been added to your wallet via ${provider}.`);
     }
 
     return res.json({
@@ -1153,7 +1217,12 @@ app.get('/api/bank-transfer/verify/:reference', authenticateToken, async (req, r
     const isSuccess = data.status === true && data.data?.status === 'success';
     if (isSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
-      addNotification(req.user.userId, 'payment', 'Bank Transfer Payment Received', `NGN ${amount.toLocaleString()} has been added to your wallet via Bank Transfer.`);
+      const currency = data.data?.currency || 'NGN';
+      const amountKES = convertToKES(amount, currency);
+      const email = data.data?.customer?.email || req.user.email;
+      const reference = data.data?.reference || req.params.reference;
+      recordDeposit(email, amountKES, reference, currency, 'bank_transfer');
+      addNotification(req.user.userId, 'payment', 'Bank Transfer Payment Received', `KES ${amountKES.toLocaleString()} has been added to your wallet via Bank Transfer.`);
     }
 
     return res.json({
@@ -1253,9 +1322,14 @@ app.get('/api/ussd/verify/:reference', authenticateToken, async (req, res) => {
     const isSuccess = data.status === true && data.data?.status === 'success';
     if (isSuccess && req.user?.userId) {
       const amount = data.data?.amount ? (data.data.amount / 100) : 0;
+      const currency = data.data?.currency || 'NGN';
+      const amountKES = convertToKES(amount, currency);
+      const email = data.data?.customer?.email || req.user.email;
+      const reference = data.data?.reference || req.params.reference;
       const bankCode = data.data?.metadata?.bank_code || 'USSD';
       const bankName = bankCode === '737' ? 'GTBank' : bankCode === '919' ? 'UBA' : bankCode === '822' ? 'Sterling Bank' : 'USSD';
-      addNotification(req.user.userId, 'payment', 'USSD Payment Received', `NGN ${amount.toLocaleString()} has been added to your wallet via ${bankName} USSD.`);
+      recordDeposit(email, amountKES, reference, currency, 'ussd');
+      addNotification(req.user.userId, 'payment', 'USSD Payment Received', `KES ${amountKES.toLocaleString()} has been added to your wallet via ${bankName} USSD.`);
     }
 
     return res.json({
@@ -1362,20 +1436,38 @@ app.get('/api/transactions', authenticateToken, async (req, res) => {
 app.get('/api/transactions/totals', authenticateToken, async (req, res) => {
   try {
     const email = req.user.email;
+    const spending = getTotalSpending(email);
+
+    const localDepositsTotal = getTotalDepositsKES(email);
+
+    if (hasLocalDeposits(email)) {
+      const balance = Math.max(0, localDepositsTotal - spending);
+      return res.json({
+        success: true,
+        totalDeposits: localDepositsTotal,
+        totalSpending: spending,
+        totalCount: loadDeposits().filter(r => r.email === email.toLowerCase()).length,
+        balance,
+        source: 'local',
+      });
+    }
 
     const { transactions } = await fetchUserTransactions(email, 100, 1, 'success');
+    const paystackTotal = transactions.reduce((sum, txn) => {
+      const currency = txn.currency || 'KES';
+      const amount = txn.amount / 100;
+      return sum + (currency === 'KES' ? amount : convertToKES(amount, currency));
+    }, 0);
 
-    const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
-
-    const spending = getTotalSpending(email);
-    const balance = Math.max(0, totalDeposits - spending);
+    const balance = Math.max(0, paystackTotal - spending);
 
     return res.json({
       success: true,
-      totalDeposits,
+      totalDeposits: paystackTotal,
       totalSpending: spending,
       totalCount: transactions.length,
       balance,
+      source: 'paystack',
     });
   } catch (error) {
     console.error('Totals fetch error:', error);
@@ -2403,10 +2495,24 @@ app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdm
 
 async function verifyUserBalance(email, requiredAmount) {
   try {
-    const { transactions } = await fetchUserTransactions(email, 100, 1, 'success');
-    const totalDeposits = transactions.reduce((sum, txn) => sum + (txn.amount / 100), 0);
     const spending = getTotalSpending(email);
-    return Math.max(0, totalDeposits - spending);
+
+    if (hasLocalDeposits(email)) {
+      const localDeposits = getTotalDepositsKES(email);
+      const balance = Math.max(0, localDeposits - spending);
+      serverLog(`Balance check (local): deposits=${localDeposits} spending=${spending} balance=${balance} required=${requiredAmount}`);
+      return balance;
+    }
+
+    const { transactions } = await fetchUserTransactions(email, 100, 1, 'success');
+    const totalDeposits = transactions.reduce((sum, txn) => {
+      const currency = txn.currency || 'KES';
+      const amount = txn.amount / 100;
+      return sum + (currency === 'KES' ? amount : convertToKES(amount, currency));
+    }, 0);
+    const balance = Math.max(0, totalDeposits - spending);
+    serverLog(`Balance check (paystack): deposits=${totalDeposits} spending=${spending} balance=${balance} required=${requiredAmount}`);
+    return balance;
   } catch (e) {
     console.error('Balance verification error:', e);
     return 0;
@@ -2511,10 +2617,23 @@ app.post('/api/servers/create', authenticateToken, [
       external_id: `wolfhost-${userId}-${Date.now()}`,
     };
 
-    const pteroResponse = await pteroFetch('/servers', {
-      method: 'POST',
-      body: JSON.stringify(serverPayload),
-    });
+    let pteroResponse;
+    try {
+      pteroResponse = await pteroFetch('/servers', {
+        method: 'POST',
+        body: JSON.stringify(serverPayload),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (fetchErr) {
+      console.error('Pterodactyl connection error during server create:', fetchErr.message);
+      const isTimeout = fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError';
+      return res.status(503).json({
+        success: false,
+        message: isTimeout
+          ? 'Panel connection timed out. Please try again in a moment.'
+          : 'Could not reach the panel. Please check your connection and try again.',
+      });
+    }
 
     const pteroData = await pteroResponse.json();
 
@@ -2522,7 +2641,7 @@ app.post('/api/servers/create', authenticateToken, [
       console.error('Pterodactyl server create error:', JSON.stringify(pteroData));
       let errorMessage = 'Failed to create server on the panel';
       if (pteroData.errors && pteroData.errors.length > 0) {
-        errorMessage = pteroData.errors.map(e => e.detail).join(', ');
+        errorMessage = pteroData.errors.map(e => e.detail || e.code || e.status).filter(Boolean).join(', ');
       }
       return res.status(pteroResponse.status || 500).json({ success: false, message: errorMessage });
     }
@@ -2585,8 +2704,8 @@ app.post('/api/servers/create', authenticateToken, [
       },
     });
   } catch (error) {
-    console.error('Server creation error:', error);
-    return res.status(500).json({ success: false, message: 'Server error creating server' });
+    console.error('Server creation error:', error.message, error.stack);
+    return res.status(500).json({ success: false, message: `Server creation failed: ${error.message}` });
   }
 });
 

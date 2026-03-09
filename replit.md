@@ -24,13 +24,21 @@ Uses JSON flat files in `server/`:
 - `user_credentials.json` — Hashed passwords
 - `notifications.json` — Per-user notifications
 - `community_messages.json` — Community chat
-- `spending.json` — Transaction history
+- `spending.json` — Records of server purchases (used for balance calculation)
+- `deposits.json` — **Local deposit records** (recorded when payments are verified; used as primary source for balance calculation)
 - `referrals.json` — Referral codes and tracking
 - `tasks.json` — Completed social tasks per user
 - `deploy_claims.json` — GitHub deploy claims
 - `welcome_claims.json` — Free trial claims
 - `free_servers.json` — Available free server pool
 - `admin_alerts.json` — Admin notifications
+
+## Balance Calculation
+
+Balance = local deposits (deposits.json) - local spending (spending.json).
+- **Primary**: Local `deposits.json` — written when any payment is verified (M-Pesa, card, mobile money, bank transfer, USSD). All currencies are converted to KES.
+- **Fallback**: Paystack API — used only for users who have no local deposit records (backward compatibility with payments made before this system).
+- This makes balance reliable and independent of Paystack API availability.
 
 ## Environment Variables
 

@@ -1,6 +1,14 @@
 {
   "1": [
     {
+      "id": "1773096218153-gm5kjn",
+      "type": "server",
+      "title": "Server Created",
+      "message": "Your \"my-123\" server (Limited plan) has been deployed successfully!",
+      "read": false,
+      "createdAt": "2026-03-09T22:43:38.153Z"
+    },
+    {
       "id": "1772027498212-ai7pbc",
       "type": "server",
       "title": "Server Created",
