@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlayCircle, BookOpen, Search, X, ExternalLink, Loader2, Clock, User, Tag, Eye, ThumbsUp, MessageSquare, Users, Send, Trash2 } from 'lucide-react';
+import { PlayCircle, BookOpen, Search, X, ExternalLink, Loader2, Clock, User, MessageSquare, Heart, Send, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const categoryColors = {
@@ -10,13 +10,6 @@ const categoryColors = {
   'Deployment': 'purple',
   'Server Management': 'yellow',
 };
-
-function formatCount(n) {
-  if (!n && n !== 0) return null;
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
-  return n.toString();
-}
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -37,13 +30,15 @@ const Tutorials = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeVideo, setActiveVideo] = useState(null);
-  const [ytStats, setYtStats] = useState({});
+  const [likes, setLikes] = useState({});
+  const [commentCounts, setCommentCounts] = useState({});
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [commentError, setCommentError] = useState('');
-  const commentInputRef = useRef(null);
+  const [liking, setLiking] = useState({});
+  const commentsRef = useRef(null);
 
   useEffect(() => {
     fetchTutorials();
@@ -56,7 +51,8 @@ const Tutorials = () => {
       if (data.success) {
         setTutorials(data.tutorials);
         data.tutorials.forEach(t => {
-          if (t.youtubeId) fetchYtStats(t.youtubeId);
+          fetchLikes(t.id);
+          fetchCommentCount(t.id);
         });
       }
     } catch (e) {
@@ -65,14 +61,53 @@ const Tutorials = () => {
     }
   };
 
-  const fetchYtStats = async (youtubeId) => {
+  const fetchLikes = async (id) => {
     try {
-      const res = await fetch(`/api/tutorials/yt-stats/${youtubeId}`);
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(`/api/tutorials/${id}/likes`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       if (data.success) {
-        setYtStats(prev => ({ ...prev, [youtubeId]: data }));
+        setLikes(prev => ({ ...prev, [id]: { count: data.count, liked: data.liked } }));
       }
     } catch (e) {}
+  };
+
+  const fetchCommentCount = async (id) => {
+    try {
+      const res = await fetch(`/api/tutorials/${id}/comments`);
+      const data = await res.json();
+      if (data.success) {
+        setCommentCounts(prev => ({ ...prev, [id]: data.comments.length }));
+      }
+    } catch (e) {}
+  };
+
+  const toggleLike = async (e, id) => {
+    e.stopPropagation();
+    if (!user) return;
+    if (liking[id]) return;
+    setLiking(prev => ({ ...prev, [id]: true }));
+    const prev = likes[id] || { count: 0, liked: false };
+    setLikes(l => ({ ...l, [id]: { count: prev.liked ? prev.count - 1 : prev.count + 1, liked: !prev.liked } }));
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(`/api/tutorials/${id}/like`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLikes(l => ({ ...l, [id]: { count: data.count, liked: data.liked } }));
+      } else {
+        setLikes(l => ({ ...l, [id]: prev }));
+      }
+    } catch (err) {
+      setLikes(l => ({ ...l, [id]: prev }));
+    } finally {
+      setLiking(p => ({ ...p, [id]: false }));
+    }
   };
 
   const openVideo = async (tutorial) => {
@@ -84,9 +119,17 @@ const Tutorials = () => {
     try {
       const res = await fetch(`/api/tutorials/${tutorial.id}/comments`);
       const data = await res.json();
-      if (data.success) setComments(data.comments);
+      if (data.success) {
+        setComments(data.comments);
+        setCommentCounts(prev => ({ ...prev, [tutorial.id]: data.comments.length }));
+      }
     } catch (e) {}
     finally { setCommentsLoading(false); }
+  };
+
+  const scrollToComments = (e) => {
+    e.stopPropagation();
+    commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const submitComment = async (e) => {
@@ -104,6 +147,7 @@ const Tutorials = () => {
       const data = await res.json();
       if (data.success) {
         setComments(prev => [data.comment, ...prev]);
+        setCommentCounts(prev => ({ ...prev, [activeVideo.id]: (prev[activeVideo.id] || 0) + 1 }));
         setCommentText('');
       } else {
         setCommentError(data.message || 'Failed to post comment');
@@ -123,6 +167,7 @@ const Tutorials = () => {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       setComments(prev => prev.filter(c => c.id !== commentId));
+      setCommentCounts(prev => ({ ...prev, [activeVideo.id]: Math.max(0, (prev[activeVideo.id] || 1) - 1) }));
     } catch (e) {}
   };
 
@@ -206,7 +251,8 @@ const Tutorials = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((tutorial, index) => {
-            const stats = ytStats[tutorial.youtubeId];
+            const likeData = likes[tutorial.id] || { count: 0, liked: false };
+            const commentCount = commentCounts[tutorial.id] || 0;
             return (
               <motion.div
                 key={tutorial.id}
@@ -236,16 +282,6 @@ const Tutorials = () => {
                           {tutorial.category || 'General'}
                         </span>
                       </div>
-                      {stats && (
-                        <div className="absolute bottom-2 left-2 flex items-center gap-2">
-                          <span className="flex items-center gap-1 text-[10px] font-mono text-white/80 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
-                            <Eye size={9} />{formatCount(stats.viewCount)}
-                          </span>
-                          <span className="flex items-center gap-1 text-[10px] font-mono text-white/80 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
-                            <ThumbsUp size={9} />{formatCount(stats.likeCount)}
-                          </span>
-                        </div>
-                      )}
                     </>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
@@ -254,7 +290,8 @@ const Tutorials = () => {
                     </div>
                   )}
                 </div>
-                <div className="p-4 space-y-2.5">
+
+                <div className="p-4 space-y-3">
                   <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
                   {tutorial.description && (
                     <p className="text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
@@ -270,11 +307,22 @@ const Tutorials = () => {
                         <Clock size={9} />{new Date(tutorial.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    {stats && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => toggleLike(e, tutorial.id)}
+                        className={`flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md border transition-all ${
+                          likeData.liked
+                            ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                            : 'border-primary/10 text-gray-500 hover:border-red-500/30 hover:text-red-400'
+                        }`}
+                      >
+                        <Heart size={10} className={likeData.liked ? 'fill-current' : ''} />
+                        {likeData.count > 0 && <span>{likeData.count}</span>}
+                      </button>
                       <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                        <MessageSquare size={9} />{formatCount(stats.commentCount)}
+                        <MessageSquare size={9} />{commentCount > 0 ? commentCount : ''}
                       </span>
-                    )}
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -337,36 +385,6 @@ const Tutorials = () => {
                 </div>
               </div>
 
-              {ytStats[activeVideo.youtubeId] && (
-                <div className="flex items-center gap-4 px-4 py-2.5 border-b border-primary/10 bg-black/40 shrink-0 flex-wrap">
-                  {(() => {
-                    const s = ytStats[activeVideo.youtubeId];
-                    return (
-                      <>
-                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
-                          <Eye size={12} className="text-blue-400" />
-                          <span className="text-white font-semibold">{formatCount(s.viewCount)}</span> views
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
-                          <ThumbsUp size={12} className="text-green-400" />
-                          <span className="text-white font-semibold">{formatCount(s.likeCount)}</span> likes
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
-                          <MessageSquare size={12} className="text-yellow-400" />
-                          <span className="text-white font-semibold">{formatCount(s.commentCount)}</span> YouTube comments
-                        </span>
-                        {!s.hiddenSubscriberCount && s.subscriberCount > 0 && (
-                          <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
-                            <Users size={12} className="text-primary" />
-                            <span className="text-white font-semibold">{formatCount(s.subscriberCount)}</span> subscribers
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
               <div className="aspect-video shrink-0">
                 {activeVideo.youtubeId ? (
                   <iframe
@@ -392,6 +410,38 @@ const Tutorials = () => {
                 )}
               </div>
 
+              <div className="flex items-center gap-3 px-4 py-3 border-t border-primary/10 shrink-0">
+                {(() => {
+                  const likeData = likes[activeVideo.id] || { count: 0, liked: false };
+                  return (
+                    <button
+                      onClick={(e) => toggleLike(e, activeVideo.id)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-mono text-sm transition-all ${
+                        likeData.liked
+                          ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                          : 'border-primary/20 text-gray-400 hover:border-red-500/30 hover:text-red-400'
+                      } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={!user}
+                      title={!user ? 'Log in to like' : ''}
+                    >
+                      <Heart size={15} className={likeData.liked ? 'fill-current' : ''} />
+                      <span>{likeData.liked ? 'Liked' : 'Like'}</span>
+                      {likeData.count > 0 && <span className="text-xs opacity-70">· {likeData.count}</span>}
+                    </button>
+                  );
+                })()}
+                <button
+                  onClick={scrollToComments}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-primary/20 text-gray-400 hover:border-primary/40 hover:text-white font-mono text-sm transition-all"
+                >
+                  <MessageSquare size={15} />
+                  <span>Comments</span>
+                  {commentCounts[activeVideo.id] > 0 && (
+                    <span className="text-xs opacity-70">· {commentCounts[activeVideo.id]}</span>
+                  )}
+                </button>
+              </div>
+
               {activeVideo.description && (
                 <div className="px-4 py-3 border-t border-primary/10 shrink-0">
                   <p className="text-xs font-mono text-gray-400 leading-relaxed">{activeVideo.description}</p>
@@ -399,7 +449,7 @@ const Tutorials = () => {
               )}
 
               <div className="flex-1 overflow-y-auto border-t border-primary/10 min-h-0">
-                <div className="p-4 space-y-4">
+                <div className="p-4 space-y-4" ref={commentsRef}>
                   <div className="flex items-center gap-2">
                     <MessageSquare size={14} className="text-primary" />
                     <span className="text-sm font-mono font-semibold text-white">Comments</span>
@@ -409,11 +459,10 @@ const Tutorials = () => {
                   {user ? (
                     <form onSubmit={submitComment} className="flex gap-2">
                       <input
-                        ref={commentInputRef}
                         type="text"
                         value={commentText}
                         onChange={(e) => { setCommentText(e.target.value); setCommentError(''); }}
-                        placeholder="Add a comment..."
+                        placeholder="Write a comment..."
                         maxLength={500}
                         className="flex-1 px-3 py-2 rounded-lg border border-primary/20 bg-black/50 text-white font-mono text-xs placeholder:text-gray-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
                         disabled={submitting}
@@ -457,7 +506,7 @@ const Tutorials = () => {
                             </div>
                             <p className="text-xs font-mono text-gray-300 leading-relaxed break-words">{comment.text}</p>
                           </div>
-                          {(user && (comment.userId === user.userId || user.isAdmin)) && (
+                          {(user && (String(comment.userId) === String(user.userId) || user.isAdmin)) && (
                             <button
                               onClick={() => deleteComment(comment.id)}
                               className="opacity-0 group-hover/comment:opacity-100 p-1 hover:bg-red-500/10 rounded text-gray-600 hover:text-red-400 transition-all shrink-0 mt-0.5"

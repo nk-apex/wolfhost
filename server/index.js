@@ -3797,46 +3797,64 @@ function saveTutorialComments(data) {
   }
 }
 
-const ytStatsCache = new Map();
-const YT_CACHE_TTL = 15 * 60 * 1000;
+const TUTORIAL_LIKES_FILE = path.join(__dirname, 'tutorial_likes.json');
 
-app.get('/api/tutorials/yt-stats/:youtubeId', async (req, res) => {
-  const { youtubeId } = req.params;
-  if (!/^[a-zA-Z0-9_-]{11}$/.test(youtubeId)) {
-    return res.status(400).json({ success: false, message: 'Invalid video ID' });
-  }
-  const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-  if (!YOUTUBE_API_KEY) {
-    return res.json({ success: false, message: 'YouTube API not configured' });
-  }
-  const cached = ytStatsCache.get(youtubeId);
-  if (cached && Date.now() - cached.cachedAt < YT_CACHE_TTL) {
-    return res.json({ success: true, ...cached.data });
-  }
+function loadTutorialLikes() {
   try {
-    const videoRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${youtubeId}&key=${YOUTUBE_API_KEY}`);
-    const videoData = await videoRes.json();
-    if (!videoData.items || videoData.items.length === 0) {
-      return res.json({ success: false, message: 'Video not found' });
+    if (fs.existsSync(TUTORIAL_LIKES_FILE)) {
+      return JSON.parse(fs.readFileSync(TUTORIAL_LIKES_FILE, 'utf8'));
     }
-    const video = videoData.items[0];
-    const stats = video.statistics;
-    const channelId = video.snippet.channelId;
-    const chanRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`);
-    const chanData = await chanRes.json();
-    const chanStats = chanData.items?.[0]?.statistics || {};
-    const data = {
-      viewCount: parseInt(stats.viewCount || 0),
-      likeCount: parseInt(stats.likeCount || 0),
-      commentCount: parseInt(stats.commentCount || 0),
-      subscriberCount: parseInt(chanStats.subscriberCount || 0),
-      hiddenSubscriberCount: chanStats.hiddenSubscriberCount === true,
-    };
-    ytStatsCache.set(youtubeId, { data, cachedAt: Date.now() });
-    return res.json({ success: true, ...data });
-  } catch (error) {
-    console.error('YouTube stats error:', error.message);
-    return res.json({ success: false, message: 'Failed to fetch stats' });
+  } catch (e) {
+    console.error('Error loading tutorial likes:', e);
+  }
+  return {};
+}
+
+function saveTutorialLikes(data) {
+  try {
+    fs.writeFileSync(TUTORIAL_LIKES_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving tutorial likes:', e);
+  }
+}
+
+app.get('/api/tutorials/:id/likes', (req, res) => {
+  try {
+    const allLikes = loadTutorialLikes();
+    const likers = allLikes[req.params.id] || [];
+    const token = req.headers['authorization']?.split(' ')[1];
+    let liked = false;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        liked = likers.includes(decoded.userId?.toString());
+      } catch (_) {}
+    }
+    return res.json({ success: true, count: likers.length, liked });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to load likes' });
+  }
+});
+
+app.post('/api/tutorials/:id/like', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId?.toString();
+    const allLikes = loadTutorialLikes();
+    if (!allLikes[id]) allLikes[id] = [];
+    const idx = allLikes[id].indexOf(userId);
+    let liked;
+    if (idx === -1) {
+      allLikes[id].push(userId);
+      liked = true;
+    } else {
+      allLikes[id].splice(idx, 1);
+      liked = false;
+    }
+    saveTutorialLikes(allLikes);
+    return res.json({ success: true, liked, count: allLikes[id].length });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to toggle like' });
   }
 });
 
