@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlayCircle, BookOpen, Search, X, ExternalLink, Loader2, Clock, User, Tag } from 'lucide-react';
+import { PlayCircle, BookOpen, Search, X, ExternalLink, Loader2, Clock, User, Tag, Eye, ThumbsUp, MessageSquare, Users, Send, Trash2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const categoryColors = {
   'General': 'primary',
@@ -10,12 +11,39 @@ const categoryColors = {
   'Server Management': 'yellow',
 };
 
+function formatCount(n) {
+  if (!n && n !== 0) return null;
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return n.toString();
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
 const Tutorials = () => {
+  const { user } = useAuth();
   const [tutorials, setTutorials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeVideo, setActiveVideo] = useState(null);
+  const [ytStats, setYtStats] = useState({});
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState('');
+  const commentInputRef = useRef(null);
 
   useEffect(() => {
     fetchTutorials();
@@ -27,6 +55,9 @@ const Tutorials = () => {
       const data = await res.json();
       if (data.success) {
         setTutorials(data.tutorials);
+        data.tutorials.forEach(t => {
+          if (t.youtubeId) fetchYtStats(t.youtubeId);
+        });
       }
     } catch (e) {
     } finally {
@@ -34,10 +65,71 @@ const Tutorials = () => {
     }
   };
 
+  const fetchYtStats = async (youtubeId) => {
+    try {
+      const res = await fetch(`/api/tutorials/yt-stats/${youtubeId}`);
+      const data = await res.json();
+      if (data.success) {
+        setYtStats(prev => ({ ...prev, [youtubeId]: data }));
+      }
+    } catch (e) {}
+  };
+
+  const openVideo = async (tutorial) => {
+    setActiveVideo(tutorial);
+    setComments([]);
+    setCommentText('');
+    setCommentError('');
+    setCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/tutorials/${tutorial.id}/comments`);
+      const data = await res.json();
+      if (data.success) setComments(data.comments);
+    } catch (e) {}
+    finally { setCommentsLoading(false); }
+  };
+
+  const submitComment = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    setSubmitting(true);
+    setCommentError('');
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(`/api/tutorials/${activeVideo.id}/comments`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: commentText.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setComments(prev => [data.comment, ...prev]);
+        setCommentText('');
+      } else {
+        setCommentError(data.message || 'Failed to post comment');
+      }
+    } catch (e) {
+      setCommentError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const deleteComment = async (commentId) => {
+    const token = localStorage.getItem('jwt_token');
+    try {
+      await fetch(`/api/tutorials/${activeVideo.id}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    } catch (e) {}
+  };
+
   const categories = ['All', ...new Set(tutorials.map(t => t.category || 'General'))];
 
   const filtered = tutorials.filter(t => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
@@ -113,70 +205,81 @@ const Tutorials = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((tutorial, index) => (
-            <motion.div
-              key={tutorial.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="group rounded-xl border border-primary/10 bg-black/30 overflow-hidden hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer"
-              onClick={() => setActiveVideo(tutorial)}
-            >
-              <div className="relative aspect-video bg-black/50 flex items-center justify-center overflow-hidden">
-                {tutorial.youtubeId ? (
-                  <>
-                    <img
-                      src={`https://img.youtube.com/vi/${tutorial.youtubeId}/hqdefault.jpg`}
-                      alt={tutorial.title}
-                      className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
-                      onError={(e) => { e.target.src = `https://img.youtube.com/vi/${tutorial.youtubeId}/0.jpg`; }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
-                        <PlayCircle className="w-8 h-8 text-primary" />
+          {filtered.map((tutorial, index) => {
+            const stats = ytStats[tutorial.youtubeId];
+            return (
+              <motion.div
+                key={tutorial.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="group rounded-xl border border-primary/10 bg-black/30 overflow-hidden hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer"
+                onClick={() => openVideo(tutorial)}
+              >
+                <div className="relative aspect-video bg-black/50 flex items-center justify-center overflow-hidden">
+                  {tutorial.youtubeId ? (
+                    <>
+                      <img
+                        src={`https://img.youtube.com/vi/${tutorial.youtubeId}/hqdefault.jpg`}
+                        alt={tutorial.title}
+                        className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
+                        onError={(e) => { e.target.src = `https://img.youtube.com/vi/${tutorial.youtubeId}/0.jpg`; }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
+                          <PlayCircle className="w-8 h-8 text-primary" />
+                        </div>
                       </div>
+                      <div className="absolute top-2 right-2">
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border backdrop-blur-sm ${getColorClasses(tutorial.category)}`}>
+                          {tutorial.category || 'General'}
+                        </span>
+                      </div>
+                      {stats && (
+                        <div className="absolute bottom-2 left-2 flex items-center gap-2">
+                          <span className="flex items-center gap-1 text-[10px] font-mono text-white/80 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                            <Eye size={9} />{formatCount(stats.viewCount)}
+                          </span>
+                          <span className="flex items-center gap-1 text-[10px] font-mono text-white/80 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                            <ThumbsUp size={9} />{formatCount(stats.likeCount)}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <PlayCircle className="w-10 h-10 text-gray-600" />
+                      <span className="text-xs font-mono text-gray-500">Video</span>
                     </div>
-                    <div className="absolute top-2 right-2">
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border backdrop-blur-sm ${getColorClasses(tutorial.category)}`}>
-                        {tutorial.category || 'General'}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <PlayCircle className="w-10 h-10 text-gray-600" />
-                    <span className="text-xs font-mono text-gray-500">Video</span>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 space-y-2.5">
-                <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
-                {tutorial.description && (
-                  <p className="text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
-                )}
-                <div className="flex items-center justify-between pt-1 border-t border-primary/5">
-                  <div className="flex items-center gap-3">
-                    {tutorial.createdBy && (
-                      <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                        <User size={9} />
-                        {tutorial.createdBy.split('@')[0]}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                      <Clock size={9} />
-                      {new Date(tutorial.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {!tutorial.youtubeId && (
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${getColorClasses(tutorial.category)}`}>
-                      {tutorial.category || 'General'}
-                    </span>
                   )}
                 </div>
-              </div>
-            </motion.div>
-          ))}
+                <div className="p-4 space-y-2.5">
+                  <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
+                  {tutorial.description && (
+                    <p className="text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
+                  )}
+                  <div className="flex items-center justify-between pt-1 border-t border-primary/5">
+                    <div className="flex items-center gap-3">
+                      {tutorial.createdBy && (
+                        <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
+                          <User size={9} />{tutorial.createdBy.split('@')[0]}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
+                        <Clock size={9} />{new Date(tutorial.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {stats && (
+                      <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
+                        <MessageSquare size={9} />{formatCount(stats.commentCount)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       )}
 
@@ -193,25 +296,23 @@ const Tutorials = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-4xl rounded-xl border border-primary/20 bg-black/95 overflow-hidden"
+              className="w-full max-w-4xl rounded-xl border border-primary/20 bg-black/95 overflow-hidden max-h-[90vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-primary/10">
+              <div className="flex items-center justify-between p-4 border-b border-primary/10 shrink-0">
                 <div className="flex-1 min-w-0 mr-4">
                   <h3 className="text-sm sm:text-base font-bold text-white truncate">{activeVideo.title}</h3>
-                  <div className="flex items-center gap-3 mt-1.5">
+                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                     <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${getColorClasses(activeVideo.category)}`}>
                       {activeVideo.category || 'General'}
                     </span>
                     {activeVideo.createdBy && (
                       <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                        <User size={9} />
-                        {activeVideo.createdBy.split('@')[0]}
+                        <User size={9} />{activeVideo.createdBy.split('@')[0]}
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                      <Clock size={9} />
-                      {new Date(activeVideo.createdAt).toLocaleDateString()}
+                      <Clock size={9} />{new Date(activeVideo.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
@@ -235,7 +336,38 @@ const Tutorials = () => {
                   </button>
                 </div>
               </div>
-              <div className="aspect-video">
+
+              {ytStats[activeVideo.youtubeId] && (
+                <div className="flex items-center gap-4 px-4 py-2.5 border-b border-primary/10 bg-black/40 shrink-0 flex-wrap">
+                  {(() => {
+                    const s = ytStats[activeVideo.youtubeId];
+                    return (
+                      <>
+                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
+                          <Eye size={12} className="text-blue-400" />
+                          <span className="text-white font-semibold">{formatCount(s.viewCount)}</span> views
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
+                          <ThumbsUp size={12} className="text-green-400" />
+                          <span className="text-white font-semibold">{formatCount(s.likeCount)}</span> likes
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
+                          <MessageSquare size={12} className="text-yellow-400" />
+                          <span className="text-white font-semibold">{formatCount(s.commentCount)}</span> YouTube comments
+                        </span>
+                        {!s.hiddenSubscriberCount && s.subscriberCount > 0 && (
+                          <span className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
+                            <Users size={12} className="text-primary" />
+                            <span className="text-white font-semibold">{formatCount(s.subscriberCount)}</span> subscribers
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div className="aspect-video shrink-0">
                 {activeVideo.youtubeId ? (
                   <iframe
                     src={`https://www.youtube.com/embed/${activeVideo.youtubeId}?autoplay=1`}
@@ -254,17 +386,92 @@ const Tutorials = () => {
                       rel="noopener noreferrer"
                       className="px-6 py-3 rounded-lg bg-primary/10 border border-primary/30 text-primary font-mono text-sm hover:bg-primary/20 transition-colors flex items-center gap-2"
                     >
-                      <ExternalLink size={14} />
-                      Open Video
+                      <ExternalLink size={14} />Open Video
                     </a>
                   </div>
                 )}
               </div>
+
               {activeVideo.description && (
-                <div className="p-4 border-t border-primary/10">
+                <div className="px-4 py-3 border-t border-primary/10 shrink-0">
                   <p className="text-xs font-mono text-gray-400 leading-relaxed">{activeVideo.description}</p>
                 </div>
               )}
+
+              <div className="flex-1 overflow-y-auto border-t border-primary/10 min-h-0">
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare size={14} className="text-primary" />
+                    <span className="text-sm font-mono font-semibold text-white">Comments</span>
+                    <span className="text-xs font-mono text-gray-500">({comments.length})</span>
+                  </div>
+
+                  {user ? (
+                    <form onSubmit={submitComment} className="flex gap-2">
+                      <input
+                        ref={commentInputRef}
+                        type="text"
+                        value={commentText}
+                        onChange={(e) => { setCommentText(e.target.value); setCommentError(''); }}
+                        placeholder="Add a comment..."
+                        maxLength={500}
+                        className="flex-1 px-3 py-2 rounded-lg border border-primary/20 bg-black/50 text-white font-mono text-xs placeholder:text-gray-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                        disabled={submitting}
+                      />
+                      <button
+                        type="submit"
+                        disabled={submitting || !commentText.trim()}
+                        className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-mono text-xs"
+                      >
+                        {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                        Post
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="text-xs font-mono text-gray-500 italic">Log in to leave a comment.</p>
+                  )}
+
+                  {commentError && (
+                    <p className="text-xs font-mono text-red-400">{commentError}</p>
+                  )}
+
+                  {commentsLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 size={18} className="animate-spin text-primary" />
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <p className="text-xs font-mono text-gray-600 text-center py-4">No comments yet. Be the first!</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {comments.map(comment => (
+                        <div key={comment.id} className="flex gap-2.5 group/comment">
+                          <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="text-[10px] font-mono text-primary font-bold">
+                              {comment.username?.[0]?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-[11px] font-mono font-semibold text-white">{comment.username}</span>
+                              <span className="text-[10px] font-mono text-gray-600">{timeAgo(comment.createdAt)}</span>
+                            </div>
+                            <p className="text-xs font-mono text-gray-300 leading-relaxed break-words">{comment.text}</p>
+                          </div>
+                          {(user && (comment.userId === user.userId || user.isAdmin)) && (
+                            <button
+                              onClick={() => deleteComment(comment.id)}
+                              className="opacity-0 group-hover/comment:opacity-100 p-1 hover:bg-red-500/10 rounded text-gray-600 hover:text-red-400 transition-all shrink-0 mt-0.5"
+                              title="Delete comment"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

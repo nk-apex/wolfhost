@@ -3776,6 +3776,132 @@ app.delete('/api/admin/tutorials/:id', authenticateToken, requireAdmin, (req, re
   }
 });
 
+const TUTORIAL_COMMENTS_FILE = path.join(__dirname, 'tutorial_comments.json');
+
+function loadTutorialComments() {
+  try {
+    if (fs.existsSync(TUTORIAL_COMMENTS_FILE)) {
+      return JSON.parse(fs.readFileSync(TUTORIAL_COMMENTS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error loading tutorial comments:', e);
+  }
+  return {};
+}
+
+function saveTutorialComments(data) {
+  try {
+    fs.writeFileSync(TUTORIAL_COMMENTS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving tutorial comments:', e);
+  }
+}
+
+const ytStatsCache = new Map();
+const YT_CACHE_TTL = 15 * 60 * 1000;
+
+app.get('/api/tutorials/yt-stats/:youtubeId', async (req, res) => {
+  const { youtubeId } = req.params;
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(youtubeId)) {
+    return res.status(400).json({ success: false, message: 'Invalid video ID' });
+  }
+  const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+  if (!YOUTUBE_API_KEY) {
+    return res.json({ success: false, message: 'YouTube API not configured' });
+  }
+  const cached = ytStatsCache.get(youtubeId);
+  if (cached && Date.now() - cached.cachedAt < YT_CACHE_TTL) {
+    return res.json({ success: true, ...cached.data });
+  }
+  try {
+    const videoRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${youtubeId}&key=${YOUTUBE_API_KEY}`);
+    const videoData = await videoRes.json();
+    if (!videoData.items || videoData.items.length === 0) {
+      return res.json({ success: false, message: 'Video not found' });
+    }
+    const video = videoData.items[0];
+    const stats = video.statistics;
+    const channelId = video.snippet.channelId;
+    const chanRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`);
+    const chanData = await chanRes.json();
+    const chanStats = chanData.items?.[0]?.statistics || {};
+    const data = {
+      viewCount: parseInt(stats.viewCount || 0),
+      likeCount: parseInt(stats.likeCount || 0),
+      commentCount: parseInt(stats.commentCount || 0),
+      subscriberCount: parseInt(chanStats.subscriberCount || 0),
+      hiddenSubscriberCount: chanStats.hiddenSubscriberCount === true,
+    };
+    ytStatsCache.set(youtubeId, { data, cachedAt: Date.now() });
+    return res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('YouTube stats error:', error.message);
+    return res.json({ success: false, message: 'Failed to fetch stats' });
+  }
+});
+
+app.get('/api/tutorials/:id/comments', (req, res) => {
+  try {
+    const allComments = loadTutorialComments();
+    const comments = (allComments[req.params.id] || []).slice(0, 100);
+    return res.json({ success: true, comments });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to load comments' });
+  }
+});
+
+app.post('/api/tutorials/:id/comments', authenticateToken, [
+  body('text').isString().trim().notEmpty().withMessage('Comment cannot be empty')
+    .isLength({ max: 500 }).withMessage('Comment too long (max 500 chars)'),
+], handleValidationErrors, (req, res) => {
+  try {
+    const { id } = req.params;
+    const tutorials = loadTutorials();
+    if (!tutorials.find(t => t.id === id)) {
+      return res.status(404).json({ success: false, message: 'Tutorial not found' });
+    }
+    const allComments = loadTutorialComments();
+    if (!allComments[id]) allComments[id] = [];
+    const userComments = allComments[id].filter(c => c.userId === req.user.userId);
+    if (userComments.length >= 20) {
+      return res.status(429).json({ success: false, message: 'Comment limit reached for this tutorial' });
+    }
+    const comment = {
+      id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      text: req.body.text.trim(),
+      userId: req.user.userId,
+      username: req.user.username || req.user.email.split('@')[0],
+      createdAt: new Date().toISOString(),
+    };
+    allComments[id].unshift(comment);
+    if (allComments[id].length > 200) allComments[id] = allComments[id].slice(0, 200);
+    saveTutorialComments(allComments);
+    return res.json({ success: true, comment });
+  } catch (e) {
+    console.error('Tutorial comment post error:', e);
+    return res.status(500).json({ success: false, message: 'Failed to post comment' });
+  }
+});
+
+app.delete('/api/tutorials/:id/comments/:commentId', authenticateToken, (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    const allComments = loadTutorialComments();
+    if (!allComments[id]) return res.status(404).json({ success: false, message: 'No comments found' });
+    const idx = allComments[id].findIndex(c => c.id === commentId);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Comment not found' });
+    const comment = allComments[id][idx];
+    if (comment.userId !== req.user.userId && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    allComments[id].splice(idx, 1);
+    saveTutorialComments(allComments);
+    return res.json({ success: true, message: 'Comment deleted' });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to delete comment' });
+  }
+});
+
 const COMMUNITY_MESSAGES_FILE = path.join(__dirname, 'community_messages.json');
 const COMMUNITY_ACTIVE_FILE = path.join(__dirname, 'community_active.json');
 const COMMUNITY_MAX_MESSAGES = 200;
