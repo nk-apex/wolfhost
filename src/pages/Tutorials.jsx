@@ -38,7 +38,15 @@ const Tutorials = () => {
   const [submitting, setSubmitting] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [liking, setLiking] = useState({});
+  const [autoScrollComments, setAutoScrollComments] = useState(false);
   const commentsRef = useRef(null);
+
+  useEffect(() => {
+    if (autoScrollComments && activeVideo && commentsRef.current) {
+      commentsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setAutoScrollComments(false);
+    }
+  }, [autoScrollComments, activeVideo, comments]);
 
   useEffect(() => {
     fetchTutorials();
@@ -129,10 +137,8 @@ const Tutorials = () => {
 
   const openVideoToComments = async (e, tutorial) => {
     e.stopPropagation();
+    setAutoScrollComments(true);
     await openVideo(tutorial);
-    setTimeout(() => {
-      commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 400);
   };
 
   const scrollToComments = (e) => {
@@ -396,7 +402,14 @@ const Tutorials = () => {
                 </div>
               </div>
 
-              <div className="aspect-video shrink-0">
+              <div className="relative aspect-video shrink-0">
+                <button
+                  onClick={() => setActiveVideo(null)}
+                  className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/70 border border-white/20 text-white hover:bg-black/90 hover:border-white/40 transition-all backdrop-blur-sm"
+                  title="Close video"
+                >
+                  <X size={14} />
+                </button>
                 {activeVideo.youtubeId ? (
                   <iframe
                     src={`https://www.youtube.com/embed/${activeVideo.youtubeId}?autoplay=1`}
