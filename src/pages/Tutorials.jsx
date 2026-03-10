@@ -263,7 +263,7 @@ const Tutorials = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((tutorial, index) => {
             const likeData = likes[tutorial.id] || { count: 0, liked: false };
             const commentCount = commentCounts[tutorial.id] || 0;
@@ -273,70 +273,78 @@ const Tutorials = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="group rounded-xl border border-primary/10 bg-black/30 overflow-hidden hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-pointer"
+                className="group rounded-2xl border border-primary/10 bg-gradient-to-b from-white/[0.03] to-black/40 overflow-hidden hover:border-primary/35 hover:shadow-xl hover:shadow-primary/8 transition-all duration-300 cursor-pointer"
                 onClick={() => openVideo(tutorial)}
               >
-                <div className="relative aspect-video bg-black/50 flex items-center justify-center overflow-hidden">
+                <div className="relative bg-black/60 flex items-center justify-center overflow-hidden" style={{aspectRatio:'16/9'}}>
                   {tutorial.youtubeId ? (
                     <>
                       <img
                         src={`https://img.youtube.com/vi/${tutorial.youtubeId}/hqdefault.jpg`}
                         alt={tutorial.title}
-                        className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-300"
+                        className="w-full h-full object-cover opacity-70 group-hover:opacity-95 group-hover:scale-105 transition-all duration-500"
                         onError={(e) => { e.target.src = `https://img.youtube.com/vi/${tutorial.youtubeId}/0.jpg`; }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
-                          <PlayCircle className="w-8 h-8 text-primary" />
+                        <div className="w-16 h-16 rounded-full bg-primary/25 border-2 border-primary/50 flex items-center justify-center backdrop-blur-sm group-hover:scale-115 group-hover:bg-primary/35 transition-all duration-300 shadow-lg shadow-primary/20">
+                          <PlayCircle className="w-9 h-9 text-primary drop-shadow-md" />
                         </div>
                       </div>
-                      <div className="absolute top-2 right-2">
-                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border backdrop-blur-sm ${getColorClasses(tutorial.category)}`}>
+                      <div className="absolute top-3 right-3">
+                        <span className={`text-[11px] font-mono font-medium px-2.5 py-1 rounded-full border backdrop-blur-sm ${getColorClasses(tutorial.category)}`}>
                           {tutorial.category || 'General'}
                         </span>
                       </div>
+                      <div className="absolute bottom-3 left-4 right-4">
+                        <h3 className="text-sm font-bold text-white drop-shadow-md line-clamp-2 leading-snug">{tutorial.title}</h3>
+                      </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <PlayCircle className="w-10 h-10 text-gray-600" />
+                    <div className="flex flex-col items-center gap-2 py-12">
+                      <PlayCircle className="w-12 h-12 text-gray-600" />
                       <span className="text-xs font-mono text-gray-500">Video</span>
                     </div>
                   )}
                 </div>
 
-                <div className="p-4 space-y-3">
-                  <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
+                <div className="p-3.5 space-y-2.5">
+                  {tutorial.youtubeId ? null : (
+                    <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
+                  )}
                   {tutorial.description && (
                     <p className="text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
                   )}
-                  <div className="flex items-center justify-between pt-1 border-t border-primary/5">
+                  <div className="flex items-center justify-between pt-2 border-t border-primary/5">
                     <div className="flex items-center gap-3">
                       {tutorial.createdBy && (
-                        <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                          <User size={9} />{tutorial.createdBy.split('@')[0]}
+                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-500">
+                          <User size={11} />{tutorial.createdBy.split('@')[0]}
                         </span>
                       )}
-                      <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                        <Clock size={9} />{new Date(tutorial.createdAt).toLocaleDateString()}
+                      <span className="flex items-center gap-1.5 text-xs font-mono text-gray-500">
+                        <Clock size={11} />{new Date(tutorial.createdAt).toLocaleDateString()}
                       </span>
+                      {commentCount > 0 && (
+                        <span className="flex items-center gap-1.5 text-xs font-mono text-gray-500">
+                          <MessageSquare size={11} />{commentCount}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => toggleLike(e, tutorial.id)}
-                        title={!user ? 'Log in to like' : likeData.liked ? 'Unlike' : 'Like'}
-                        className={`flex items-center gap-1.5 text-xs font-mono font-semibold px-3 py-1.5 rounded-lg border transition-all ${
-                          likeData.liked
-                            ? 'border-red-500/50 bg-red-500/15 text-red-400 shadow-sm shadow-red-500/10'
-                            : !user
-                            ? 'border-gray-700 bg-gray-800/40 text-gray-600 cursor-not-allowed'
-                            : 'border-gray-600 bg-gray-800/60 text-gray-300 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10'
-                        }`}
-                      >
-                        <Heart size={13} className={likeData.liked ? 'fill-current' : ''} />
-                        <span>{likeData.count}</span>
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => toggleLike(e, tutorial.id)}
+                      title={!user ? 'Log in to like' : likeData.liked ? 'Unlike' : 'Like'}
+                      className={`flex items-center gap-1.5 text-xs font-mono font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+                        likeData.liked
+                          ? 'border-red-500/50 bg-red-500/15 text-red-400 shadow-sm shadow-red-500/10'
+                          : !user
+                          ? 'border-gray-700 bg-gray-800/40 text-gray-600 cursor-not-allowed'
+                          : 'border-gray-600 bg-gray-800/60 text-gray-300 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10'
+                      }`}
+                    >
+                      <Heart size={13} className={likeData.liked ? 'fill-current' : ''} />
+                      <span>{likeData.count}</span>
+                    </button>
                   </div>
                 </div>
               </motion.div>
