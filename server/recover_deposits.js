@@ -1,5 +1,8 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DEPOSITS_FILE = path.join(__dirname, 'deposits.json');
 const SPENDING_FILE = path.join(__dirname, 'spending.json');
@@ -7,7 +10,6 @@ const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 
 if (!PAYSTACK_SECRET) {
   console.error('ERROR: PAYSTACK_SECRET_KEY environment variable is not set.');
-  console.error('Run: PAYSTACK_SECRET_KEY=your_key node server/recover_deposits.js');
   process.exit(1);
 }
 
@@ -43,7 +45,6 @@ function convertToKES(amount, currency) {
 async function main() {
   const spending = loadJSON(SPENDING_FILE);
   const deposits = loadJSON(DEPOSITS_FILE);
-
   const existingRefs = new Set(deposits.map(d => d.reference));
 
   const affectedEmails = [...new Set(spending.map(s => s.email.toLowerCase()))];
@@ -58,7 +59,6 @@ async function main() {
     console.log(`\nProcessing: ${email}`);
     console.log(`  Recorded deposits: ${currentDeposits} KES | Spending: ${currentSpending} KES`);
 
-    console.log(`  Fetching Paystack transactions...`);
     let txns;
     try {
       txns = await fetchTransactions(email);
@@ -75,7 +75,6 @@ async function main() {
       const currency = txn.currency || 'KES';
       const rawAmount = txn.amount / 100;
       const amountKES = currency === 'KES' ? rawAmount : convertToKES(rawAmount, currency);
-
       const entry = {
         email,
         amountKES: Math.round(amountKES * 100) / 100,
@@ -94,9 +93,9 @@ async function main() {
 
     if (addedForUser === 0) console.log(`  No new transactions to add.`);
 
-    const newDeposits = deposits.filter(d => d.email === email).reduce((s, d) => s + d.amountKES, 0);
-    const newBalance = Math.max(0, newDeposits - currentSpending);
-    console.log(`  New total deposits: ${newDeposits} KES | Balance after recovery: ${newBalance} KES`);
+    const newTotal = deposits.filter(d => d.email === email).reduce((s, d) => s + d.amountKES, 0);
+    const newBalance = Math.max(0, newTotal - currentSpending);
+    console.log(`  New total deposits: ${newTotal} KES | Balance after recovery: ${newBalance} KES`);
   }
 
   if (totalAdded > 0) {
