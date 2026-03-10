@@ -20,6 +20,23 @@ dist-ssr
 # Security logs
 server/security.log
 
+# Runtime data files — managed on each server independently, never overwritten by git pull
+server/tutorials.json
+server/user_credentials.json
+server/deposits.json
+server/spending.json
+server/notifications.json
+server/referrals.json
+server/community_messages.json
+server/community_active.json
+server/tasks.json
+server/deploy_claims.json
+server/welcome_claims.json
+server/free_servers.json
+server/tutorial_comments.json
+server/tutorial_likes.json
+server/admin_alerts.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
