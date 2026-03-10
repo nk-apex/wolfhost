@@ -399,121 +399,107 @@ const Tutorials = () => {
                 </div>
               </div>
 
-              <div className="relative aspect-video shrink-0">
-                <button
-                  onClick={() => setActiveVideo(null)}
-                  className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/70 border border-white/20 text-white hover:bg-black/90 hover:border-white/40 transition-all backdrop-blur-sm"
-                  title="Close video"
-                >
-                  <X size={14} />
-                </button>
-                {activeVideo.youtubeId ? (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${activeVideo.youtubeId}?autoplay=1`}
-                    title={activeVideo.title}
-                    className="w-full h-full"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-                    <PlayCircle className="w-16 h-16 text-gray-600" />
-                    <a
-                      href={activeVideo.videoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-6 py-3 rounded-lg bg-primary/10 border border-primary/30 text-primary font-mono text-sm hover:bg-primary/20 transition-colors flex items-center gap-2"
-                    >
-                      <ExternalLink size={14} />Open Video
-                    </a>
+              <div className="flex flex-col lg:flex-row flex-1 min-h-0">
+                <div className="lg:flex-1 flex flex-col shrink-0">
+                  <div className="aspect-video bg-black">
+                    {activeVideo.youtubeId ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${activeVideo.youtubeId}?autoplay=1`}
+                        title={activeVideo.title}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+                        <PlayCircle className="w-16 h-16 text-gray-600" />
+                        <a
+                          href={activeVideo.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-6 py-3 rounded-lg bg-primary/10 border border-primary/30 text-primary font-mono text-sm hover:bg-primary/20 transition-colors flex items-center gap-2"
+                        >
+                          <ExternalLink size={14} />Open Video
+                        </a>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              <div className="flex items-center gap-3 px-4 py-3 border-t border-primary/10 shrink-0">
-                {(() => {
-                  const likeData = likes[activeVideo.id] || { count: 0, liked: false };
-                  return (
-                    <button
-                      onClick={(e) => toggleLike(e, activeVideo.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-mono text-sm transition-all ${
-                        likeData.liked
-                          ? 'border-red-500/40 bg-red-500/10 text-red-400'
-                          : 'border-primary/20 text-gray-400 hover:border-red-500/30 hover:text-red-400'
-                      } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      disabled={!user}
-                      title={!user ? 'Log in to like' : ''}
-                    >
-                      <Heart size={15} className={likeData.liked ? 'fill-current' : ''} />
-                      <span>{likeData.liked ? 'Liked' : 'Like'}</span>
-                      <span className="text-xs opacity-70">· {likeData.count}</span>
-                    </button>
-                  );
-                })()}
-                <button
-                  onClick={scrollToComments}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-primary/20 text-gray-400 hover:border-primary/40 hover:text-white font-mono text-sm transition-all"
-                >
-                  <MessageSquare size={15} />
-                  <span>Comments</span>
-                  {commentCounts[activeVideo.id] > 0 && (
-                    <span className="text-xs opacity-70">· {commentCounts[activeVideo.id]}</span>
+                  <div className="flex items-center gap-3 px-4 py-3 border-t border-primary/10">
+                    {(() => {
+                      const likeData = likes[activeVideo.id] || { count: 0, liked: false };
+                      return (
+                        <button
+                          onClick={(e) => toggleLike(e, activeVideo.id)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-mono text-sm transition-all ${
+                            likeData.liked
+                              ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                              : 'border-primary/20 text-gray-400 hover:border-red-500/30 hover:text-red-400'
+                          } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={!user}
+                          title={!user ? 'Log in to like' : ''}
+                        >
+                          <Heart size={15} className={likeData.liked ? 'fill-current' : ''} />
+                          <span>{likeData.liked ? 'Liked' : 'Like'}</span>
+                          <span className="text-xs opacity-70">· {likeData.count}</span>
+                        </button>
+                      );
+                    })()}
+                  </div>
+
+                  {activeVideo.description && (
+                    <div className="px-4 pb-4 border-t border-primary/10 pt-3">
+                      <p className="text-xs font-mono text-gray-400 leading-relaxed">{activeVideo.description}</p>
+                    </div>
                   )}
-                </button>
-              </div>
-
-              {activeVideo.description && (
-                <div className="px-4 py-3 border-t border-primary/10 shrink-0">
-                  <p className="text-xs font-mono text-gray-400 leading-relaxed">{activeVideo.description}</p>
                 </div>
-              )}
 
-              <div className="flex-1 overflow-y-auto border-t border-primary/10 min-h-0">
-                <div className="p-4 space-y-4" ref={commentsRef}>
-                  <div className="flex items-center gap-2">
+                <div className="lg:w-80 xl:w-96 flex flex-col border-t lg:border-t-0 lg:border-l border-primary/10 min-h-0">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-primary/10 shrink-0">
                     <MessageSquare size={14} className="text-primary" />
                     <span className="text-sm font-mono font-semibold text-white">Comments</span>
                     <span className="text-xs font-mono text-gray-500">({comments.length})</span>
                   </div>
 
-                  {user ? (
-                    <form onSubmit={submitComment} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={commentText}
-                        onChange={(e) => { setCommentText(e.target.value); setCommentError(''); }}
-                        placeholder="Write a comment..."
-                        maxLength={500}
-                        className="flex-1 px-3 py-2 rounded-lg border border-primary/20 bg-black/50 text-white font-mono text-xs placeholder:text-gray-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-                        disabled={submitting}
-                      />
-                      <button
-                        type="submit"
-                        disabled={submitting || !commentText.trim()}
-                        className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-mono text-xs"
-                      >
-                        {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                        Post
-                      </button>
-                    </form>
-                  ) : (
-                    <p className="text-xs font-mono text-gray-500 italic">Log in to leave a comment.</p>
-                  )}
+                  <div className="px-4 py-3 border-b border-primary/10 shrink-0">
+                    {user ? (
+                      <form onSubmit={submitComment} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={commentText}
+                          onChange={(e) => { setCommentText(e.target.value); setCommentError(''); }}
+                          placeholder="Write a comment..."
+                          maxLength={500}
+                          className="flex-1 px-3 py-2 rounded-lg border border-primary/20 bg-black/50 text-white font-mono text-xs placeholder:text-gray-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                          disabled={submitting}
+                        />
+                        <button
+                          type="submit"
+                          disabled={submitting || !commentText.trim()}
+                          className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 font-mono text-xs"
+                        >
+                          {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                          Post
+                        </button>
+                      </form>
+                    ) : (
+                      <p className="text-xs font-mono text-gray-500 italic">Log in to leave a comment.</p>
+                    )}
+                    {commentError && (
+                      <p className="text-xs font-mono text-red-400 mt-1">{commentError}</p>
+                    )}
+                  </div>
 
-                  {commentError && (
-                    <p className="text-xs font-mono text-red-400">{commentError}</p>
-                  )}
-
-                  {commentsLoading ? (
-                    <div className="flex justify-center py-4">
-                      <Loader2 size={18} className="animate-spin text-primary" />
-                    </div>
-                  ) : comments.length === 0 ? (
-                    <p className="text-xs font-mono text-gray-600 text-center py-4">No comments yet. Be the first!</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {comments.map(comment => (
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={commentsRef}>
+                    {commentsLoading ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 size={18} className="animate-spin text-primary" />
+                      </div>
+                    ) : comments.length === 0 ? (
+                      <p className="text-xs font-mono text-gray-600 text-center py-4">No comments yet. Be the first!</p>
+                    ) : (
+                      comments.map(comment => (
                         <div key={comment.id} className="flex gap-2.5 group/comment">
                           <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                             <span className="text-[10px] font-mono text-primary font-bold">
@@ -537,9 +523,9 @@ const Tutorials = () => {
                             </button>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
