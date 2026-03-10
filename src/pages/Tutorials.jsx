@@ -263,7 +263,7 @@ const Tutorials = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-3 sm:px-0">
           {filtered.map((tutorial, index) => {
             const likeData = likes[tutorial.id] || { count: 0, liked: false };
             const commentCount = commentCounts[tutorial.id] || 0;
@@ -313,10 +313,10 @@ const Tutorials = () => {
                     <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
                   )}
                   {tutorial.description && (
-                    <p className="hidden sm:block text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
+                    <p className="text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t border-primary/5">
-                    <div className="hidden sm:flex items-center gap-3">
+                    <div className="flex items-center gap-3">
                       {tutorial.createdBy && (
                         <span className="flex items-center gap-1.5 text-xs font-mono text-gray-500">
                           <User size={11} />{tutorial.createdBy.split('@')[0]}
@@ -334,7 +334,7 @@ const Tutorials = () => {
                     <button
                       onClick={(e) => toggleLike(e, tutorial.id)}
                       title={!user ? 'Log in to like' : likeData.liked ? 'Unlike' : 'Like'}
-                      className={`flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border transition-all ${
+                      className={`flex items-center gap-1.5 text-xs font-mono font-semibold px-3 py-1.5 rounded-lg border transition-all ${
                         likeData.liked
                           ? 'border-red-500/50 bg-red-500/15 text-red-400 shadow-sm shadow-red-500/10'
                           : !user
