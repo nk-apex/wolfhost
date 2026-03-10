@@ -127,6 +127,14 @@ const Tutorials = () => {
     finally { setCommentsLoading(false); }
   };
 
+  const openVideoToComments = async (e, tutorial) => {
+    e.stopPropagation();
+    await openVideo(tutorial);
+    setTimeout(() => {
+      commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
+  };
+
   const scrollToComments = (e) => {
     e.stopPropagation();
     commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -319,9 +327,12 @@ const Tutorials = () => {
                         <Heart size={10} className={likeData.liked ? 'fill-current' : ''} />
                         {likeData.count > 0 && <span>{likeData.count}</span>}
                       </button>
-                      <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500">
-                        <MessageSquare size={9} />{commentCount > 0 ? commentCount : ''}
-                      </span>
+                      <button
+                        onClick={(e) => openVideoToComments(e, tutorial)}
+                        className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md border border-primary/10 text-gray-500 hover:border-primary/30 hover:text-white transition-all"
+                      >
+                        <MessageSquare size={9} />{commentCount > 0 ? commentCount : 'Comment'}
+                      </button>
                     </div>
                   </div>
                 </div>
