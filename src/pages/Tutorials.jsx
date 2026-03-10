@@ -263,7 +263,7 @@ const Tutorials = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map((tutorial, index) => {
             const likeData = likes[tutorial.id] || { count: 0, liked: false };
             const commentCount = commentCounts[tutorial.id] || 0;
@@ -296,8 +296,8 @@ const Tutorials = () => {
                           {tutorial.category || 'General'}
                         </span>
                       </div>
-                      <div className="absolute bottom-3 left-4 right-4">
-                        <h3 className="text-sm font-bold text-white drop-shadow-md line-clamp-2 leading-snug">{tutorial.title}</h3>
+                      <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-4 sm:right-4">
+                        <h3 className="text-[11px] sm:text-sm font-bold text-white drop-shadow-md line-clamp-2 leading-snug">{tutorial.title}</h3>
                       </div>
                     </>
                   ) : (
@@ -308,15 +308,15 @@ const Tutorials = () => {
                   )}
                 </div>
 
-                <div className="p-3.5 space-y-2.5">
+                <div className="p-2.5 sm:p-3.5 space-y-2">
                   {tutorial.youtubeId ? null : (
                     <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors line-clamp-2 leading-snug">{tutorial.title}</h3>
                   )}
                   {tutorial.description && (
-                    <p className="text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
+                    <p className="hidden sm:block text-xs font-mono text-gray-400 line-clamp-2 leading-relaxed">{tutorial.description}</p>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t border-primary/5">
-                    <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-3">
                       {tutorial.createdBy && (
                         <span className="flex items-center gap-1.5 text-xs font-mono text-gray-500">
                           <User size={11} />{tutorial.createdBy.split('@')[0]}
@@ -334,7 +334,7 @@ const Tutorials = () => {
                     <button
                       onClick={(e) => toggleLike(e, tutorial.id)}
                       title={!user ? 'Log in to like' : likeData.liked ? 'Unlike' : 'Like'}
-                      className={`flex items-center gap-1.5 text-xs font-mono font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+                      className={`flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-mono font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border transition-all ${
                         likeData.liked
                           ? 'border-red-500/50 bg-red-500/15 text-red-400 shadow-sm shadow-red-500/10'
                           : !user
