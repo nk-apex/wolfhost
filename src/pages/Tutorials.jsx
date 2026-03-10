@@ -399,9 +399,9 @@ const Tutorials = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col lg:flex-row flex-1 min-h-0">
-                <div className="lg:flex-1 flex flex-col shrink-0">
-                  <div className="aspect-video bg-black">
+              <div className="flex-1 overflow-y-auto lg:overflow-hidden lg:flex lg:flex-row min-h-0">
+                <div className="lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden">
+                  <div className="aspect-video bg-black shrink-0">
                     {activeVideo.youtubeId ? (
                       <iframe
                         src={`https://www.youtube.com/embed/${activeVideo.youtubeId}?autoplay=1`}
@@ -455,7 +455,7 @@ const Tutorials = () => {
                   )}
                 </div>
 
-                <div className="lg:w-80 xl:w-96 flex flex-col border-t lg:border-t-0 lg:border-l border-primary/10 min-h-0">
+                <div className="lg:w-80 xl:w-96 flex flex-col border-t lg:border-t-0 lg:border-l border-primary/10 lg:min-h-0 lg:overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-primary/10 shrink-0">
                     <MessageSquare size={14} className="text-primary" />
                     <span className="text-sm font-mono font-semibold text-white">Comments</span>
@@ -491,7 +491,7 @@ const Tutorials = () => {
                     )}
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={commentsRef}>
+                  <div className="lg:flex-1 lg:overflow-y-auto p-4 space-y-3 pb-8 lg:pb-4" ref={commentsRef}>
                     {commentsLoading ? (
                       <div className="flex justify-center py-4">
                         <Loader2 size={18} className="animate-spin text-primary" />
