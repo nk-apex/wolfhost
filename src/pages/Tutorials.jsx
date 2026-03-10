@@ -325,15 +325,15 @@ const Tutorials = () => {
                       <button
                         onClick={(e) => toggleLike(e, tutorial.id)}
                         title={!user ? 'Log in to like' : likeData.liked ? 'Unlike' : 'Like'}
-                        className={`flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md border transition-all ${
+                        className={`flex items-center gap-1.5 text-xs font-mono font-semibold px-3 py-1.5 rounded-lg border transition-all ${
                           likeData.liked
-                            ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                            ? 'border-red-500/50 bg-red-500/15 text-red-400 shadow-sm shadow-red-500/10'
                             : !user
-                            ? 'border-primary/10 text-gray-600 cursor-not-allowed opacity-60'
-                            : 'border-primary/10 text-gray-500 hover:border-red-500/30 hover:text-red-400'
+                            ? 'border-gray-700 bg-gray-800/40 text-gray-600 cursor-not-allowed'
+                            : 'border-gray-600 bg-gray-800/60 text-gray-300 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10'
                         }`}
                       >
-                        <Heart size={10} className={likeData.liked ? 'fill-current' : ''} />
+                        <Heart size={13} className={likeData.liked ? 'fill-current' : ''} />
                         <span>{likeData.count}</span>
                       </button>
                     </div>
