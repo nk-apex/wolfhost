@@ -69,7 +69,11 @@ const Overview = () => {
   const fetchWithTimeout = (url, timeoutMs = 10000) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { signal: controller.signal })
+    const token = localStorage.getItem('jwt_token');
+    return fetch(url, {
+      signal: controller.signal,
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    })
       .then(r => { clearTimeout(timer); return r.json(); })
       .catch(() => { clearTimeout(timer); return { success: false }; });
   };
