@@ -324,14 +324,17 @@ const Tutorials = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={(e) => toggleLike(e, tutorial.id)}
+                        title={!user ? 'Log in to like' : likeData.liked ? 'Unlike' : 'Like'}
                         className={`flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md border transition-all ${
                           likeData.liked
                             ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                            : !user
+                            ? 'border-primary/10 text-gray-600 cursor-not-allowed opacity-60'
                             : 'border-primary/10 text-gray-500 hover:border-red-500/30 hover:text-red-400'
                         }`}
                       >
                         <Heart size={10} className={likeData.liked ? 'fill-current' : ''} />
-                        {likeData.count > 0 && <span>{likeData.count}</span>}
+                        <span>{likeData.count}</span>
                       </button>
                     </div>
                   </div>
@@ -444,7 +447,7 @@ const Tutorials = () => {
                     >
                       <Heart size={15} className={likeData.liked ? 'fill-current' : ''} />
                       <span>{likeData.liked ? 'Liked' : 'Like'}</span>
-                      {likeData.count > 0 && <span className="text-xs opacity-70">· {likeData.count}</span>}
+                      <span className="text-xs opacity-70">· {likeData.count}</span>
                     </button>
                   );
                 })()}
