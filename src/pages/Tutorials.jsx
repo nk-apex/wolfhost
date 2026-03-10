@@ -333,12 +333,6 @@ const Tutorials = () => {
                         <Heart size={10} className={likeData.liked ? 'fill-current' : ''} />
                         {likeData.count > 0 && <span>{likeData.count}</span>}
                       </button>
-                      <button
-                        onClick={(e) => openVideoToComments(e, tutorial)}
-                        className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-md border border-primary/10 text-gray-500 hover:border-primary/30 hover:text-white transition-all"
-                      >
-                        <MessageSquare size={9} />{commentCount > 0 ? commentCount : 'Comment'}
-                      </button>
                     </div>
                   </div>
                 </div>
