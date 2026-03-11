@@ -77,6 +77,7 @@ const Admin = () => {
   const [confirmAction, setConfirmAction] = useState(null);
   const [uploadServerTarget, setUploadServerTarget] = useState(null);
   const [uploadServerLoading, setUploadServerLoading] = useState(false);
+  const [uploadServerNestId, setUploadServerNestId] = useState(5);
   const [uploadSuccess, setUploadSuccess] = useState(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [siteSettings, setSiteSettings] = useState({
@@ -307,7 +308,7 @@ const Admin = () => {
     try {
       const res = await adminFetch('/api/admin/upload-server', {
         method: 'POST',
-        body: JSON.stringify({ adminUserId: user.id, targetUserId, plan }),
+        body: JSON.stringify({ adminUserId: user.id, targetUserId, plan, nestId: uploadServerNestId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1660,6 +1661,19 @@ const Admin = () => {
                     <p className="text-[11px] font-mono font-semibold text-white truncate">{uploadServerTarget.username}</p>
                     <p className="text-[9px] text-gray-500 font-mono truncate">{uploadServerTarget.email}</p>
                   </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="text-[10px] font-mono text-gray-400 mb-1 block">Nest ID</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={uploadServerNestId}
+                    onChange={(e) => setUploadServerNestId(parseInt(e.target.value) || 5)}
+                    disabled={uploadServerLoading}
+                    data-testid="input-nest-id"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-primary/20 bg-primary/5 text-white font-mono text-xs focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                  />
                 </div>
 
                 <div className="space-y-2">

@@ -2409,7 +2409,7 @@ const TIER_PRICES = { Limited: 50, Unlimited: 100, Admin: 250 };
 
 app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { targetUserId, plan } = req.body;
+    const { targetUserId, plan, nestId } = req.body;
 
     if (!targetUserId || !plan) {
       return res.status(400).json({ success: false, message: 'Target user ID and plan are required' });
@@ -2419,6 +2419,10 @@ app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdm
     if (!tierConfig) {
       return res.status(400).json({ success: false, message: 'Invalid server plan' });
     }
+
+    const resolvedNestId = (nestId && Number.isInteger(parseInt(nestId)) && parseInt(nestId) > 0)
+      ? parseInt(nestId)
+      : SERVER_NEST_ID;
 
     const pteroUser = await verifyPteroUser(targetUserId);
     if (!pteroUser) {
@@ -2438,7 +2442,7 @@ app.post('/api/admin/upload-server', adminLimiter, authenticateToken, requireAdm
       name: serverName,
       user: parseInt(targetUserId),
       egg: SERVER_EGG_ID,
-      nest: SERVER_NEST_ID,
+      nest: resolvedNestId,
       docker_image: cachedEggDockerImage || SERVER_DOCKER_IMAGE,
       startup: cachedEggStartup || SERVER_STARTUP,
       environment: eggEnv,
