@@ -4647,6 +4647,55 @@ app.get('/api/bots/catalog', authenticateToken, (req, res) => {
   return res.json({ success: true, bots });
 });
 
+// In-memory cache: appjson per botId, TTL 5 min
+const _appJsonCache = new Map(); // botId → { data, fetchedAt }
+
+// Public: get live (fresh) app.json for a bot — fetches direct from GitHub, 5-min cache
+app.get('/api/bots/catalog/:id/live-appjson', authenticateToken, async (req, res) => {
+  const bots = loadBotCatalog();
+  const bot = bots.find(b => b.id === req.params.id);
+  if (!bot) return res.status(404).json({ success: false, message: 'Bot not found' });
+
+  const cached = _appJsonCache.get(bot.id);
+  if (cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) {
+    return res.json({ success: true, fromCache: true, ...cached.data });
+  }
+
+  // Fetch fresh from GitHub
+  const resolved = await resolveAppJsonFromRepo(bot.repoUrl);
+  const data = {
+    appJsonEnv: resolved.appJsonEnv || bot.appJsonEnv || {},
+    appJsonName: resolved.appJsonName || bot.appJsonName || bot.name,
+    appJsonDescription: resolved.appJsonDescription || bot.appJsonDescription || bot.description,
+    appJsonKeywords: resolved.appJsonKeywords || bot.appJsonKeywords || [],
+  };
+  _appJsonCache.set(bot.id, { data, fetchedAt: Date.now() });
+  return res.json({ success: true, fromCache: false, ...data });
+});
+
+// Admin: force-refresh app.json for a bot from GitHub and save to catalog
+app.post('/api/admin/bot-catalog/:id/refresh-appjson', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const bots = loadBotCatalog();
+    const idx = bots.findIndex(b => b.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Bot not found' });
+
+    const resolved = await resolveAppJsonFromRepo(bots[idx].repoUrl);
+    if (!resolved.appJsonUrl) {
+      return res.status(422).json({ success: false, message: 'No app.json found in the repository (tried main & master branches)' });
+    }
+
+    Object.assign(bots[idx], resolved);
+    saveBotCatalog(bots);
+    // Also invalidate in-memory cache
+    _appJsonCache.delete(req.params.id);
+    return res.json({ success: true, bot: bots[idx], message: 'app.json refreshed successfully' });
+  } catch (e) {
+    console.error('Refresh appjson error:', e);
+    return res.status(500).json({ success: false, message: 'Failed to refresh app.json' });
+  }
+});
+
 // User: deploy a bot
 app.post('/api/bots/deploy', authenticateToken, [
   body('botId').isString().trim().notEmpty(),

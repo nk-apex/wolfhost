@@ -271,6 +271,22 @@ const Admin = () => {
     } catch { toast.error('Failed to update bot'); }
   };
 
+  const [syncingBotId, setSyncingBotId] = useState(null);
+  const handleSyncAppJson = async (bot) => {
+    setSyncingBotId(bot.id);
+    try {
+      const res = await adminFetch(`/api/admin/bot-catalog/${bot.id}/refresh-appjson`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`app.json synced — ${Object.keys(data.bot.appJsonEnv || {}).length} env var(s) loaded`);
+        fetchBotCatalog();
+      } else {
+        toast.error(data.message || 'Failed to sync app.json');
+      }
+    } catch { toast.error('Failed to sync app.json'); }
+    finally { setSyncingBotId(null); }
+  };
+
   const fetchSiteSettings = async () => {
     setSettingsLoading(true);
     try {
@@ -1697,6 +1713,16 @@ const Admin = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Sync app.json from repo */}
+                        <button
+                          data-testid={`button-sync-appjson-${bot.id}`}
+                          onClick={() => handleSyncAppJson(bot)}
+                          disabled={syncingBotId === bot.id}
+                          title="Sync app.json from repo (refresh env vars)"
+                          className="p-1.5 rounded-lg border border-blue-500/20 text-blue-400/50 hover:text-blue-400 hover:border-blue-500/40 transition-all disabled:opacity-40"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${syncingBotId === bot.id ? 'animate-spin' : ''}`} />
+                        </button>
                         <button onClick={() => handleToggleBotActive(bot)} title={bot.active === false ? 'Show to users' : 'Hide from users'} className="p-1.5 rounded-lg border border-gray-700/50 text-gray-500 hover:text-yellow-400 hover:border-yellow-500/30 transition-all">
                           {bot.active === false ? <ToggleLeft className="w-4 h-4" /> : <ToggleRight className="w-4 h-4 text-green-400" />}
                         </button>
