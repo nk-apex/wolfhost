@@ -45,6 +45,10 @@ import {
   Package,
   ToggleLeft,
   ToggleRight,
+  HardDrive,
+  Database,
+  BarChart3,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
@@ -109,9 +113,14 @@ const Admin = () => {
   const [alertFilter, setAlertFilter] = useState('all');
   const [botCatalog, setBotCatalog] = useState([]);
   const [botCatalogLoading, setBotCatalogLoading] = useState(false);
-  const [botForm, setBotForm] = useState({ name: '', description: '', repoUrl: '', appJsonUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 2048, mainFile: 'index.js' });
+  const [botForm, setBotForm] = useState({ name: '', description: '', repoUrl: '', appJsonUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 1024, mainFile: 'index.js' });
   const [botSaving, setBotSaving] = useState(false);
   const [editingBot, setEditingBot] = useState(null);
+  const [diskStats, setDiskStats] = useState(null);
+  const [diskLoading, setDiskLoading] = useState(false);
+  const [diskCleanupLoading, setDiskCleanupLoading] = useState(false);
+  const [diskUpdateId, setDiskUpdateId] = useState(null);
+  const [diskUpdateValue, setDiskUpdateValue] = useState('');
 
   const fetchAlerts = async () => {
     setAlertsLoading(true);
@@ -176,9 +185,45 @@ const Admin = () => {
     finally { setBotCatalogLoading(false); }
   };
 
+  const fetchDiskStats = async () => {
+    setDiskLoading(true);
+    try {
+      const res = await adminFetch('/api/admin/disk-stats');
+      const data = await res.json();
+      if (data.success) setDiskStats(data);
+      else toast.error('Failed to load disk stats');
+    } catch { toast.error('Failed to load disk stats'); }
+    finally { setDiskLoading(false); }
+  };
+
+  const handleDiskCleanupSuspended = async () => {
+    if (!window.confirm(`Delete ALL suspended servers? This cannot be undone.`)) return;
+    setDiskCleanupLoading(true);
+    try {
+      const res = await adminFetch('/api/admin/disk-cleanup-suspended', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) { toast.success(data.message); fetchDiskStats(); }
+      else toast.error(data.message || 'Cleanup failed');
+    } catch { toast.error('Cleanup failed'); }
+    finally { setDiskCleanupLoading(false); }
+  };
+
+  const handleDiskLimitUpdate = async (serverId) => {
+    if (!diskUpdateValue || isNaN(Number(diskUpdateValue))) return;
+    try {
+      const res = await adminFetch(`/api/admin/disk-update-limit/${serverId}`, {
+        method: 'POST',
+        body: JSON.stringify({ diskMB: Number(diskUpdateValue) }),
+      });
+      const data = await res.json();
+      if (data.success) { toast.success(data.message); setDiskUpdateId(null); setDiskUpdateValue(''); fetchDiskStats(); }
+      else toast.error(data.message || 'Update failed');
+    } catch { toast.error('Update failed'); }
+  };
+
   const saveBotToForm = (bot) => {
     setEditingBot(bot);
-    setBotForm({ name: bot.name, description: bot.description, repoUrl: bot.repoUrl, appJsonUrl: bot.appJsonUrl || '', tag: bot.tag || 'bot', priceKES: bot.priceKES || 50, ramMB: bot.ramMB || 512, diskMB: bot.diskMB || 2048, mainFile: bot.mainFile || 'index.js' });
+    setBotForm({ name: bot.name, description: bot.description, repoUrl: bot.repoUrl, appJsonUrl: bot.appJsonUrl || '', tag: bot.tag || 'bot', priceKES: bot.priceKES || 50, ramMB: bot.ramMB || 512, diskMB: bot.diskMB || 1024, mainFile: bot.mainFile || 'index.js' });
   };
 
   const resetBotForm = () => {
@@ -460,6 +505,9 @@ const Admin = () => {
     if (activeTab === 'site-settings' && !siteSettings.whatsappChannel) {
       fetchSiteSettings();
     }
+    if (activeTab === 'disk' && !diskStats && !diskLoading) {
+      fetchDiskStats();
+    }
   }, [activeTab]);
 
   const handleDeleteUser = async (targetId) => {
@@ -636,6 +684,7 @@ const Admin = () => {
     { id: 'notifications', label: 'Notify', icon: Bell },
     { id: 'tutorials', label: 'Tutorials', icon: Video },
     { id: 'bots', label: 'Bot Catalog', icon: Bot },
+    { id: 'disk', label: 'Disk', icon: HardDrive },
     { id: 'site-settings', label: 'Site', icon: Settings },
   ];
 
@@ -652,7 +701,7 @@ const Admin = () => {
           </div>
         </div>
         <button
-          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isAdmin) fetchPayments(); if (activeTab === 'tutorials') fetchTutorials(); if (activeTab === 'alerts') fetchAlerts(); }}
+          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isAdmin) fetchPayments(); if (activeTab === 'tutorials') fetchTutorials(); if (activeTab === 'alerts') fetchAlerts(); if (activeTab === 'disk') fetchDiskStats(); }}
           className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
           <div className="flex items-center text-xs sm:text-sm font-mono">
@@ -1659,6 +1708,190 @@ const Admin = () => {
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'disk' && (
+          <motion.div key="disk" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-5 h-5 text-primary" />
+                <h2 className="text-base font-bold">Disk Management</h2>
+              </div>
+              <button
+                onClick={fetchDiskStats}
+                disabled={diskLoading}
+                data-testid="button-refresh-disk"
+                className="px-3 py-1.5 text-xs font-mono bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all disabled:opacity-50"
+              >
+                {diskLoading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+
+            {diskLoading && !diskStats && (
+              <div className="flex items-center justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            )}
+
+            {diskStats && (
+              <>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 text-center">
+                    <div className="text-xl font-bold text-white">{diskStats.totalServers}</div>
+                    <div className="text-[10px] text-gray-400 font-mono mt-0.5">Total Servers</div>
+                  </div>
+                  <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 text-center">
+                    <div className="text-xl font-bold text-yellow-400">{diskStats.suspendedCount}</div>
+                    <div className="text-[10px] text-gray-400 font-mono mt-0.5">Suspended</div>
+                  </div>
+                  <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 text-center">
+                    <div className="text-xl font-bold text-blue-400">{diskStats.totalAllocatedGB} GB</div>
+                    <div className="text-[10px] text-gray-400 font-mono mt-0.5">Total Allocated</div>
+                  </div>
+                  <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 text-center">
+                    <div className="text-xl font-bold text-green-400">
+                      {(diskStats.servers.reduce((s, x) => s + (x.diskMB || 0), 0) / diskStats.servers.length / 1024).toFixed(1)} GB
+                    </div>
+                    <div className="text-[10px] text-gray-400 font-mono mt-0.5">Avg Per Server</div>
+                  </div>
+                </div>
+
+                {/* Disk Usage Bar */}
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-mono text-gray-400">VPS Disk Usage</span>
+                    <span className="text-xs font-mono text-gray-300">101 GB used / 148 GB total</span>
+                  </div>
+                  <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-orange-500" style={{ width: '68%' }} />
+                  </div>
+                  <div className="flex justify-between mt-1.5 text-[10px] font-mono text-gray-500">
+                    <span>68% used</span>
+                    <span>42 GB free</span>
+                  </div>
+                </div>
+
+                {/* Plan Limits Reference */}
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Layers className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-bold">Current Plan Disk Limits</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {Object.entries(diskStats.tierLimits || {}).map(([plan, limits]) => (
+                      <div key={plan} className="bg-gray-800/50 rounded-lg p-2 text-center">
+                        <div className="text-[10px] font-mono text-gray-400">{plan}</div>
+                        <div className="text-sm font-bold text-white mt-0.5">{(limits.disk / 1024).toFixed(0)} GB</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cleanup Actions */}
+                {diskStats.suspendedCount > 0 && (
+                  <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-red-400">Clean Up Suspended Servers</div>
+                        <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                          {diskStats.suspendedCount} suspended server{diskStats.suspendedCount !== 1 ? 's' : ''} found — deleting them frees disk space permanently.
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleDiskCleanupSuspended}
+                        disabled={diskCleanupLoading}
+                        data-testid="button-cleanup-suspended"
+                        className="flex-shrink-0 px-3 py-1.5 text-xs font-mono bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg hover:bg-red-500/20 transition-all disabled:opacity-50"
+                      >
+                        {diskCleanupLoading ? 'Deleting...' : `Delete ${diskStats.suspendedCount} Suspended`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Server List */}
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
+                    <Database className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-bold">Servers by Disk Allocation</span>
+                    <span className="text-[10px] text-gray-500 font-mono ml-auto">sorted largest first</span>
+                  </div>
+                  <div className="divide-y divide-gray-800/50 max-h-96 overflow-y-auto">
+                    {diskStats.servers.map((server) => (
+                      <div key={server.id} className="flex items-center gap-2 px-3 py-2.5" data-testid={`row-server-disk-${server.id}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-white truncate">{server.name}</span>
+                            {server.suspended && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-mono flex-shrink-0">suspended</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-gray-500 font-mono">{server.identifier}</div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          {diskUpdateId === server.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={diskUpdateValue}
+                                onChange={e => setDiskUpdateValue(e.target.value)}
+                                placeholder="MB"
+                                className="w-20 text-xs font-mono bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"
+                                data-testid={`input-disk-limit-${server.id}`}
+                              />
+                              <button
+                                onClick={() => handleDiskLimitUpdate(server.id)}
+                                className="text-[10px] px-2 py-1 bg-green-500/10 border border-green-500/30 text-green-400 rounded hover:bg-green-500/20"
+                              >Save</button>
+                              <button
+                                onClick={() => { setDiskUpdateId(null); setDiskUpdateValue(''); }}
+                                className="text-[10px] px-2 py-1 bg-gray-800 border border-gray-700 text-gray-400 rounded hover:bg-gray-700"
+                              >✕</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setDiskUpdateId(server.id); setDiskUpdateValue(String(server.diskMB)); }}
+                              data-testid={`button-edit-disk-${server.id}`}
+                              className="text-xs font-mono text-blue-400 hover:text-blue-300 transition-colors px-2 py-1 rounded hover:bg-blue-500/10"
+                            >
+                              {server.diskMB >= 1024 ? `${(server.diskMB / 1024).toFixed(1)} GB` : `${server.diskMB} MB`}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Terminal Commands Box */}
+                <div className="bg-gray-950 border border-gray-700 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BarChart3 className="w-4 h-4 text-green-400" />
+                    <span className="text-xs font-bold text-green-400">Quick Cleanup Commands (run in Termius)</span>
+                  </div>
+                  <div className="space-y-2 text-[11px] font-mono text-gray-300">
+                    <div className="bg-gray-900 rounded p-2">
+                      <div className="text-gray-500 text-[10px] mb-1"># Real disk usage per server volume</div>
+                      <div>du -sh /var/lib/pterodactyl/volumes/* 2&gt;/dev/null | sort -rh | head -20</div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-2">
+                      <div className="text-gray-500 text-[10px] mb-1"># Clean up Docker system (images, stopped containers)</div>
+                      <div>docker system prune -af --volumes</div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-2">
+                      <div className="text-gray-500 text-[10px] mb-1"># Find & remove node_modules from specific volume UUID</div>
+                      <div>rm -rf /var/lib/pterodactyl/volumes/[UUID]/node_modules</div>
+                    </div>
+                    <div className="bg-gray-900 rounded p-2">
+                      <div className="text-gray-500 text-[10px] mb-1"># Current free disk</div>
+                      <div>df -h /</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </motion.div>
         )}
 

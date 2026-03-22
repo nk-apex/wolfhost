@@ -2238,11 +2238,124 @@ app.post('/api/admin/cleanup-expired', adminLimiter, authenticateToken, requireA
   }
 });
 
+// ── Disk Management ────────────────────────────────────────────────────────────
+
+app.get('/api/admin/disk-stats', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    let allServers = [];
+    let page = 1;
+    while (true) {
+      const r = await pteroFetch(`/servers?per_page=100&page=${page}`);
+      const data = await r.json();
+      if (!data.data || data.data.length === 0) break;
+      allServers = allServers.concat(data.data);
+      if (!data.meta || page >= data.meta.pagination.total_pages) break;
+      page++;
+    }
+
+    const servers = allServers.map(s => ({
+      id: s.attributes.id,
+      uuid: s.attributes.uuid,
+      identifier: s.attributes.identifier,
+      name: s.attributes.name,
+      status: s.attributes.status,
+      suspended: s.attributes.suspended,
+      diskMB: s.attributes.limits.disk,
+      memoryMB: s.attributes.limits.memory,
+    }));
+
+    const totalAllocatedMB = servers.reduce((sum, s) => sum + (s.diskMB || 0), 0);
+    const suspendedServers = servers.filter(s => s.suspended);
+    const sortedByDisk = [...servers].sort((a, b) => b.diskMB - a.diskMB);
+
+    res.json({
+      success: true,
+      totalServers: servers.length,
+      suspendedCount: suspendedServers.length,
+      totalAllocatedGB: (totalAllocatedMB / 1024).toFixed(2),
+      servers: sortedByDisk,
+      tierLimits: TIER_LIMITS,
+    });
+  } catch (err) {
+    console.error('[Disk Stats] Error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch disk stats' });
+  }
+});
+
+app.post('/api/admin/disk-cleanup-suspended', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    let allServers = [];
+    let page = 1;
+    while (true) {
+      const r = await pteroFetch(`/servers?per_page=100&page=${page}`);
+      const data = await r.json();
+      if (!data.data || data.data.length === 0) break;
+      allServers = allServers.concat(data.data);
+      if (!data.meta || page >= data.meta.pagination.total_pages) break;
+      page++;
+    }
+
+    const suspended = allServers.filter(s => s.attributes.suspended);
+    let deleted = 0;
+    const failures = [];
+
+    for (const s of suspended) {
+      try {
+        const delRes = await pteroFetch(`/servers/${s.attributes.id}`, { method: 'DELETE' });
+        if (delRes.status === 204 || delRes.ok || delRes.status === 404) {
+          deleted++;
+          serverLog(`[Disk Cleanup] Deleted suspended server ${s.attributes.id} (${s.attributes.name})`);
+        } else {
+          failures.push({ id: s.attributes.id, name: s.attributes.name, status: delRes.status });
+        }
+      } catch (e) {
+        failures.push({ id: s.attributes.id, name: s.attributes.name, error: e.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Deleted ${deleted} suspended server${deleted !== 1 ? 's' : ''}`,
+      deleted,
+      failed: failures.length,
+      failures: failures.length > 0 ? failures : undefined,
+    });
+  } catch (err) {
+    console.error('[Disk Cleanup] Error:', err);
+    res.status(500).json({ success: false, message: 'Failed to cleanup suspended servers' });
+  }
+});
+
+app.post('/api/admin/disk-update-limit/:id', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { diskMB } = req.body;
+  if (!diskMB || isNaN(Number(diskMB)) || Number(diskMB) < 128) {
+    return res.status(400).json({ success: false, message: 'diskMB must be >= 128' });
+  }
+  try {
+    const buildRes = await pteroFetch(`/servers/${id}/build`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ disk: Number(diskMB) }),
+    });
+    if (!buildRes.ok && buildRes.status !== 200) {
+      const err = await buildRes.text();
+      return res.status(500).json({ success: false, message: `Pterodactyl error: ${err}` });
+    }
+    res.json({ success: true, message: `Disk limit updated to ${diskMB} MB` });
+  } catch (err) {
+    console.error('[Disk Update] Error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update disk limit' });
+  }
+});
+
+// ── End Disk Management ────────────────────────────────────────────────────────
+
 const TIER_LIMITS = {
   Limited: {
     memory: 512,
     swap: 0,
-    disk: 5120,
+    disk: 3072,
     io: 100,
     cpu: 80,
     databases: 1,
@@ -2252,7 +2365,7 @@ const TIER_LIMITS = {
   Unlimited: {
     memory: 2048,
     swap: 0,
-    disk: 20480,
+    disk: 10240,
     io: 200,
     cpu: 150,
     databases: 2,
@@ -2262,7 +2375,7 @@ const TIER_LIMITS = {
   Admin: {
     memory: 4096,
     swap: 0,
-    disk: 40960,
+    disk: 20480,
     io: 300,
     cpu: 300,
     databases: 5,
@@ -2926,7 +3039,7 @@ const FREE_SERVER_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
 const FREE_SERVER_LIMITS = {
   memory: 512,
   swap: 0,
-  disk: 2048,
+  disk: 1024,
   io: 50,
   cpu: 50,
   databases: 0,
@@ -4202,7 +4315,7 @@ app.post('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin
       tag: tag?.trim() || 'bot',
       priceKES: Number(priceKES) || BOT_DEPLOYMENT_PRICE,
       ramMB: Number(ramMB) || 512,
-      diskMB: Number(diskMB) || 2048,
+      diskMB: Number(diskMB) || 1024,
       mainFile: mainFile?.trim() || 'index.js',
       ...resolvedConfig,
       createdAt: new Date().toISOString(),
@@ -4304,7 +4417,7 @@ app.post('/api/bots/deploy', authenticateToken, [
       limits: {
         memory: bot.ramMB || 512,
         swap: 0,
-        disk: bot.diskMB || 2048,
+        disk: bot.diskMB || 1024,
         io: 500,
         cpu: 100,
       },
