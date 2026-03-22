@@ -4272,12 +4272,45 @@ app.get('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin,
   return res.json({ success: true, bots: loadBotCatalog() });
 });
 
+// Helper: auto-fetch app.json from a GitHub repo URL
+async function resolveAppJsonFromRepo(repoUrl) {
+  if (!repoUrl) return {};
+  try {
+    // Convert https://github.com/owner/repo[.git][/...] → raw URL
+    const clean = repoUrl.trim().replace(/\.git$/, '').replace(/\/$/, '');
+    const match = clean.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (!match) return {};
+    const [, owner, repo] = match;
+    // Try main then master
+    for (const branch of ['main', 'master']) {
+      const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/app.json`;
+      try {
+        const r = await fetch(rawUrl, { signal: AbortSignal.timeout(8000) });
+        if (r.ok) {
+          const appJson = await r.json();
+          serverLog(`[app.json] Resolved from ${rawUrl}`);
+          return {
+            appJsonUrl: rawUrl,
+            appJsonName: appJson.name || '',
+            appJsonDescription: appJson.description || '',
+            appJsonEnv: appJson.env || {},
+            appJsonKeywords: appJson.keywords || [],
+          };
+        }
+      } catch (_) {}
+    }
+    serverLog(`[app.json] No app.json found in ${owner}/${repo} (tried main & master)`);
+  } catch (e) {
+    serverLog('[app.json] Resolution error:', e.message);
+  }
+  return {};
+}
+
 // Admin: add bot to catalog
 app.post('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin, [
   body('name').isString().trim().notEmpty().isLength({ max: 100 }),
   body('description').isString().trim().notEmpty().isLength({ max: 500 }),
   body('repoUrl').isString().trim().notEmpty().isLength({ max: 500 }),
-  body('appJsonUrl').optional({ nullable: true }).isString().trim().isLength({ max: 500 }),
   body('tag').optional({ nullable: true }).isString().trim().isLength({ max: 50 }),
   body('priceKES').optional().isNumeric(),
   body('ramMB').optional().isNumeric(),
@@ -4285,33 +4318,16 @@ app.post('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin
   body('mainFile').optional({ nullable: true }).isString().trim().isLength({ max: 100 }),
 ], handleValidationErrors, async (req, res) => {
   try {
-    const { name, description, repoUrl, appJsonUrl, tag, priceKES, ramMB, diskMB, mainFile } = req.body;
+    const { name, description, repoUrl, tag, priceKES, ramMB, diskMB, mainFile } = req.body;
     const bots = loadBotCatalog();
 
-    let resolvedConfig = {};
-    if (appJsonUrl) {
-      try {
-        const appJsonRes = await fetch(appJsonUrl, { signal: AbortSignal.timeout(8000) });
-        if (appJsonRes.ok) {
-          const appJson = await appJsonRes.json();
-          resolvedConfig = {
-            appJsonName: appJson.name || '',
-            appJsonDescription: appJson.description || '',
-            appJsonEnv: appJson.env || {},
-            appJsonKeywords: appJson.keywords || [],
-          };
-        }
-      } catch (e) {
-        serverLog('Could not fetch app.json:', e.message);
-      }
-    }
+    const resolvedConfig = await resolveAppJsonFromRepo(repoUrl);
 
     const bot = {
       id: crypto.randomUUID(),
       name: name.trim(),
       description: description.trim(),
       repoUrl: repoUrl.trim(),
-      appJsonUrl: appJsonUrl?.trim() || '',
       tag: tag?.trim() || 'bot',
       priceKES: Number(priceKES) || BOT_DEPLOYMENT_PRICE,
       ramMB: Number(ramMB) || 512,
@@ -4332,13 +4348,18 @@ app.post('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin
 });
 
 // Admin: update bot in catalog
-app.patch('/api/admin/bot-catalog/:id', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+app.patch('/api/admin/bot-catalog/:id', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
     const bots = loadBotCatalog();
     const idx = bots.findIndex(b => b.id === req.params.id);
     if (idx === -1) return res.status(404).json({ success: false, message: 'Bot not found' });
-    const allowed = ['name', 'description', 'repoUrl', 'appJsonUrl', 'tag', 'priceKES', 'ramMB', 'diskMB', 'mainFile', 'active'];
+    const allowed = ['name', 'description', 'repoUrl', 'tag', 'priceKES', 'ramMB', 'diskMB', 'mainFile', 'active'];
     allowed.forEach(k => { if (req.body[k] !== undefined) bots[idx][k] = req.body[k]; });
+    // Re-resolve app.json if repoUrl changed
+    if (req.body.repoUrl) {
+      const resolved = await resolveAppJsonFromRepo(req.body.repoUrl);
+      Object.assign(bots[idx], resolved);
+    }
     saveBotCatalog(bots);
     return res.json({ success: true, bot: bots[idx] });
   } catch (e) {

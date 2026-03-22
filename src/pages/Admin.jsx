@@ -113,7 +113,7 @@ const Admin = () => {
   const [alertFilter, setAlertFilter] = useState('all');
   const [botCatalog, setBotCatalog] = useState([]);
   const [botCatalogLoading, setBotCatalogLoading] = useState(false);
-  const [botForm, setBotForm] = useState({ name: '', description: '', repoUrl: '', appJsonUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 1024, mainFile: 'index.js' });
+  const [botForm, setBotForm] = useState({ name: '', description: '', repoUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 1024, mainFile: 'index.js' });
   const [botSaving, setBotSaving] = useState(false);
   const [editingBot, setEditingBot] = useState(null);
   const [diskStats, setDiskStats] = useState(null);
@@ -223,12 +223,12 @@ const Admin = () => {
 
   const saveBotToForm = (bot) => {
     setEditingBot(bot);
-    setBotForm({ name: bot.name, description: bot.description, repoUrl: bot.repoUrl, appJsonUrl: bot.appJsonUrl || '', tag: bot.tag || 'bot', priceKES: bot.priceKES || 50, ramMB: bot.ramMB || 512, diskMB: bot.diskMB || 1024, mainFile: bot.mainFile || 'index.js' });
+    setBotForm({ name: bot.name, description: bot.description, repoUrl: bot.repoUrl, tag: bot.tag || 'bot', priceKES: bot.priceKES || 50, ramMB: bot.ramMB || 512, diskMB: bot.diskMB || 1024, mainFile: bot.mainFile || 'index.js' });
   };
 
   const resetBotForm = () => {
     setEditingBot(null);
-    setBotForm({ name: '', description: '', repoUrl: '', appJsonUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 2048, mainFile: 'index.js' });
+    setBotForm({ name: '', description: '', repoUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 1024, mainFile: 'index.js' });
   };
 
   const handleSaveBot = async () => {
@@ -1619,8 +1619,12 @@ const Admin = () => {
                   <input data-testid="input-bot-repo" type="url" value={botForm.repoUrl} onChange={e => setBotForm(f => ({ ...f, repoUrl: e.target.value }))} placeholder="https://github.com/user/repo.git" className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-gray-400 font-mono mb-1">app.json URL <span className="text-gray-600">(optional — auto-reads config)</span></label>
-                  <input data-testid="input-bot-appjson" type="url" value={botForm.appJsonUrl} onChange={e => setBotForm(f => ({ ...f, appJsonUrl: e.target.value }))} placeholder="https://raw.githubusercontent.com/user/repo/main/app.json" className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                  <div className="flex items-center gap-2 px-3 py-2 bg-green-900/20 border border-green-500/20 rounded-lg">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                    <span className="text-[11px] text-green-300 font-mono">
+                      <span className="font-bold">app.json auto-detected</span> — when you save, the system reads <code className="text-green-400">app.json</code> directly from the repo root (tries <code>main</code> then <code>master</code>).
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 font-mono mb-1">Main File</label>
