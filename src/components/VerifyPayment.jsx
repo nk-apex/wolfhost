@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, RefreshCw, ExternalLink, Download } from 'lucide-react';
 import { paystackAPI } from '../services/paystack';
 import { walletAPI } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
@@ -19,22 +19,19 @@ const VerifyPayment = ({ isOpen, reference, onClose, onSuccess }) => {
 
   const verifyPayment = async () => {
     try {
-      const result = await paystackAPI.verifyPayment(reference);
+      const result = await paystackAPI.verifyCardPayment(reference);
       
-      if (result.status && result.data.status === 'success') {
+      if (result.success && result.data?.status === 'success') {
         setStatus('success');
         setPaymentData(result.data);
         
-        // Update wallet balance on backend
-        const amount = result.data.amount / 100; // Convert from kobo
+        const amount = result.data.amount / 100;
         try {
           await walletAPI.updateBalance(amount, result.data.reference);
         } catch (walletError) {
           console.error('Wallet update error:', walletError);
-          // Continue even if wallet update fails - we'll show success anyway
         }
         
-        // Call success callback
         if (onSuccess) {
           onSuccess(result.data);
         }
@@ -71,7 +68,7 @@ const VerifyPayment = ({ isOpen, reference, onClose, onSuccess }) => {
     
     const receiptData = {
       transactionId: paymentData.reference,
-      amount: `$${(paymentData.amount / 100).toFixed(2)}`,
+      amount: `${paymentData.currency || 'KES'} ${(paymentData.amount / 100).toFixed(2)}`,
       date: new Date(paymentData.paid_at).toLocaleString(),
       status: 'Successful',
       channel: paymentData.channel,
@@ -156,7 +153,7 @@ const VerifyPayment = ({ isOpen, reference, onClose, onSuccess }) => {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400">Amount:</span>
                   <span className="font-bold text-primary text-lg">
-                    ${(paymentData.amount / 100).toFixed(2)}
+                    {paymentData.currency || 'KES'} {(paymentData.amount / 100).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -272,8 +269,5 @@ const VerifyPayment = ({ isOpen, reference, onClose, onSuccess }) => {
     </AnimatePresence>
   );
 };
-
-// Add missing import
-import { Download } from 'lucide-react';
 
 export default VerifyPayment;

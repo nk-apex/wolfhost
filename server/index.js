@@ -710,26 +710,47 @@ if (!PTERODACTYL_API_KEY) {
   console.error('PTERODACTYL_API_KEY is not set');
 }
 
+const PAYSTACK_FETCH_TIMEOUT_MS = 15000;
+
 async function paystackFetch(path, options = {}) {
-  const response = await fetch(`${PAYSTACK_API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-  return response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PAYSTACK_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${PAYSTACK_API_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
+const _paystackCustomerCache = new Map();
+const PAYSTACK_CUSTOMER_CACHE_TTL = 10 * 60 * 1000;
+
 async function resolvePaystackCustomer(email) {
+  if (!email) return null;
+  const lowerEmail = email.toLowerCase();
+  const cached = _paystackCustomerCache.get(lowerEmail);
+  if (cached && Date.now() - cached.ts < PAYSTACK_CUSTOMER_CACHE_TTL) {
+    return cached.code;
+  }
   try {
-    const res = await paystackFetch(`/customer/${encodeURIComponent(email)}`);
+    const res = await paystackFetch(`/customer/${encodeURIComponent(lowerEmail)}`);
     const data = await res.json();
     if (res.ok && data.status && data.data) {
-      return data.data.customer_code || null;
+      const code = data.data.customer_code || null;
+      _paystackCustomerCache.set(lowerEmail, { code, ts: Date.now() });
+      return code;
     }
   } catch (e) {}
+  _paystackCustomerCache.set(lowerEmail, { code: null, ts: Date.now() });
   return null;
 }
 
@@ -739,7 +760,7 @@ async function fetchUserTransactions(email, perPage = 100, page = 1, status = nu
     customerCode = await resolvePaystackCustomer(email);
   }
 
-  let basePath = `/transaction?perPage=${perPage}&page=${page}&currency=KES`;
+  let basePath = `/transaction?perPage=${perPage}&page=${page}`;
   if (status) basePath += `&status=${status}`;
 
   if (customerCode) {

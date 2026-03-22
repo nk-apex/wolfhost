@@ -54,6 +54,19 @@ Balance = local deposits (deposits.json) - local spending (spending.json).
 
 The `npm run dev` script builds the Vite frontend then starts Express. The workflow "Start application" runs this automatically on port 5000.
 
+## Payment Flow (Paystack)
+
+- **M-Pesa / Mobile Money**: STK push via `/api/mpesa/charge` → poll `/api/mpesa/verify/:reference` → `recordDeposit` writes to `deposits.json`
+- **Card**: Initialize via `/api/card/initialize` → Paystack checkout tab → user clicks verify → `/api/card/verify/:reference` → `recordDeposit` writes to `deposits.json`
+- **Card redirect callback** (Billing page): When Paystack redirects back with `?reference=`, the `VerifyPayment` component opens automatically and calls `/api/card/verify/:reference`
+- **VerifyPayment bug fix** (2026-03-22): Was checking `result.status` instead of `result.success`, causing all verifications to always show as "failed". Fixed.
+
+## Paystack API Optimizations (2026-03-22)
+
+- `paystackFetch` now has a 15-second `AbortController` timeout to prevent hanging
+- `resolvePaystackCustomer` results are cached (10-min TTL) per email to avoid repeated API calls on every page load
+- `fetchUserTransactions` no longer hard-codes `currency=KES`, allowing transactions in GHS/NGN/etc. to show in the billing/wallet pages
+
 ## Security
 
 - Helmet.js for HTTP security headers
