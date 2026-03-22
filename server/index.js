@@ -4126,6 +4126,276 @@ app.delete('/api/community/messages/:messageId', authenticateToken, (req, res) =
   }
 });
 
+// ============================================================
+// BOT CATALOG
+// ============================================================
+const BOT_CATALOG_FILE = path.join(__dirname, 'bot_catalog.json');
+const BOT_DEPLOYMENTS_FILE = path.join(__dirname, 'bot_deployments.json');
+
+function loadBotCatalog() {
+  try {
+    if (fs.existsSync(BOT_CATALOG_FILE)) return JSON.parse(fs.readFileSync(BOT_CATALOG_FILE, 'utf8'));
+  } catch (e) { console.error('Error loading bot catalog:', e); }
+  return [];
+}
+function saveBotCatalog(data) {
+  try { fs.writeFileSync(BOT_CATALOG_FILE, JSON.stringify(data, null, 2), 'utf8'); } catch (e) { console.error('Error saving bot catalog:', e); }
+}
+
+function loadBotDeployments() {
+  try {
+    if (fs.existsSync(BOT_DEPLOYMENTS_FILE)) return JSON.parse(fs.readFileSync(BOT_DEPLOYMENTS_FILE, 'utf8'));
+  } catch (e) { console.error('Error loading bot deployments:', e); }
+  return [];
+}
+function saveBotDeployments(data) {
+  try { fs.writeFileSync(BOT_DEPLOYMENTS_FILE, JSON.stringify(data, null, 2), 'utf8'); } catch (e) { console.error('Error saving bot deployments:', e); }
+}
+
+const BOT_DEPLOYMENT_PRICE = 50;
+
+// Admin: list bots in catalog
+app.get('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+  return res.json({ success: true, bots: loadBotCatalog() });
+});
+
+// Admin: add bot to catalog
+app.post('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin, [
+  body('name').isString().trim().notEmpty().isLength({ max: 100 }),
+  body('description').isString().trim().notEmpty().isLength({ max: 500 }),
+  body('repoUrl').isString().trim().notEmpty().isLength({ max: 500 }),
+  body('appJsonUrl').optional({ nullable: true }).isString().trim().isLength({ max: 500 }),
+  body('tag').optional({ nullable: true }).isString().trim().isLength({ max: 50 }),
+  body('priceKES').optional().isNumeric(),
+  body('ramMB').optional().isNumeric(),
+  body('diskMB').optional().isNumeric(),
+  body('mainFile').optional({ nullable: true }).isString().trim().isLength({ max: 100 }),
+], handleValidationErrors, async (req, res) => {
+  try {
+    const { name, description, repoUrl, appJsonUrl, tag, priceKES, ramMB, diskMB, mainFile } = req.body;
+    const bots = loadBotCatalog();
+
+    let resolvedConfig = {};
+    if (appJsonUrl) {
+      try {
+        const appJsonRes = await fetch(appJsonUrl, { signal: AbortSignal.timeout(8000) });
+        if (appJsonRes.ok) {
+          const appJson = await appJsonRes.json();
+          resolvedConfig = {
+            appJsonName: appJson.name || '',
+            appJsonDescription: appJson.description || '',
+            appJsonEnv: appJson.env || {},
+            appJsonKeywords: appJson.keywords || [],
+          };
+        }
+      } catch (e) {
+        serverLog('Could not fetch app.json:', e.message);
+      }
+    }
+
+    const bot = {
+      id: crypto.randomUUID(),
+      name: name.trim(),
+      description: description.trim(),
+      repoUrl: repoUrl.trim(),
+      appJsonUrl: appJsonUrl?.trim() || '',
+      tag: tag?.trim() || 'bot',
+      priceKES: Number(priceKES) || BOT_DEPLOYMENT_PRICE,
+      ramMB: Number(ramMB) || 512,
+      diskMB: Number(diskMB) || 2048,
+      mainFile: mainFile?.trim() || 'index.js',
+      ...resolvedConfig,
+      createdAt: new Date().toISOString(),
+      active: true,
+    };
+
+    bots.push(bot);
+    saveBotCatalog(bots);
+    return res.json({ success: true, bot });
+  } catch (e) {
+    console.error('Add bot catalog error:', e);
+    return res.status(500).json({ success: false, message: 'Failed to add bot' });
+  }
+});
+
+// Admin: update bot in catalog
+app.patch('/api/admin/bot-catalog/:id', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const bots = loadBotCatalog();
+    const idx = bots.findIndex(b => b.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Bot not found' });
+    const allowed = ['name', 'description', 'repoUrl', 'appJsonUrl', 'tag', 'priceKES', 'ramMB', 'diskMB', 'mainFile', 'active'];
+    allowed.forEach(k => { if (req.body[k] !== undefined) bots[idx][k] = req.body[k]; });
+    saveBotCatalog(bots);
+    return res.json({ success: true, bot: bots[idx] });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to update bot' });
+  }
+});
+
+// Admin: delete bot from catalog
+app.delete('/api/admin/bot-catalog/:id', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const bots = loadBotCatalog();
+    const idx = bots.findIndex(b => b.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Bot not found' });
+    bots.splice(idx, 1);
+    saveBotCatalog(bots);
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to delete bot' });
+  }
+});
+
+// Public: list active bots (authenticated users)
+app.get('/api/bots/catalog', authenticateToken, (req, res) => {
+  const bots = loadBotCatalog().filter(b => b.active !== false);
+  return res.json({ success: true, bots });
+});
+
+// User: deploy a bot
+app.post('/api/bots/deploy', authenticateToken, [
+  body('botId').isString().trim().notEmpty(),
+  body('serverName').isString().trim().notEmpty().isLength({ max: 100 })
+    .matches(/^[a-zA-Z0-9_\-. ]+$/).withMessage('Server name contains invalid characters'),
+  body('sessionId').optional({ nullable: true }).isString().trim().isLength({ max: 2000 }),
+  body('envOverrides').optional().isObject(),
+], handleValidationErrors, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userEmail = req.user.email;
+    const { botId, serverName, sessionId, envOverrides = {} } = req.body;
+
+    const catalog = loadBotCatalog();
+    const bot = catalog.find(b => b.id === botId && b.active !== false);
+    if (!bot) return res.status(404).json({ success: false, message: 'Bot not found in catalog' });
+
+    const price = bot.priceKES || BOT_DEPLOYMENT_PRICE;
+    const balance = await verifyUserBalance(userEmail, price);
+    if (balance < price) {
+      return res.status(402).json({
+        success: false,
+        message: `Insufficient balance. You need KES ${price} but have KES ${balance.toFixed(2)}. Please top up your wallet first.`,
+      });
+    }
+
+    const allocationId = await findFreeAllocation();
+    if (!allocationId) return res.status(503).json({ success: false, message: 'No available ports. Please try again later.' });
+
+    const eggEnv = await getEggEnvironment();
+    const botEnv = {
+      ...eggEnv,
+      GIT_ADDRESS: bot.repoUrl,
+      MAIN_FILE: bot.mainFile || 'index.js',
+      AUTO_UPDATE: '0',
+      USER_UPLOAD: '0',
+      ...(sessionId ? { SESSION_ID: sessionId } : {}),
+      ...envOverrides,
+    };
+
+    const serverPayload = {
+      name: serverName.trim(),
+      user: parseInt(userId),
+      egg: SERVER_EGG_ID,
+      nest: SERVER_NEST_ID,
+      docker_image: cachedEggDockerImage || SERVER_DOCKER_IMAGE,
+      startup: cachedEggStartup || SERVER_STARTUP,
+      environment: botEnv,
+      limits: {
+        memory: bot.ramMB || 512,
+        swap: 0,
+        disk: bot.diskMB || 2048,
+        io: 500,
+        cpu: 100,
+      },
+      feature_limits: { databases: 0, allocations: 1, backups: 1 },
+      allocation: { default: allocationId },
+      description: `WolfHost Bot: ${bot.name}`,
+      start_on_completion: true,
+      external_id: `wolfbot-${userId}-${Date.now()}`,
+    };
+
+    let pteroResponse;
+    try {
+      pteroResponse = await pteroFetch('/servers', {
+        method: 'POST',
+        body: JSON.stringify(serverPayload),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (fetchErr) {
+      const isTimeout = fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError';
+      return res.status(503).json({ success: false, message: isTimeout ? 'Panel timed out. Please try again.' : 'Could not reach the panel.' });
+    }
+
+    const pteroData = await pteroResponse.json();
+    if (!pteroResponse.ok) {
+      const errs = pteroData.errors?.map(e => e.detail || e.code).filter(Boolean).join(', ') || 'Failed to create server on panel';
+      return res.status(pteroResponse.status || 500).json({ success: false, message: errs });
+    }
+
+    const serverAttrs = pteroData.attributes;
+    recordSpending(userEmail, price, `Bot "${bot.name}" deployment`, serverAttrs.id);
+
+    const deployment = {
+      id: crypto.randomUUID(),
+      userId: userId.toString(),
+      userEmail: userEmail.toLowerCase(),
+      botId: bot.id,
+      botName: bot.name,
+      serverId: serverAttrs.id,
+      serverIdentifier: serverAttrs.identifier,
+      serverName: serverAttrs.name,
+      sessionId: sessionId || '',
+      priceKES: price,
+      status: 'running',
+      deployedAt: new Date().toISOString(),
+    };
+    const deployments = loadBotDeployments();
+    deployments.push(deployment);
+    saveBotDeployments(deployments);
+
+    addNotification(userId, 'server', 'Bot Deployed', `Your "${bot.name}" bot "${serverName}" is now deploying!`);
+
+    return res.json({ success: true, deployment, server: { id: serverAttrs.id, identifier: serverAttrs.identifier, name: serverAttrs.name } });
+  } catch (e) {
+    console.error('Bot deploy error:', e);
+    return res.status(500).json({ success: false, message: 'Deployment failed. Please try again.' });
+  }
+});
+
+// User: my deployed bots
+app.get('/api/bots/my-deployments', authenticateToken, (req, res) => {
+  const userId = req.user.userId.toString();
+  const deployments = loadBotDeployments().filter(d => d.userId === userId);
+  return res.json({ success: true, deployments });
+});
+
+// User: delete a bot deployment (just removes from list; server remains on panel)
+app.delete('/api/bots/my-deployments/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId.toString();
+    const deployments = loadBotDeployments();
+    const idx = deployments.findIndex(d => d.id === req.params.id && d.userId === userId);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Deployment not found' });
+
+    const dep = deployments[idx];
+    try {
+      await pteroFetch(`/servers/${dep.serverId}`, { method: 'DELETE', signal: AbortSignal.timeout(10000) });
+    } catch (e) { serverLog('Could not delete panel server:', e.message); }
+
+    deployments.splice(idx, 1);
+    saveBotDeployments(deployments);
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to remove deployment' });
+  }
+});
+
+// Admin: all deployments
+app.get('/api/admin/bot-deployments', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
+  return res.json({ success: true, deployments: loadBotDeployments() });
+});
+
 const distPath = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath, {

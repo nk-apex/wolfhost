@@ -73,6 +73,32 @@ The `npm run dev` script builds the Vite frontend then starts Express. The workf
 - **Fix**: Changed `/api/admin/payments` to `requireAdmin` so all panel admins can access it. Updated all `isSuperAdmin` guards in `Admin.jsx` (stat card, Payments tab, Recent Payments widget, refresh button, grid layout) to `isAdmin`. `SUPER_ADMIN_USERNAME` is still used for destructive-only actions like "Clear Resolved Alerts".
 - **Revenue total**: Now takes `Math.max(localDepositsTotal from deposits.json, paystackTotal)` to ensure the most complete figure is shown. Each payment's `amountKES` is derived with `convertToKES` for correct multi-currency totals.
 
+## Bot Deployment Platform
+
+### Data files
+- `server/bot_catalog.json` — Admin-managed list of deployable bots (name, description, repoUrl, appJsonUrl, tag, priceKES, ramMB, diskMB, mainFile)
+- `server/bot_deployments.json` — Records of each bot deployed by users (userId, serverId, serverIdentifier, etc.)
+
+### API routes
+- `GET /api/bots/catalog` — List active bots (authenticated users)
+- `POST /api/bots/deploy` — Deploy a bot; deducts `priceKES` from wallet via `verifyUserBalance` + `recordSpending`; creates Pterodactyl server with `GIT_ADDRESS=repoUrl`, `AUTO_UPDATE=0`, `start_on_completion=true`; accepts optional `sessionId` written to `SESSION_ID` env var
+- `GET /api/bots/my-deployments` — User's deployed bots
+- `DELETE /api/bots/my-deployments/:id` — Delete deployment record + panel server
+- `GET /api/admin/bot-catalog` — Admin: full catalog
+- `POST /api/admin/bot-catalog` — Admin: add bot (fetches app.json if URL provided)
+- `PATCH /api/admin/bot-catalog/:id` — Admin: update bot
+- `DELETE /api/admin/bot-catalog/:id` — Admin: remove bot
+- `GET /api/admin/bot-deployments` — Admin: all user deployments
+
+### Frontend pages
+- `/available-bots` — Browse catalog, deploy with session ID field, shows wallet balance, KES 50 default price
+- `/my-bots` — View deployed bots, link to Pterodactyl console (`panel.xwolf.space/server/:identifier`), delete bots
+- Admin page > "Bot Catalog" tab — Add/edit/delete/toggle visibility of bots
+
+### Node capacity (as of 2026-03-22)
+- Node `silent` at `node.xwolf.space` — unlimited RAM/disk configured, ~330 free port allocations remaining
+- 89 servers currently active; 53 GB RAM + 490 GB disk allocated
+
 ## Security
 
 - Helmet.js for HTTP security headers

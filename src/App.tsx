@@ -18,6 +18,8 @@ import Admin from "./pages/Admin";
 import Community from "./pages/Community";
 import ClaimServer from "./pages/ClaimServer";
 import Tutorials from "./pages/Tutorials";
+import AvailableBots from "./pages/AvailableBots";
+import MyBots from "./pages/MyBots";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +46,8 @@ const App = () => (
               <Route path="/community" element={<Community />} />
               <Route path="/claim-server" element={<ClaimServer />} />
               <Route path="/tutorials" element={<Tutorials />} />
+              <Route path="/available-bots" element={<AvailableBots />} />
+              <Route path="/my-bots" element={<MyBots />} />
               <Route path="/admin" element={<Admin />} />
             </Route>
 

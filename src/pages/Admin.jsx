@@ -39,6 +39,12 @@ import {
   EyeOff,
   Edit2,
   BookOpen,
+  Bot,
+  Github,
+  Tag,
+  Package,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getCountryByCode, formatCurrency, convertFromKES } from '../lib/currencyConfig';
@@ -101,6 +107,11 @@ const Admin = () => {
   const [adminAlerts, setAdminAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [alertFilter, setAlertFilter] = useState('all');
+  const [botCatalog, setBotCatalog] = useState([]);
+  const [botCatalogLoading, setBotCatalogLoading] = useState(false);
+  const [botForm, setBotForm] = useState({ name: '', description: '', repoUrl: '', appJsonUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 2048, mainFile: 'index.js' });
+  const [botSaving, setBotSaving] = useState(false);
+  const [editingBot, setEditingBot] = useState(null);
 
   const fetchAlerts = async () => {
     setAlertsLoading(true);
@@ -152,6 +163,67 @@ const Admin = () => {
     } catch {
       toast.error('Failed to clear alerts');
     }
+  };
+
+  const fetchBotCatalog = async () => {
+    setBotCatalogLoading(true);
+    try {
+      const res = await adminFetch('/api/admin/bot-catalog');
+      const data = await res.json();
+      if (data.success) setBotCatalog(data.bots || []);
+      else toast.error('Failed to load bot catalog');
+    } catch { toast.error('Failed to load bot catalog'); }
+    finally { setBotCatalogLoading(false); }
+  };
+
+  const saveBotToForm = (bot) => {
+    setEditingBot(bot);
+    setBotForm({ name: bot.name, description: bot.description, repoUrl: bot.repoUrl, appJsonUrl: bot.appJsonUrl || '', tag: bot.tag || 'bot', priceKES: bot.priceKES || 50, ramMB: bot.ramMB || 512, diskMB: bot.diskMB || 2048, mainFile: bot.mainFile || 'index.js' });
+  };
+
+  const resetBotForm = () => {
+    setEditingBot(null);
+    setBotForm({ name: '', description: '', repoUrl: '', appJsonUrl: '', tag: 'bot', priceKES: 50, ramMB: 512, diskMB: 2048, mainFile: 'index.js' });
+  };
+
+  const handleSaveBot = async () => {
+    if (!botForm.name.trim() || !botForm.description.trim() || !botForm.repoUrl.trim()) {
+      toast.error('Name, description, and repo URL are required');
+      return;
+    }
+    setBotSaving(true);
+    try {
+      const url = editingBot ? `/api/admin/bot-catalog/${editingBot.id}` : '/api/admin/bot-catalog';
+      const method = editingBot ? 'PATCH' : 'POST';
+      const res = await adminFetch(url, { method, body: JSON.stringify(botForm) });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(editingBot ? 'Bot updated' : 'Bot added to catalog');
+        fetchBotCatalog();
+        resetBotForm();
+      } else {
+        toast.error(data.message || 'Failed to save bot');
+      }
+    } catch { toast.error('Failed to save bot'); }
+    finally { setBotSaving(false); }
+  };
+
+  const handleDeleteBot = async (botId) => {
+    if (!window.confirm('Remove this bot from the catalog?')) return;
+    try {
+      const res = await adminFetch(`/api/admin/bot-catalog/${botId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) { toast.success('Bot removed'); fetchBotCatalog(); }
+      else toast.error(data.message || 'Failed to remove bot');
+    } catch { toast.error('Failed to remove bot'); }
+  };
+
+  const handleToggleBotActive = async (bot) => {
+    try {
+      const res = await adminFetch(`/api/admin/bot-catalog/${bot.id}`, { method: 'PATCH', body: JSON.stringify({ active: !bot.active }) });
+      const data = await res.json();
+      if (data.success) { fetchBotCatalog(); toast.success(bot.active ? 'Bot hidden from users' : 'Bot made visible'); }
+    } catch { toast.error('Failed to update bot'); }
   };
 
   const fetchSiteSettings = async () => {
@@ -563,6 +635,7 @@ const Admin = () => {
     { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: adminAlerts.filter(a => !a.resolved).length || null },
     { id: 'notifications', label: 'Notify', icon: Bell },
     { id: 'tutorials', label: 'Tutorials', icon: Video },
+    { id: 'bots', label: 'Bot Catalog', icon: Bot },
     { id: 'site-settings', label: 'Site', icon: Settings },
   ];
 
@@ -593,7 +666,7 @@ const Admin = () => {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); if (tab.id === 'tutorials' && tutorials.length === 0) fetchTutorials(); if (tab.id === 'alerts' && adminAlerts.length === 0) fetchAlerts(); }}
+            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); if (tab.id === 'tutorials' && tutorials.length === 0) fetchTutorials(); if (tab.id === 'alerts' && adminAlerts.length === 0) fetchAlerts(); if (tab.id === 'bots' && botCatalog.length === 0) fetchBotCatalog(); }}
             className={`relative flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-mono text-[10px] sm:text-sm transition-all flex-1 min-w-0 ${
               activeTab === tab.id
                 ? 'bg-primary/20 text-white border border-primary/30'
@@ -1445,6 +1518,141 @@ const Admin = () => {
                             </button>
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'bots' && (
+          <motion.div
+            key="bots"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="space-y-4 sm:space-y-6"
+          >
+            {/* Add / Edit Bot Form */}
+            <div className="rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-primary" />
+                  {editingBot ? 'Edit Bot' : 'Add Bot to Catalog'}
+                </h3>
+                {editingBot && (
+                  <button onClick={resetBotForm} className="text-xs font-mono text-gray-500 hover:text-white transition-colors">
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-400 font-mono mb-1">Bot Name *</label>
+                  <input data-testid="input-bot-name" type="text" value={botForm.name} onChange={e => setBotForm(f => ({ ...f, name: e.target.value }))} placeholder="WhatsApp MD Bot" className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 font-mono mb-1">Tag</label>
+                  <select data-testid="select-bot-tag" value={botForm.tag} onChange={e => setBotForm(f => ({ ...f, tag: e.target.value }))} className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors">
+                    {['bot','whatsapp','telegram','discord','ai','api','utility','game'].map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-gray-400 font-mono mb-1">Description *</label>
+                  <textarea data-testid="input-bot-description" value={botForm.description} onChange={e => setBotForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe what this bot does..." rows={2} className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors resize-none" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-gray-400 font-mono mb-1">GitHub Repo URL *</label>
+                  <input data-testid="input-bot-repo" type="url" value={botForm.repoUrl} onChange={e => setBotForm(f => ({ ...f, repoUrl: e.target.value }))} placeholder="https://github.com/user/repo.git" className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs text-gray-400 font-mono mb-1">app.json URL <span className="text-gray-600">(optional — auto-reads config)</span></label>
+                  <input data-testid="input-bot-appjson" type="url" value={botForm.appJsonUrl} onChange={e => setBotForm(f => ({ ...f, appJsonUrl: e.target.value }))} placeholder="https://raw.githubusercontent.com/user/repo/main/app.json" className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 font-mono mb-1">Main File</label>
+                  <input data-testid="input-bot-mainfile" type="text" value={botForm.mainFile} onChange={e => setBotForm(f => ({ ...f, mainFile: e.target.value }))} placeholder="index.js" className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 font-mono mb-1">Price (KES)</label>
+                  <input data-testid="input-bot-price" type="number" min={0} value={botForm.priceKES} onChange={e => setBotForm(f => ({ ...f, priceKES: Number(e.target.value) }))} className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 font-mono mb-1">RAM (MB)</label>
+                  <input data-testid="input-bot-ram" type="number" min={128} value={botForm.ramMB} onChange={e => setBotForm(f => ({ ...f, ramMB: Number(e.target.value) }))} className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 font-mono mb-1">Disk (MB)</label>
+                  <input data-testid="input-bot-disk" type="number" min={512} value={botForm.diskMB} onChange={e => setBotForm(f => ({ ...f, diskMB: Number(e.target.value) }))} className="w-full px-3 py-2 bg-black/50 border border-primary/20 rounded-lg text-sm text-gray-200 font-mono focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  data-testid="button-save-bot"
+                  onClick={handleSaveBot}
+                  disabled={botSaving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary text-sm font-mono font-semibold hover:bg-primary/30 transition-all disabled:opacity-50"
+                >
+                  {botSaving ? <LoadingSpinner size="sm" /> : <Save className="w-4 h-4" />}
+                  {editingBot ? 'Save Changes' : 'Add Bot'}
+                </button>
+              </div>
+            </div>
+
+            {/* Catalog List */}
+            <div className="rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <Package className="w-4 h-4 text-primary" />
+                  Catalog ({botCatalog.length} bots)
+                </h3>
+                <button onClick={fetchBotCatalog} className="text-xs text-primary font-mono flex items-center gap-1 hover:underline">
+                  <RefreshCw className="w-3 h-3" />Refresh
+                </button>
+              </div>
+              {botCatalogLoading ? (
+                <div className="flex justify-center py-8"><LoadingSpinner /></div>
+              ) : botCatalog.length === 0 ? (
+                <p className="text-center text-gray-500 font-mono text-sm py-8">No bots in catalog yet. Add one above.</p>
+              ) : (
+                <div className="space-y-2">
+                  {botCatalog.map(bot => (
+                    <div key={bot.id} data-testid={`row-bot-${bot.id}`} className={`flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border transition-all ${bot.active === false ? 'border-gray-800 opacity-50' : 'border-primary/10 hover:border-primary/25'}`}>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                          <Bot className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-white font-mono truncate">{bot.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono">{bot.tag}</span>
+                            {bot.active === false && <span className="text-[10px] text-gray-600 font-mono">[hidden]</span>}
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-600 font-mono flex-wrap">
+                            <span>KES {bot.priceKES}</span>
+                            <span>·</span>
+                            <span>{bot.ramMB}MB RAM</span>
+                            <span>·</span>
+                            <a href={bot.repoUrl} target="_blank" rel="noopener noreferrer" className="text-primary/60 hover:text-primary flex items-center gap-0.5">
+                              <Github className="w-3 h-3" />repo
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => handleToggleBotActive(bot)} title={bot.active === false ? 'Show to users' : 'Hide from users'} className="p-1.5 rounded-lg border border-gray-700/50 text-gray-500 hover:text-yellow-400 hover:border-yellow-500/30 transition-all">
+                          {bot.active === false ? <ToggleLeft className="w-4 h-4" /> : <ToggleRight className="w-4 h-4 text-green-400" />}
+                        </button>
+                        <button data-testid={`button-edit-bot-${bot.id}`} onClick={() => saveBotToForm(bot)} className="p-1.5 rounded-lg border border-gray-700/50 text-gray-500 hover:text-primary hover:border-primary/30 transition-all">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button data-testid={`button-delete-bot-${bot.id}`} onClick={() => handleDeleteBot(bot.id)} className="p-1.5 rounded-lg border border-red-500/10 text-red-400/50 hover:text-red-400 hover:border-red-500/30 transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   ))}

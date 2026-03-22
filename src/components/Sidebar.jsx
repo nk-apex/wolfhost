@@ -15,6 +15,8 @@ import {
   ExternalLink,
   Gift,
   BookOpen,
+  Bot,
+  Terminal,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,6 +24,8 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Command Center', path: '/overview' },
   { icon: Gift, label: 'Claim Server', path: '/claim-server' },
   { icon: Server, label: 'My Servers', path: '/servers' },
+  { icon: Bot, label: 'Available Bots', path: '/available-bots' },
+  { icon: Terminal, label: 'My Bots', path: '/my-bots' },
   { icon: Users, label: 'Referrals', path: '/referrals' },
   { icon: Receipt, label: 'Billing', path: '/billing' },
   { icon: Wallet, label: 'Wallet', path: '/wallet' },
