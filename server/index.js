@@ -2206,69 +2206,75 @@ app.post('/api/admin/cleanup-expired', adminLimiter, authenticateToken, requireA
 
 const TIER_LIMITS = {
   Limited: {
-    memory: 5120,
+    memory: 512,
     swap: 0,
-    disk: 10240,
-    io: 500,
-    cpu: 100,
+    disk: 5120,
+    io: 100,
+    cpu: 80,
     databases: 1,
     allocations: 1,
     backups: 1,
   },
   Unlimited: {
-    memory: 0,
+    memory: 2048,
     swap: 0,
-    disk: 40960,
-    io: 500,
-    cpu: 200,
+    disk: 20480,
+    io: 200,
+    cpu: 150,
     databases: 2,
     allocations: 2,
     backups: 3,
   },
   Admin: {
-    memory: 0,
+    memory: 4096,
     swap: 0,
-    disk: 81920,
-    io: 500,
-    cpu: 400,
+    disk: 40960,
+    io: 300,
+    cpu: 300,
     databases: 5,
     allocations: 5,
     backups: 5,
   },
 };
 
+const PTERO_FETCH_TIMEOUT_MS = 15000;
+
 async function pteroFetch(path, options = {}) {
-  const response = await fetch(`${PTERODACTYL_API_URL}/api/application${path}`, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${PTERODACTYL_API_KEY}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...options.headers,
-    },
-  });
-  return response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PTERO_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${PTERODACTYL_API_URL}/api/application${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${PTERODACTYL_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...options.headers,
+      },
+    });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const SERVER_EGG_ID = 15;
 const SERVER_NEST_ID = 5;
-const SERVER_DOCKER_IMAGE = 'ghcr.io/parkervcp/yolks:nodejs_24';
-const SERVER_STARTUP = 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ ! -z ${CUSTOM_ENVIRONMENT_VARIABLES} ]]; then vars=$(echo ${CUSTOM_ENVIRONMENT_VARIABLES} | tr ";" "\\n"); for line in $vars; do export $line; done fi; /usr/local/bin/${CMD_RUN};';
+const SERVER_DOCKER_IMAGE = 'ghcr.io/pelican-eggs/yolks:nodejs_24';
+const SERVER_STARTUP = 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ "${MAIN_FILE}" == "*.js" ]]; then /usr/local/bin/node "/home/container/${MAIN_FILE}" ${NODE_ARGS}; else /usr/local/bin/ts-node --esm "/home/container/${MAIN_FILE}" ${NODE_ARGS}; fi';
 
 const DEFAULT_ENV_VALUES = {
   'USER_UPLOAD': '1',
   'MAIN_FILE': 'index.js',
-  'JS_FILE': 'index.js',
-  'FILE': 'index.js',
   'GIT_ADDRESS': '',
   'BRANCH': '',
   'USERNAME': '',
   'ACCESS_TOKEN': '',
-  'CMD_RUN': 'npm start',
   'AUTO_UPDATE': '0',
   'NODE_PACKAGES': '',
   'UNNODE_PACKAGES': '',
-  'CUSTOM_ENVIRONMENT_VARIABLES': '',
+  'NODE_ARGS': '',
 };
 
 let cachedEggVars = null;
@@ -2361,39 +2367,60 @@ async function getEggEnvironment() {
   return { ...DEFAULT_ENV_VALUES };
 }
 
+let _cachedNodeIds = null;
+let _nodeIdsCacheTime = 0;
+const NODE_IDS_CACHE_TTL = 10 * 60 * 1000;
+
+let _allocCache = {};
+let _allocCacheTime = {};
+const ALLOC_CACHE_TTL = 2 * 60 * 1000;
+
 async function findFreeAllocation(nodeId = null) {
   try {
     const nodeIds = [];
     if (nodeId) {
       nodeIds.push(nodeId);
     } else {
-      const nodesRes = await pteroFetch('/nodes?per_page=100');
-      const nodesData = await nodesRes.json();
-      if (nodesRes.ok && nodesData.data) {
-        nodesData.data.forEach(n => nodeIds.push(n.attributes.id));
+      const now = Date.now();
+      if (_cachedNodeIds && (now - _nodeIdsCacheTime) < NODE_IDS_CACHE_TTL) {
+        nodeIds.push(..._cachedNodeIds);
+      } else {
+        const nodesRes = await pteroFetch('/nodes?per_page=100');
+        const nodesData = await nodesRes.json();
+        if (nodesRes.ok && nodesData.data) {
+          nodesData.data.forEach(n => nodeIds.push(n.attributes.id));
+        }
+        if (nodeIds.length === 0) nodeIds.push(1);
+        _cachedNodeIds = [...nodeIds];
+        _nodeIdsCacheTime = now;
       }
-      if (nodeIds.length === 0) nodeIds.push(1);
     }
 
     for (const nid of nodeIds) {
-      let page = 1;
-      let lastPage = 1;
-      while (page <= lastPage) {
-        const response = await pteroFetch(`/nodes/${nid}/allocations?per_page=100&page=${page}`);
-        const data = await response.json();
-        if (!response.ok || !data.data) break;
-
-        const free = data.data.find(a => !a.attributes.assigned);
-        if (free) {
-          serverLog(`Found free allocation ${free.attributes.id} on node ${nid} (port ${free.attributes.port})`);
-          return free.attributes.id;
+      const now = Date.now();
+      if (!_allocCache[nid] || (now - (_allocCacheTime[nid] || 0)) > ALLOC_CACHE_TTL) {
+        const allAllocs = [];
+        let page = 1;
+        let lastPage = 1;
+        while (page <= lastPage) {
+          const response = await pteroFetch(`/nodes/${nid}/allocations?per_page=100&page=${page}`);
+          const data = await response.json();
+          if (!response.ok || !data.data) break;
+          allAllocs.push(...data.data);
+          if (data.meta?.pagination) lastPage = data.meta.pagination.total_pages || 1;
+          page++;
         }
-
-        if (data.meta && data.meta.pagination) {
-          lastPage = data.meta.pagination.total_pages || 1;
-        }
-        page++;
+        _allocCache[nid] = allAllocs;
+        _allocCacheTime[nid] = now;
       }
+
+      const free = _allocCache[nid].find(a => !a.attributes.assigned);
+      if (free) {
+        _allocCache[nid] = _allocCache[nid].filter(a => a.attributes.id !== free.attributes.id);
+        serverLog(`Found free allocation ${free.attributes.id} on node ${nid} (port ${free.attributes.port})`);
+        return free.attributes.id;
+      }
+
       serverLog(`No free allocations found on node ${nid}`);
     }
 
@@ -2401,6 +2428,8 @@ async function findFreeAllocation(nodeId = null) {
     return null;
   } catch (err) {
     console.error('Error finding free allocation:', err.message);
+    _allocCache = {};
+    _allocCacheTime = {};
     return null;
   }
 }
@@ -2739,79 +2768,65 @@ app.get('/api/servers', authenticateToken, async (req, res) => {
     }
 
     const userServers = pteroData.attributes?.relationships?.servers?.data || [];
-    const userEmail = pteroData.attributes?.email || '';
 
+    const formatMem = (m) => {
+      if (m === 0 || m > 100000) return 'Unlimited';
+      if (m >= 1024) return `${Math.round(m / 1024)}GB`;
+      return `${m}MB`;
+    };
+    const formatDisk = (d) => {
+      if (d === 0 || d > 1000000) return 'Unlimited';
+      if (d >= 1024) return `${Math.round(d / 1024)}GB`;
+      return `${d}MB`;
+    };
 
-    const allocCache = {};
+    const nodeIds = [...new Set(userServers.map(s => s.attributes.node).filter(Boolean))];
+    const allocMap = {};
+    await Promise.all(nodeIds.map(async (nid) => {
+      try {
+        const allocRes = await pteroFetch(`/nodes/${nid}/allocations?per_page=100`);
+        const allocData = await allocRes.json();
+        if (allocRes.ok && allocData.data) {
+          allocData.data.forEach(a => { allocMap[a.attributes.id] = a.attributes; });
+        }
+      } catch (e) {}
+    }));
 
-    const servers = await Promise.all(userServers.map(async (s) => {
+    const servers = userServers.map((s) => {
       const attrs = s.attributes;
       let ip = '';
       let port = '';
 
-      if (attrs.allocation && !allocCache[attrs.allocation]) {
-        try {
-          const allocRes = await pteroFetch(`/nodes/${attrs.node}/allocations?per_page=100`);
-          const allocData = await allocRes.json();
-          if (allocRes.ok && allocData.data) {
-            allocData.data.forEach(a => {
-              allocCache[a.attributes.id] = a.attributes;
-            });
-          }
-        } catch (e) {}
-      }
-
-      if (allocCache[attrs.allocation]) {
-        const alloc = allocCache[attrs.allocation];
+      if (attrs.allocation && allocMap[attrs.allocation]) {
+        const alloc = allocMap[attrs.allocation];
         ip = alloc.alias || alloc.ip;
         port = alloc.port;
       }
 
-      let plan = 'Limited';
       const mem = attrs.limits.memory;
       const cpu = attrs.limits.cpu;
-      if ((mem === 0 || mem > 100000) && cpu >= 400) {
-        plan = 'Admin';
-      } else if (mem === 0 || mem > 100000) {
-        plan = 'Unlimited';
-      }
-
-      const formatMem = (m) => {
-        if (m === 0 || m > 100000) return 'Unlimited';
-        if (m >= 1024) return `${Math.round(m / 1024)}GB`;
-        return `${m}MB`;
-      };
-
-      const formatDisk = (d) => {
-        if (d === 0 || d > 1000000) return 'Unlimited';
-        if (d >= 1024) return `${Math.round(d / 1024)}GB`;
-        return `${d}MB`;
-      };
+      let plan = 'Limited';
+      if (mem >= 4096 || (mem === 0 && cpu >= 300)) plan = 'Admin';
+      else if (mem >= 2048 || (mem === 0 && cpu >= 150)) plan = 'Unlimited';
 
       let status = 'online';
-      if (attrs.suspended) {
-        status = 'suspended';
-      } else if (attrs.status === 'installing') {
-        status = 'installing';
-      } else if (attrs.status === 'install_failed') {
-        status = 'error';
-      } else if (attrs.status === 'suspended') {
-        status = 'suspended';
-      }
+      if (attrs.suspended || attrs.status === 'suspended') status = 'suspended';
+      else if (attrs.status === 'installing') status = 'installing';
+      else if (attrs.status === 'install_failed') status = 'error';
 
       return {
         id: attrs.id.toString(),
         identifier: attrs.identifier,
         name: attrs.name,
         status,
-        plan: plan,
+        plan,
         ip: ip ? `${ip}:${port}` : '',
         cpu: `${cpu}%`,
         ram: formatMem(mem),
         storage: formatDisk(attrs.limits.disk),
         uptime: '-',
       };
-    }));
+    });
 
     return res.json({
       success: true,
@@ -2875,12 +2890,12 @@ const TASK_DEFINITIONS = [
 const FREE_SERVER_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
 
 const FREE_SERVER_LIMITS = {
-  memory: 1024,
+  memory: 512,
   swap: 0,
-  disk: 5120,
-  io: 500,
-  cpu: 100,
-  databases: 1,
+  disk: 2048,
+  io: 50,
+  cpu: 50,
+  databases: 0,
   allocations: 1,
   backups: 0,
 };
@@ -3375,8 +3390,8 @@ async function scanExistingServersForBugBots() {
   }
 }
 
-setInterval(scanExistingServersForBugBots, 30 * 60 * 1000);
-setTimeout(scanExistingServersForBugBots, 30000);
+setInterval(scanExistingServersForBugBots, 60 * 60 * 1000);
+setTimeout(scanExistingServersForBugBots, 5 * 60 * 1000);
 
 app.get('/api/admin/alerts', adminLimiter, authenticateToken, requireAdmin, (req, res) => {
   try {
