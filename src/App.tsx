@@ -20,6 +20,7 @@ import ClaimServer from "./pages/ClaimServer";
 import Tutorials from "./pages/Tutorials";
 import AvailableBots from "./pages/AvailableBots";
 import MyBots from "./pages/MyBots";
+import BotDeployLog from "./pages/BotDeployLog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/tutorials" element={<Tutorials />} />
               <Route path="/available-bots" element={<AvailableBots />} />
               <Route path="/my-bots" element={<MyBots />} />
+              <Route path="/bots/deploying/:serverId" element={<BotDeployLog />} />
               <Route path="/admin" element={<Admin />} />
             </Route>
 

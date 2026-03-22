@@ -4392,7 +4392,7 @@ app.post('/api/bots/deploy', authenticateToken, [
   body('botId').isString().trim().notEmpty(),
   body('serverName').isString().trim().notEmpty().isLength({ max: 100 })
     .matches(/^[a-zA-Z0-9_\-. ]+$/).withMessage('Server name contains invalid characters'),
-  body('sessionId').optional({ nullable: true }).isString().trim().isLength({ max: 2000 }),
+  body('sessionId').optional({ nullable: true }).isString().isLength({ max: 500000 }).withMessage('Session ID is too long'),
   body('envOverrides').optional().isObject(),
 ], handleValidationErrors, async (req, res) => {
   try {
@@ -4522,6 +4522,41 @@ app.delete('/api/bots/my-deployments/:id', authenticateToken, async (req, res) =
     return res.json({ success: true });
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Failed to remove deployment' });
+  }
+});
+
+// User: get live status of a bot server from Pterodactyl
+app.get('/api/bots/server-status/:serverId', authenticateToken, async (req, res) => {
+  const userId = req.user.userId.toString();
+  const { serverId } = req.params;
+  // Verify this server belongs to the requesting user
+  const deployments = loadBotDeployments();
+  const dep = deployments.find(d => d.serverId === serverId && d.userId === userId);
+  if (!dep) return res.status(404).json({ success: false, message: 'Deployment not found' });
+
+  try {
+    const r = await pteroFetch(`/servers/${serverId}`);
+    if (!r.ok) return res.status(r.status).json({ success: false, message: 'Could not reach panel' });
+    const data = await r.json();
+    const attrs = data.attributes;
+    let phase = 'running';
+    if (attrs.status === 'installing') phase = 'installing';
+    else if (attrs.status === 'suspended') phase = 'suspended';
+    else if (attrs.is_installing) phase = 'installing';
+    else if (attrs.is_suspended) phase = 'suspended';
+    return res.json({
+      success: true,
+      serverId: attrs.id,
+      identifier: attrs.identifier,
+      name: attrs.name,
+      status: attrs.status,
+      phase,
+      isInstalling: attrs.is_installing || attrs.status === 'installing',
+      isSuspended: attrs.is_suspended || attrs.status === 'suspended',
+      deployment: dep,
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: 'Failed to fetch server status' });
   }
 });
 

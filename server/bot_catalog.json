@@ -1,0 +1,32 @@
+[
+  {
+    "id": "f3bd7c98-757c-4e09-8cbc-80753ccf08e1",
+    "name": "WOLFBOT",
+    "description": "Silent Wolf",
+    "repoUrl": "https://github.com/7silent-wolf/silentwolf.git",
+    "tag": "bot",
+    "priceKES": 50,
+    "ramMB": 512,
+    "diskMB": 1024,
+    "mainFile": "index.js",
+    "appJsonUrl": "https://raw.githubusercontent.com/7silent-wolf/silentwolf/main/app.json",
+    "appJsonName": "WOLFBOT",
+    "appJsonDescription": "Professional WhatsApp Bot with auto-session authentication",
+    "appJsonEnv": {
+      "SESSION_ID": {
+        "description": "REQUIRED: Your WhatsApp session ID. Must begin with 'WOLF-BOT:'",
+        "value": "",
+        "required": true
+      }
+    },
+    "appJsonKeywords": [
+      "whatsapp",
+      "bot",
+      "wolfbot",
+      "baileys",
+      "session"
+    ],
+    "createdAt": "2026-03-22T10:48:48.524Z",
+    "active": true
+  }
+]

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Github, Tag, Zap, Search, ExternalLink, ChevronRight, Wallet, AlertCircle, X, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -25,6 +26,7 @@ const getAuthHeaders = () => {
 
 export default function AvailableBots() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -86,9 +88,11 @@ export default function AvailableBots() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`"${selected.name}" is deploying! Check My Bots for status.`);
+        toast.success(`"${selected.name}" is deploying!`);
         setSelected(null);
-        fetchBalance();
+        navigate(`/bots/deploying/${data.server.id}`, {
+          state: { botName: selected.name, serverName: data.server.name },
+        });
       } else {
         toast.error(data.message || 'Deployment failed');
       }
