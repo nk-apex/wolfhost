@@ -1,6 +1,14 @@
 {
   "1": [
     {
+      "id": "1774180537600-sornrz",
+      "type": "server",
+      "title": "Bot Deploying",
+      "message": "Your \"WOLFBOT\" bot is starting up!",
+      "read": false,
+      "createdAt": "2026-03-22T11:55:37.600Z"
+    },
+    {
       "id": "1773096218153-gm5kjn",
       "type": "server",
       "title": "Server Created",

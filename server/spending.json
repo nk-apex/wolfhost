@@ -26,5 +26,12 @@
     "description": "Server \"my-123\" (Limited plan)",
     "serverId": "119",
     "date": "2026-03-09T22:43:38.152Z"
+  },
+  {
+    "email": "silent@xwolf.space",
+    "amount": 50,
+    "description": "Direct Bot \"WOLFBOT\"",
+    "serverId": "ee58b37a-b695-4823-b186-3b1d38c3d690",
+    "date": "2026-03-22T11:55:37.599Z"
   }
 ]

@@ -217,17 +217,29 @@ export default function MyBots() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* In-app deploy log page */}
+                      {dep.serverIdentifier && (
+                        <Link
+                          to={`/bots/deploying/${dep.serverIdentifier}`}
+                          state={{ botName: dep.botName, serverName: dep.serverName }}
+                          data-testid={`link-logs-${dep.id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 text-xs text-primary font-mono hover:bg-primary/10 transition-colors"
+                        >
+                          <Terminal className="w-3.5 h-3.5" />
+                          Logs
+                        </Link>
+                      )}
+                      {/* External panel console */}
                       {dep.serverIdentifier && (
                         <a
                           href={`${PANEL_URL}/server/${dep.serverIdentifier}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           data-testid={`link-panel-${dep.id}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 text-xs text-primary font-mono hover:bg-primary/10 transition-colors"
+                          className="p-2 rounded-lg border border-gray-700/40 text-gray-500 hover:text-primary/80 hover:border-primary/30 transition-colors"
+                          title="Open panel console"
                         >
-                          <Terminal className="w-3.5 h-3.5" />
-                          Console
-                          <ExternalLink className="w-3 h-3" />
+                          <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       )}
                       <button
