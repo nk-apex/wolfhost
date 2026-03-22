@@ -48,7 +48,7 @@ Balance = local deposits (deposits.json) - local spending (spending.json).
 - `PAYSTACK_SECRET_KEY` — Paystack payment processing
 - `PTERODACTYL_API_KEY` — Pterodactyl panel API key
 - `PTERODACTYL_API_URL` — Defaults to `https://panel.xwolf.space`
-- `SUPER_ADMIN_USERNAME` — Username for super admin access
+- `SUPER_ADMIN_USERNAME` — Optional. Only needed to unlock "Clear Resolved Alerts" (destructive super-admin action). Revenue, payments tab, and Total Revenue card are visible to all admins without this env var.
 
 ## Running the App
 
@@ -66,6 +66,12 @@ The `npm run dev` script builds the Vite frontend then starts Express. The workf
 - `paystackFetch` now has a 15-second `AbortController` timeout to prevent hanging
 - `resolvePaystackCustomer` results are cached (10-min TTL) per email to avoid repeated API calls on every page load
 - `fetchUserTransactions` no longer hard-codes `currency=KES`, allowing transactions in GHS/NGN/etc. to show in the billing/wallet pages
+
+## Admin Dashboard — Total Revenue Fix (2026-03-22)
+
+- **Root cause**: `/api/admin/payments` required `requireSuperAdmin`, but `SUPER_ADMIN_USERNAME` env var was never set, making it permanently return 403 for every user. All revenue-related UI was gated behind `user?.isSuperAdmin` which was always `false`.
+- **Fix**: Changed `/api/admin/payments` to `requireAdmin` so all panel admins can access it. Updated all `isSuperAdmin` guards in `Admin.jsx` (stat card, Payments tab, Recent Payments widget, refresh button, grid layout) to `isAdmin`. `SUPER_ADMIN_USERNAME` is still used for destructive-only actions like "Clear Resolved Alerts".
+- **Revenue total**: Now takes `Math.max(localDepositsTotal from deposits.json, paystackTotal)` to ensure the most complete figure is shown. Each payment's `amountKES` is derived with `convertToKES` for correct multi-currency totals.
 
 ## Security
 

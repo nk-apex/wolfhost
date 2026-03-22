@@ -1503,28 +1503,41 @@ app.get('/api/transactions/totals', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/admin/payments', adminLimiter, authenticateToken, requireSuperAdmin, async (req, res) => {
+app.get('/api/admin/payments', adminLimiter, authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { perPage = 50, page = 1 } = req.query;
 
     const { transactions: allTxns } = await fetchUserTransactions(null, parseInt(perPage), parseInt(page), 'success');
 
-    const payments = allTxns.map(txn => ({
-      id: txn.id,
-      reference: txn.reference,
-      amount: txn.amount / 100,
-      currency: txn.currency,
-      status: txn.status,
-      channel: txn.channel,
-      paidAt: txn.paid_at || txn.transaction_date,
-      createdAt: txn.created_at,
-      email: txn.customer?.email || '',
-      phone: txn.metadata?.phone_number || txn.authorization?.mobile_money_number || '',
-      method: txn.channel === 'mobile_money' ? 'M-Pesa' : txn.channel === 'card' ? 'Card' : txn.channel || 'Unknown',
-      customerName: txn.customer?.first_name ? `${txn.customer.first_name} ${txn.customer.last_name || ''}`.trim() : '',
-    }));
+    const payments = allTxns.map(txn => {
+      const rawAmount = txn.amount / 100;
+      const currency = txn.currency || 'KES';
+      const amountKES = currency === 'KES' ? rawAmount : convertToKES(rawAmount, currency);
+      return {
+        id: txn.id,
+        reference: txn.reference,
+        amount: rawAmount,
+        amountKES,
+        currency,
+        status: txn.status,
+        channel: txn.channel,
+        paidAt: txn.paid_at || txn.transaction_date,
+        createdAt: txn.created_at,
+        email: txn.customer?.email || '',
+        phone: txn.metadata?.phone_number || txn.authorization?.mobile_money_number || '',
+        method: txn.channel === 'mobile_money'
+          ? (txn.metadata?.country === 'KE' ? 'M-Pesa' : txn.metadata?.provider === 'mtn' ? 'MTN MoMo' : txn.metadata?.provider === 'vod' ? 'Vodafone Cash' : txn.metadata?.provider === 'tgo' ? 'AirtelTigo' : txn.metadata?.provider === 'wave' ? 'Wave' : 'Mobile Money')
+          : txn.channel === 'card' ? 'Card'
+          : txn.channel === 'bank_transfer' ? 'Bank Transfer'
+          : txn.channel === 'ussd' ? 'USSD'
+          : txn.channel || 'Unknown',
+        customerName: txn.customer?.first_name ? `${txn.customer.first_name} ${txn.customer.last_name || ''}`.trim() : '',
+      };
+    });
 
-    const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
+    const localDepositsTotal = loadDeposits().reduce((sum, d) => sum + (d.amountKES || 0), 0);
+    const paystackTotal = payments.reduce((sum, p) => sum + p.amountKES, 0);
+    const totalAmount = Math.max(localDepositsTotal, paystackTotal);
 
     return res.json({
       success: true,

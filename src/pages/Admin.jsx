@@ -333,7 +333,7 @@ const Admin = () => {
     }
     fetchData();
     fetchAlerts();
-    if (user?.isSuperAdmin) {
+    if (user?.isAdmin) {
       fetchPayments();
     }
   }, [user, navigate]);
@@ -382,7 +382,7 @@ const Admin = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'payments' && payments.length === 0 && !paymentsLoading && user?.isSuperAdmin) {
+    if (activeTab === 'payments' && payments.length === 0 && !paymentsLoading && user?.isAdmin) {
       fetchPayments();
     }
     if (activeTab === 'site-settings' && !siteSettings.whatsappChannel) {
@@ -559,7 +559,7 @@ const Admin = () => {
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'servers', label: 'Servers', icon: Server },
-    ...(user?.isSuperAdmin ? [{ id: 'payments', label: 'Payments', icon: CreditCard }] : []),
+    { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'alerts', label: 'Alerts', icon: AlertTriangle, badge: adminAlerts.filter(a => !a.resolved).length || null },
     { id: 'notifications', label: 'Notify', icon: Bell },
     { id: 'tutorials', label: 'Tutorials', icon: Video },
@@ -579,7 +579,7 @@ const Admin = () => {
           </div>
         </div>
         <button
-          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isSuperAdmin) fetchPayments(); if (activeTab === 'tutorials') fetchTutorials(); if (activeTab === 'alerts') fetchAlerts(); }}
+          onClick={() => { fetchData(); if (activeTab === 'payments' && user?.isAdmin) fetchPayments(); if (activeTab === 'tutorials') fetchTutorials(); if (activeTab === 'alerts') fetchAlerts(); }}
           className="group px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 border border-primary/30 rounded-lg hover:bg-primary/20 transition-all"
         >
           <div className="flex items-center text-xs sm:text-sm font-mono">
@@ -633,7 +633,7 @@ const Admin = () => {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
-            <div className={`grid grid-cols-2 ${user?.isSuperAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-2 sm:gap-4`}>
+            <div className={`grid grid-cols-2 ${user?.isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-2 sm:gap-4`}>
               {[
                 {
                   icon: Users,
@@ -662,7 +662,7 @@ const Admin = () => {
                   iconBg: 'bg-purple-500/10',
                   glowColor: 'rgba(168,85,247,0.15)',
                 },
-                ...(user?.isSuperAdmin ? [{
+                ...(user?.isAdmin ? [{
                   icon: DollarSign,
                   label: 'Total Revenue',
                   value: formatCurrency(convertFromKES(paymentsTotalAmount, userCurrency), userCurrency),
@@ -697,7 +697,7 @@ const Admin = () => {
               ))}
             </div>
 
-            {user?.isSuperAdmin && recentPayments.length > 0 && (
+            {user?.isAdmin && recentPayments.length > 0 && (
               <div className="p-3 sm:p-5 rounded-xl border border-primary/20 bg-black/30 backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <h3 className="font-bold text-xs sm:text-base flex items-center gap-1.5 sm:gap-2">
