@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Github, Tag, Zap, Search, ExternalLink, ChevronRight, Wallet, AlertCircle, X, Eye, EyeOff } from 'lucide-react';
+import { Bot, Github, Tag, Zap, Search, ExternalLink, ChevronRight, Wallet, AlertCircle, X, Eye, EyeOff, Terminal, Server } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +32,7 @@ export default function AvailableBots() {
   const [search, setSearch] = useState('');
   const [deploying, setDeploying] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [deployMode, setDeployMode] = useState('panel'); // 'panel' | 'direct'
   const [deployForm, setDeployForm] = useState({ serverName: '', sessionId: '', showSession: false });
   const [balance, setBalance] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -65,12 +66,13 @@ export default function AvailableBots() {
     finally { setBalanceLoading(false); }
   };
 
-  const openDeploy = (bot) => {
+  const openDeploy = (bot, mode = 'panel') => {
     setSelected(bot);
+    setDeployMode(mode);
     setDeployForm({ serverName: bot.name.replace(/[^a-zA-Z0-9_\-. ]/g, '').slice(0, 50), sessionId: '', showSession: false });
   };
 
-  const handleDeploy = async () => {
+  const handlePanelDeploy = async () => {
     if (!selected) return;
     if (!deployForm.serverName.trim()) { toast.error('Server name is required'); return; }
     if (!/^[a-zA-Z0-9_\-. ]+$/.test(deployForm.serverName)) { toast.error('Server name can only contain letters, numbers, spaces, _ - .'); return; }
@@ -102,6 +104,44 @@ export default function AvailableBots() {
       setDeploying(null);
     }
   };
+
+  const handleDirectDeploy = async () => {
+    if (!selected) return;
+    if (!deployForm.serverName.trim()) { toast.error('Server name is required'); return; }
+    if (!selected.repoUrl) { toast.error('This bot has no repository URL configured for direct deployment.'); return; }
+
+    setDeploying(selected.id);
+    try {
+      const envVars = {};
+      if (deployForm.sessionId.trim()) envVars['SESSION_ID'] = deployForm.sessionId.trim();
+
+      const res = await fetch('/api/bots/direct-deploy', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          botId: selected.id,
+          serverName: deployForm.serverName.trim(),
+          envVars,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`"${selected.name}" is starting up!`);
+        setSelected(null);
+        navigate(`/bots/direct/${data.deploymentId}/logs`, {
+          state: { botName: selected.name, serverName: deployForm.serverName.trim() },
+        });
+      } else {
+        toast.error(data.message || 'Deployment failed');
+      }
+    } catch {
+      toast.error('Deployment failed. Please try again.');
+    } finally {
+      setDeploying(null);
+    }
+  };
+
+  const handleDeploy = () => deployMode === 'direct' ? handleDirectDeploy() : handlePanelDeploy();
 
   const filtered = bots.filter(b =>
     b.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -194,20 +234,31 @@ export default function AvailableBots() {
               <div className="flex items-center gap-3 mb-4 text-[10px] font-mono text-gray-600">
                 <span>{bot.ramMB || 512} MB RAM</span>
                 <span>·</span>
-                <span>{bot.diskMB || 2048} MB Disk</span>
+                <span>{bot.diskMB || 1024} MB Disk</span>
               </div>
 
               {/* Actions */}
               <div className="flex items-center gap-2">
                 <button
                   data-testid={`button-deploy-${bot.id}`}
-                  onClick={() => openDeploy(bot)}
+                  onClick={() => openDeploy(bot, 'panel')}
+                  title="Deploy to Pterodactyl panel (isolated container)"
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs font-mono font-semibold hover:bg-primary/20 transition-all group-hover:border-primary/50"
                 >
-                  <Zap className="w-3.5 h-3.5" />
-                  Deploy
-                  <ChevronRight className="w-3 h-3" />
+                  <Server className="w-3.5 h-3.5" />
+                  Panel
                 </button>
+                {bot.repoUrl && (
+                  <button
+                    data-testid={`button-direct-deploy-${bot.id}`}
+                    onClick={() => openDeploy(bot, 'direct')}
+                    title="Deploy directly — live logs, no panel needed"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-semibold hover:bg-emerald-500/20 transition-all"
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                    Direct
+                  </button>
+                )}
                 {bot.repoUrl && (
                   <a
                     href={bot.repoUrl}
@@ -245,7 +296,7 @@ export default function AvailableBots() {
             >
               <div className="w-full max-w-md bg-black/95 border border-primary/30 rounded-2xl p-6 shadow-2xl">
                 {/* Modal Header */}
-                <div className="flex items-start justify-between mb-5">
+                <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
                       <Bot className="w-5 h-5 text-primary" />
@@ -266,7 +317,46 @@ export default function AvailableBots() {
                   </button>
                 </div>
 
-                <p className="text-xs text-gray-400 font-mono mb-5 leading-relaxed">{selected.description}</p>
+                {/* Deploy Mode Tabs */}
+                <div className="flex rounded-lg border border-gray-700/50 p-1 mb-4 gap-1">
+                  <button
+                    data-testid="tab-panel-deploy"
+                    onClick={() => setDeployMode('panel')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-mono font-semibold transition-all ${
+                      deployMode === 'panel'
+                        ? 'bg-primary/20 text-primary border border-primary/30'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <Server className="w-3.5 h-3.5" />
+                    Panel Deploy
+                  </button>
+                  <button
+                    data-testid="tab-direct-deploy"
+                    onClick={() => setDeployMode('direct')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-mono font-semibold transition-all ${
+                      deployMode === 'direct'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                    Direct Deploy
+                  </button>
+                </div>
+
+                {/* Mode description */}
+                <div className={`text-[10px] font-mono px-3 py-2 rounded-lg mb-4 ${
+                  deployMode === 'direct'
+                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300/80'
+                    : 'bg-primary/5 border border-primary/15 text-gray-500'
+                }`}>
+                  {deployMode === 'direct'
+                    ? '⚡ Runs directly on the WolfHost server. Real-time stdout/stderr logs. No panel needed. Bot restarts with server.'
+                    : '🐦 Creates an isolated container on the Pterodactyl panel. Managed via panel console. Survives server restarts.'}
+                </div>
+
+                <p className="text-xs text-gray-400 font-mono mb-4 leading-relaxed">{selected.description}</p>
 
                 {/* Balance warning */}
                 {balance !== null && balance < selected.priceKES && (
@@ -296,7 +386,9 @@ export default function AvailableBots() {
 
                 {/* Session ID */}
                 <div className="mb-5">
-                  <label className="block text-xs text-gray-400 font-mono mb-1.5">Session ID / Token <span className="text-gray-600">(optional)</span></label>
+                  <label className="block text-xs text-gray-400 font-mono mb-1.5">
+                    Session ID / Token <span className="text-gray-600">(optional)</span>
+                  </label>
                   <div className="relative">
                     <input
                       data-testid="input-deploy-session-id"
@@ -314,23 +406,29 @@ export default function AvailableBots() {
                       {deployForm.showSession ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[10px] text-gray-600 font-mono mt-1">Required for bots that need authentication (e.g. WhatsApp session)</p>
+                  <p className="text-[10px] text-gray-600 font-mono mt-1">
+                    {deployMode === 'direct'
+                      ? 'Injected as SESSION_ID env var into the bot process'
+                      : 'Required for bots that need authentication (e.g. WhatsApp session)'}
+                  </p>
                 </div>
 
                 {/* Cost summary */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/15 mb-5">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/15 mb-4">
                   <div className="text-xs font-mono text-gray-400">Deployment cost</div>
                   <div className="text-sm font-bold text-yellow-400 font-mono">KES {selected.priceKES}</div>
                 </div>
 
-                {/* Specs row */}
-                <div className="flex items-center gap-4 text-[10px] font-mono text-gray-600 mb-5">
-                  <span>RAM: {selected.ramMB || 512} MB</span>
-                  <span>·</span>
-                  <span>Disk: {selected.diskMB || 2048} MB</span>
-                  <span>·</span>
-                  <span>Auto-start: yes</span>
-                </div>
+                {/* Specs row — only for panel */}
+                {deployMode === 'panel' && (
+                  <div className="flex items-center gap-4 text-[10px] font-mono text-gray-600 mb-4">
+                    <span>RAM: {selected.ramMB || 512} MB</span>
+                    <span>·</span>
+                    <span>Disk: {selected.diskMB || 1024} MB</span>
+                    <span>·</span>
+                    <span>Auto-start: yes</span>
+                  </div>
+                )}
 
                 <div className="flex gap-3">
                   <button
@@ -345,7 +443,11 @@ export default function AvailableBots() {
                     data-testid="button-confirm-deploy"
                     onClick={handleDeploy}
                     disabled={!!deploying || (balance !== null && balance < selected.priceKES)}
-                    className="flex-1 py-2.5 rounded-lg bg-primary/20 border border-primary/40 text-primary text-sm font-mono font-semibold hover:bg-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-mono font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                      deployMode === 'direct'
+                        ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
+                        : 'bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30'
+                    }`}
                   >
                     {deploying === selected.id ? (
                       <>
@@ -354,8 +456,8 @@ export default function AvailableBots() {
                       </>
                     ) : (
                       <>
-                        <Zap className="w-4 h-4" />
-                        Deploy Bot
+                        {deployMode === 'direct' ? <Terminal className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+                        {deployMode === 'direct' ? 'Deploy Direct' : 'Deploy to Panel'}
                       </>
                     )}
                   </button>

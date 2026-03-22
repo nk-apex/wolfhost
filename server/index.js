@@ -10,6 +10,8 @@ import rateLimit from 'express-rate-limit';
 import { body, query, param, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import { convertToKES } from './config/countries.js';
+import { spawn } from 'child_process';
+import { tmpdir } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4266,6 +4268,264 @@ function saveBotDeployments(data) {
 }
 
 const BOT_DEPLOYMENT_PRICE = 50;
+
+// ============================================================
+// DIRECT BOT RUNNER (wolfdeploy-style — no Pterodactyl)
+// ============================================================
+const DIRECT_DEPLOYMENTS_FILE = path.join(__dirname, 'direct_deployments.json');
+const BOTS_BASE_DIR = process.env.BOTS_BASE_DIR || path.join(tmpdir(), 'wolfhost-bots');
+fs.mkdirSync(BOTS_BASE_DIR, { recursive: true });
+
+// In-memory store of running processes + logs
+const _directProcesses = new Map(); // id → ChildProcess
+const _directLogs = new Map();      // id → [{ts, level, msg}]
+const _directStatus = new Map();    // id → 'queued'|'deploying'|'running'|'stopped'|'failed'
+
+function loadDirectDeployments() {
+  try {
+    if (fs.existsSync(DIRECT_DEPLOYMENTS_FILE)) return JSON.parse(fs.readFileSync(DIRECT_DEPLOYMENTS_FILE, 'utf8'));
+  } catch (e) { console.error('Error loading direct deployments:', e); }
+  return [];
+}
+function saveDirectDeployments(data) {
+  try { fs.writeFileSync(DIRECT_DEPLOYMENTS_FILE, JSON.stringify(data, null, 2), 'utf8'); } catch (e) { console.error('Error saving direct deployments:', e); }
+}
+function addDirectLog(id, level, msg) {
+  if (!_directLogs.has(id)) _directLogs.set(id, []);
+  const logs = _directLogs.get(id);
+  if (logs.length >= 800) logs.shift();
+  logs.push({ ts: new Date().toISOString(), level, msg });
+}
+function setDirectStatus(id, status) {
+  _directStatus.set(id, status);
+  // Persist to JSON too
+  const all = loadDirectDeployments();
+  const idx = all.findIndex(d => d.id === id);
+  if (idx !== -1) { all[idx].status = status; all[idx].updatedAt = new Date().toISOString(); saveDirectDeployments(all); }
+}
+
+// On startup: mark any "running/deploying" direct deployments as stopped (process died)
+(function recoverDirectDeployments() {
+  const all = loadDirectDeployments();
+  let changed = false;
+  all.forEach(d => {
+    if (d.status === 'running' || d.status === 'deploying' || d.status === 'queued') {
+      d.status = 'stopped';
+      d.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+    _directStatus.set(d.id, d.status);
+  });
+  if (changed) saveDirectDeployments(all);
+  serverLog(`[DirectRunner] Recovered ${all.length} deployment(s) from disk`);
+})();
+
+async function spawnStep(deployId, cmd, args, opts) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] });
+    proc.stdout?.on('data', d => d.toString().split('\n').forEach(l => l.trim() && addDirectLog(deployId, 'info', l.trim())));
+    proc.stderr?.on('data', d => d.toString().split('\n').forEach(l => l.trim() && addDirectLog(deployId, 'warn', l.trim())));
+    proc.on('close', code => code === 0 ? resolve() : reject(new Error(`${cmd} exited with code ${code}`)));
+    proc.on('error', reject);
+  });
+}
+
+async function runDirectDeployment(deployId, repoUrl, mainFile, envVars) {
+  const deployDir = path.join(BOTS_BASE_DIR, deployId);
+  try {
+    setDirectStatus(deployId, 'deploying');
+
+    // Step 1: git clone
+    addDirectLog(deployId, 'info', `Cloning ${repoUrl}...`);
+    fs.mkdirSync(deployDir, { recursive: true });
+    await spawnStep(deployId, 'git', ['clone', '--depth=1', repoUrl, deployDir], {});
+    addDirectLog(deployId, 'success', 'Repository cloned.');
+
+    // Step 2: npm install
+    addDirectLog(deployId, 'info', 'Installing dependencies (npm install)...');
+    await spawnStep(deployId, 'npm', ['install', '--legacy-peer-deps', '--no-audit', '--prefer-offline'], { cwd: deployDir });
+    addDirectLog(deployId, 'success', 'Dependencies installed.');
+
+    // Step 3: write .env
+    const envLines = Object.entries(envVars).map(([k, v]) => `${k}="${v.replace(/"/g, '\\"')}"`).join('\n');
+    fs.writeFileSync(path.join(deployDir, '.env'), envLines + '\n', 'utf8');
+    addDirectLog(deployId, 'info', `Environment set (${Object.keys(envVars).length} vars).`);
+
+    // Step 4: start bot process
+    const entryFile = mainFile || 'index.js';
+    addDirectLog(deployId, 'info', `Starting: node ${entryFile}`);
+    const botEnv = { ...process.env, ...envVars, NODE_ENV: 'production' };
+    const botProc = spawn('node', [entryFile], { cwd: deployDir, env: botEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+
+    _directProcesses.set(deployId, botProc);
+    setDirectStatus(deployId, 'running');
+    addDirectLog(deployId, 'success', `Bot process started (PID ${botProc.pid})`);
+
+    botProc.stdout.on('data', d => d.toString().split('\n').forEach(l => l.trim() && addDirectLog(deployId, 'info', l.trim())));
+    botProc.stderr.on('data', d => d.toString().split('\n').forEach(l => l.trim() && addDirectLog(deployId, 'warn', l.trim())));
+
+    botProc.on('close', code => {
+      _directProcesses.delete(deployId);
+      const st = code === 0 ? 'stopped' : 'failed';
+      setDirectStatus(deployId, st);
+      addDirectLog(deployId, code === 0 ? 'info' : 'error', `Process exited with code ${code}`);
+    });
+    botProc.on('error', err => {
+      addDirectLog(deployId, 'error', `Process error: ${err.message}`);
+      setDirectStatus(deployId, 'failed');
+    });
+
+  } catch (err) {
+    addDirectLog(deployId, 'error', `Deployment failed: ${err.message}`);
+    setDirectStatus(deployId, 'failed');
+  }
+}
+
+// POST /api/bots/direct-deploy
+app.post('/api/bots/direct-deploy', authenticateToken, [
+  body('botId').isString().trim().notEmpty(),
+  body('serverName').isString().trim().notEmpty().isLength({ max: 100 }),
+  body('envVars').optional().isObject(),
+], handleValidationErrors, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userEmail = req.user.email;
+    const { botId, serverName, envVars = {} } = req.body;
+
+    const catalog = loadBotCatalog();
+    const bot = catalog.find(b => b.id === botId && b.active !== false);
+    if (!bot) return res.status(404).json({ success: false, message: 'Bot not found in catalog' });
+
+    const price = bot.priceKES || BOT_DEPLOYMENT_PRICE;
+    const balance = await verifyUserBalance(userEmail, price);
+    if (balance < price) {
+      return res.status(402).json({ success: false, message: `Insufficient balance. Need KES ${price}, have KES ${balance.toFixed(2)}.` });
+    }
+
+    const id = crypto.randomUUID();
+    const deployment = {
+      id,
+      type: 'direct',
+      userId: userId.toString(),
+      userEmail: userEmail.toLowerCase(),
+      botId: bot.id,
+      botName: bot.name,
+      serverName: serverName.trim(),
+      repoUrl: bot.repoUrl,
+      mainFile: bot.mainFile || 'index.js',
+      envVars,
+      priceKES: price,
+      status: 'queued',
+      deployedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const all = loadDirectDeployments();
+    all.push(deployment);
+    saveDirectDeployments(all);
+    _directStatus.set(id, 'queued');
+    _directLogs.set(id, [{ ts: new Date().toISOString(), level: 'info', msg: `Deployment "${serverName}" queued for "${bot.name}"` }]);
+
+    recordSpending(userEmail, price, `Direct Bot "${bot.name}"`, id);
+    addNotification(userId, 'server', 'Bot Deploying', `Your "${bot.name}" bot is starting up!`);
+
+    // Start deployment in background (non-blocking)
+    runDirectDeployment(id, bot.repoUrl, bot.mainFile || 'index.js', envVars).catch(() => {});
+
+    return res.json({ success: true, deploymentId: id, botName: bot.name, serverName: serverName.trim() });
+  } catch (e) {
+    console.error('Direct deploy error:', e);
+    return res.status(500).json({ success: false, message: 'Deployment failed. Please try again.' });
+  }
+});
+
+// GET /api/bots/my-direct-deployments
+app.get('/api/bots/my-direct-deployments', authenticateToken, (req, res) => {
+  const userId = req.user.userId.toString();
+  const all = loadDirectDeployments().filter(d => d.userId === userId);
+  // Attach live status from memory
+  const result = all.map(d => ({
+    ...d,
+    status: _directStatus.get(d.id) || d.status,
+    logCount: (_directLogs.get(d.id) || []).length,
+    pid: _directProcesses.has(d.id) ? _directProcesses.get(d.id).pid : null,
+  }));
+  return res.json({ success: true, deployments: result });
+});
+
+// GET /api/bots/direct/:id/logs
+app.get('/api/bots/direct/:id/logs', authenticateToken, (req, res) => {
+  const userId = req.user.userId.toString();
+  const all = loadDirectDeployments();
+  const dep = all.find(d => d.id === req.params.id && d.userId === userId);
+  if (!dep) return res.status(404).json({ success: false, message: 'Deployment not found' });
+  const logs = _directLogs.get(req.params.id) || [];
+  const status = _directStatus.get(req.params.id) || dep.status;
+  const since = req.query.since ? parseInt(req.query.since) : 0;
+  return res.json({ success: true, status, logs: logs.slice(since), total: logs.length });
+});
+
+// POST /api/bots/direct/:id/stop
+app.post('/api/bots/direct/:id/stop', authenticateToken, async (req, res) => {
+  const userId = req.user.userId.toString();
+  const all = loadDirectDeployments();
+  const dep = all.find(d => d.id === req.params.id && d.userId === userId);
+  if (!dep) return res.status(404).json({ success: false, message: 'Deployment not found' });
+
+  const proc = _directProcesses.get(req.params.id);
+  if (proc && !proc.killed) {
+    addDirectLog(req.params.id, 'warn', 'Stop requested — sending SIGTERM...');
+    proc.kill('SIGTERM');
+    setTimeout(() => { if (!proc.killed) proc.kill('SIGKILL'); }, 5000);
+    _directProcesses.delete(req.params.id);
+  }
+  setDirectStatus(req.params.id, 'stopped');
+  addDirectLog(req.params.id, 'info', 'Bot stopped.');
+  return res.json({ success: true });
+});
+
+// POST /api/bots/direct/:id/restart
+app.post('/api/bots/direct/:id/restart', authenticateToken, async (req, res) => {
+  const userId = req.user.userId.toString();
+  const all = loadDirectDeployments();
+  const dep = all.find(d => d.id === req.params.id && d.userId === userId);
+  if (!dep) return res.status(404).json({ success: false, message: 'Deployment not found' });
+
+  const proc = _directProcesses.get(req.params.id);
+  if (proc && !proc.killed) { proc.kill('SIGKILL'); _directProcesses.delete(req.params.id); }
+
+  addDirectLog(req.params.id, 'info', 'Restarting bot process...');
+  setDirectStatus(req.params.id, 'queued');
+  runDirectDeployment(req.params.id, dep.repoUrl, dep.mainFile, dep.envVars).catch(() => {});
+  return res.json({ success: true });
+});
+
+// DELETE /api/bots/direct/:id
+app.delete('/api/bots/direct/:id', authenticateToken, async (req, res) => {
+  const userId = req.user.userId.toString();
+  const all = loadDirectDeployments();
+  const idx = all.findIndex(d => d.id === req.params.id && d.userId === userId);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Deployment not found' });
+
+  const dep = all[idx];
+  const proc = _directProcesses.get(dep.id);
+  if (proc && !proc.killed) { proc.kill('SIGKILL'); _directProcesses.delete(dep.id); }
+
+  const deployDir = path.join(BOTS_BASE_DIR, dep.id);
+  try { if (fs.existsSync(deployDir)) fs.rmSync(deployDir, { recursive: true, force: true }); } catch (_) {}
+
+  all.splice(idx, 1);
+  saveDirectDeployments(all);
+  _directLogs.delete(dep.id);
+  _directStatus.delete(dep.id);
+
+  return res.json({ success: true });
+});
+
+// ============================================================
+// END DIRECT BOT RUNNER
+// ============================================================
+
 
 // Admin: list bots in catalog
 app.get('/api/admin/bot-catalog', adminLimiter, authenticateToken, requireAdmin, (req, res) => {

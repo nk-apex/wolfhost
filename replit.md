@@ -21,6 +21,9 @@ A premium hosting platform that allows users to deploy servers, pay via M-Pesa/P
 ## Data Storage
 
 Uses JSON flat files in `server/`:
+- `bot_catalog.json` — Bot catalog entries (name, repoUrl, mainFile, priceKES, etc.)
+- `bot_deployments.json` — Pterodactyl panel bot deployment records
+- `direct_deployments.json` — Direct bot deployment records (wolfdeploy-style)
 - `user_credentials.json` — Hashed passwords
 - `notifications.json` — Per-user notifications
 - `community_messages.json` — Community chat
@@ -91,9 +94,20 @@ The `npm run dev` script builds the Vite frontend then starts Express. The workf
 - `GET /api/admin/bot-deployments` — Admin: all user deployments
 
 ### Frontend pages
-- `/available-bots` — Browse catalog, deploy with session ID field, shows wallet balance, KES 50 default price
-- `/my-bots` — View deployed bots, link to Pterodactyl console (`panel.xwolf.space/server/:identifier`), delete bots
+- `/available-bots` — Browse catalog. Each bot has two deploy buttons: **Panel** (Pterodactyl container) and **Direct** (wolfdeploy-style process). Modal has mode tabs.
+- `/my-bots` — Two tabs: **Panel Bots** (Pterodactyl) and **Direct Bots** (process runner). Direct bots show status, log count, PID; stop/restart/delete inline.
+- `/bots/direct/:id/logs` — Live terminal log viewer for direct deployments. Polls `/api/bots/direct/:id/logs` every 2.5s. Shows stdout/stderr, status badge, elapsed timer.
 - Admin page > "Bot Catalog" tab — Add/edit/delete/toggle visibility of bots
+
+## Direct Bot Runner (wolfdeploy-style)
+
+Bots can be deployed as **direct Node.js processes** on the WolfHost server (no Pterodactyl panel required):
+- Clones the bot's GitHub repo → `npm install` → `node <mainFile>`
+- Captures stdout/stderr as structured log lines (up to 800 per deployment)
+- Persists deployment metadata to `direct_deployments.json` (logs are in-memory only)
+- On server restart, processes die — the UI shows "stopped" and provides a Restart button
+- `BOTS_BASE_DIR` env var overrides the default `/tmp/wolfhost-bots/` directory
+- API: `POST /api/bots/direct-deploy`, `GET /api/bots/my-direct-deployments`, `GET /api/bots/direct/:id/logs`, `POST /api/bots/direct/:id/stop`, `POST /api/bots/direct/:id/restart`, `DELETE /api/bots/direct/:id`
 
 ### Node capacity (as of 2026-03-22)
 - Node `silent` at `node.xwolf.space` — unlimited RAM/disk configured, ~330 free port allocations remaining
